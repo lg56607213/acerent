@@ -1,5 +1,5 @@
 // 에이스렌터카 홈페이지 — Cloudflare Workers 설정
-// 테스트: onlycartalk.co.kr  →  최종: acerentcar.co.kr (vars 와 routes 만 바꾸면 됨)
+// 테스트: onlycartalk.com  →  최종: acerentcar.co.kr (vars 와 routes 만 바꾸면 됨)
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "acerentcar",
@@ -45,9 +45,9 @@
 
   "vars": {
     "SITE_NAME": "에이스렌터카",
-    "SITE_URL": "https://onlycartalk.co.kr",
+    "SITE_URL": "https://onlycartalk.com",
     // 보내는 주소: Email Routing 을 켠 도메인의 주소여야 함
-    "MAIL_FROM": "noti@onlycartalk.co.kr",
+    "MAIL_FROM": "noti@onlycartalk.com",
     "MAIL_FROM_NAME": "에이스렌터카 홈페이지",
     // rentcarerp 연동: 비워두면 관리자 화면의 '단기 차량(임시)' 목록으로 동작
     "ERP_API_BASE": ""

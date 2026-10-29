@@ -1,4 +1,4 @@
--- 테스트용 데이터 (onlycartalk.co.kr 테스트 시에만 넣기)
+-- 테스트용 데이터 (onlycartalk.com 테스트 시에만 넣기)
 -- 단기 차종 · 요금(기존 홈페이지 요금표)과 예약 장소는 migrations/0002 에서 자동으로 들어갑니다.
 -- 아래 보험료 · 중장기 가격은 화면 확인용 예시입니다. 실제 운영 전 관리자 화면에서 수정하세요.
 -- 실행: D1 → acerentcar-db → 콘솔에 붙여넣기  (또는 npx wrangler d1 execute acerentcar-db --remote --file=seed/sample.sql)

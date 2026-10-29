@@ -2,7 +2,7 @@
 
 Cloudflare 무료 플랜(Workers · D1 · R2 · Email Routing)으로 돌아가는 에이스렌터카 홈페이지입니다.
 
-- **테스트**: onlycartalk.co.kr → **최종**: acerentcar.co.kr
+- **테스트**: onlycartalk.com → **최종**: acerentcar.co.kr
 - 고객 화면: 메인, 단기렌트 실시간 예약, 중장기 차량 목록 · 상세 · 신청, 법인 견적, 고객센터(공지 · FAQ · 1:1 문의)
 - 관리자(`/admin/`): 단기 예약, 중장기 신청, 고객, 1:1 문의 답변, 게시판, 중장기 차량 · 실차 사진 · 가격표, 단기 차종 · 요금 · 보험, 예약 장소, 메인 배너, 메일 알림 · 발송 기록, 회사 정보 · 관리자 계정
 - 예약 · 신청 · 문의가 들어오면 관리자 메일 2곳으로 발송하고 모든 발송을 기록합니다. 실패한 메일은 10분마다 최대 3번 다시 보냅니다.
@@ -34,9 +34,9 @@ docs/              rentcarerp 연동 명세
    - 배포 명령: `npx wrangler d1 migrations apply acerentcar-db --remote && npx wrangler deploy`
    → 이후 GitHub `main` 에 올릴 때마다 자동 배포됩니다.
 4. **테스트 데이터 넣기 (테스트 도메인만)**: D1 → `acerentcar-db` → 콘솔에 `seed/sample.sql` 내용을 붙여넣고 실행 (단기 차종 14종 · 요금과 예약 장소는 배포 때 자동으로 들어가고, 이 파일은 보험 · 임시 차량 · 중장기 예시 · FAQ 용)
-5. **도메인 연결**: Worker → 설정 → 도메인 및 경로 → 사용자 지정 도메인 → `onlycartalk.co.kr`, `www.onlycartalk.co.kr`
-6. **알림 메일 켜기**: 도메인 `onlycartalk.co.kr` → 이메일 → Email Routing 사용 → **대상 주소**에 관리자 메일 2곳 추가 → 각 메일함에서 인증 링크 클릭
-7. **관리자 계정 만들기**: `https://onlycartalk.co.kr/admin/` 접속 → 처음 한 번 계정 생성 화면이 나옵니다
+5. **도메인 연결**: Worker → 설정 → 도메인 및 경로 → 사용자 지정 도메인 → `onlycartalk.com`, `www.onlycartalk.com`
+6. **알림 메일 켜기**: 도메인 `onlycartalk.com` → 이메일 → Email Routing 사용 → **대상 주소**에 관리자 메일 2곳 추가 → 각 메일함에서 인증 링크 클릭
+7. **관리자 계정 만들기**: `https://onlycartalk.com/admin/` 접속 → 처음 한 번 계정 생성 화면이 나옵니다
 8. 관리자 → 메일 알림에서 수신 이메일 2곳 저장 → **테스트 메일 보내기**로 확인
 
 ## rentcarerp 연동 켜기
