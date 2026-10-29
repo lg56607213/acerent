@@ -1,7 +1,7 @@
 // 고객용 API
 import {
   HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalDays, nextNo, int,
-  getSettings, upsertCustomer, maskName, won, randomHex,
+  getSettings, upsertCustomer, maskName, won, randomHex, dayRateFor,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -47,9 +47,11 @@ export function registerPublic(r) {
     for (const m of results) {
       const n = avail.get(m.id) || 0;
       if (n > 0) {
+        const rate = dayRateFor(m, days);
         models.push({
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
-          features: m.features, dayRate: m.day_rate, rent: m.day_rate * days, left: n, image: img(m.image_key),
+          features: m.features, dayRate: rate, rent: rate * days, left: n, image: img(m.image_key),
+          tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
         });
       } else soldOut.push(m.name);
     }
@@ -81,7 +83,8 @@ export function registerPublic(r) {
       ? await env.DB.prepare('SELECT * FROM insurance_options WHERE id = ? AND active = 1').bind(int(b.insuranceId)).first()
       : null;
     const options = Array.isArray(b.options) ? b.options.map((o) => cleanText(o, 30)).filter(Boolean).slice(0, 10) : [];
-    const rent = model.day_rate * days;
+    const rate = dayRateFor(model, days);
+    const rent = rate * days;
     const insAmt = ins ? ins.per_day * days : 0;
     const total = rent + insAmt + (loc.fee || 0);
 
@@ -89,7 +92,7 @@ export function registerPublic(r) {
     const no = await nextNo(env.DB, 'reservations', 'S');
     const row = {
       no, location_id: loc.id, location_name: loc.name, location_fee: loc.fee || 0, pickup_at: from, return_at: to, days,
-      model_id: model.id, model_name: model.name, day_rate: model.day_rate, rent_amt: rent,
+      model_id: model.id, model_name: model.name, day_rate: rate, rent_amt: rent,
       insurance_name: ins ? ins.name : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
       customer_id: customerId, name, phone, birth: cleanText(b.birth, 20), license: cleanText(b.license, 20),
       flight: cleanText(b.flight, 30), request: cleanText(b.request, 500),

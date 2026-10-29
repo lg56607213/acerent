@@ -33,7 +33,7 @@ docs/              rentcarerp 연동 명세
    - 빌드 명령: 비워둠
    - 배포 명령: `npx wrangler d1 migrations apply acerentcar-db --remote && npx wrangler deploy`
    → 이후 GitHub `main` 에 올릴 때마다 자동 배포됩니다.
-4. **테스트 데이터 넣기 (테스트 도메인만)**: D1 → `acerentcar-db` → 콘솔에 `seed/sample.sql` 내용을 붙여넣고 실행
+4. **테스트 데이터 넣기 (테스트 도메인만)**: D1 → `acerentcar-db` → 콘솔에 `seed/sample.sql` 내용을 붙여넣고 실행 (단기 차종 14종 · 요금과 예약 장소는 배포 때 자동으로 들어가고, 이 파일은 보험 · 임시 차량 · 중장기 예시 · FAQ 용)
 5. **도메인 연결**: Worker → 설정 → 도메인 및 경로 → 사용자 지정 도메인 → `onlycartalk.co.kr`, `www.onlycartalk.co.kr`
 6. **알림 메일 켜기**: 도메인 `onlycartalk.co.kr` → 이메일 → Email Routing 사용 → **대상 주소**에 관리자 메일 2곳 추가 → 각 메일함에서 인증 링크 클릭
 7. **관리자 계정 만들기**: `https://onlycartalk.co.kr/admin/` 접속 → 처음 한 번 계정 생성 화면이 나옵니다

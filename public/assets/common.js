@@ -12,6 +12,16 @@ export async function api(path, opts = {}) {
   return data;
 }
 
+// 차종 이미지가 아직 없을 때 쓰는 기본 그림 (차급별)
+export function classImage(cls) {
+  const c = String(cls || '');
+  if (/경/.test(c)) return '/assets/cars/compact.svg';
+  if (/SUV|RV/i.test(c)) return '/assets/cars/suv.svg';
+  if (/승합|밴/.test(c)) return '/assets/cars/van.svg';
+  if (/화물|트럭/.test(c)) return '/assets/cars/truck.svg';
+  return '/assets/cars/sedan.svg';
+}
+
 export const won = (n) => Number(n || 0).toLocaleString('ko-KR');
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];

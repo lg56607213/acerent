@@ -1,5 +1,5 @@
 // 에이스렌터카 홈페이지 관리자
-import { api, $, $$, esc, won } from '/assets/common.js';
+import { api, $, $$, esc, won, classImage } from '/assets/common.js';
 import { shrink } from '/assets/shrink.js';
 
 const main = $('#main');
@@ -538,7 +538,7 @@ ${rowNote ? `<p class="hint" style="margin:0;padding:10px 16px">${esc(rowNote)}<
     if (c.type === 'check') return `<input type="checkbox" data-k="${c.key}" ${v ? 'checked' : ''} aria-label="${esc(c.label)}" style="width:18px;height:18px;accent-color:var(--red)">`;
     if (c.type === 'select') return `<select class="select" data-k="${c.key}" aria-label="${esc(c.label)}">${opts(c.options, v)}</select>`;
     if (c.type === 'image')
-      return `<div style="display:flex;gap:8px;align-items:center">${it.image ? `<img class="thumb" src="${esc(it.image)}" alt="">` : '<span class="thumb empty">미등록</span>'}<label class="btn btn-xs" style="position:relative">${it.image ? '교체' : '업로드'}<input type="file" accept="image/*" data-img="${c.folder}" style="position:absolute;width:1px;height:1px;opacity:0"></label><input type="hidden" data-k="${c.key}" value="${esc(v || '')}"></div>`;
+      return `<div style="display:flex;gap:8px;align-items:center;min-width:210px">${it.image ? `<img class="thumb" src="${esc(it.image)}" alt="">` : c.fallback ? `<span style="position:relative;display:inline-block"><img class="thumb" src="${classImage(it.class)}" alt="" style="object-fit:contain;opacity:.8"><span class="hint" style="position:absolute;left:4px;bottom:2px;color:var(--red);font-weight:700">기본 그림</span></span>` : '<span class="thumb empty">미등록</span>'}<label class="btn btn-xs" style="position:relative">${it.image ? '교체' : '업로드'}<input type="file" accept="image/*" data-img="${c.folder}" style="position:absolute;width:1px;height:1px;opacity:0"></label><input type="hidden" data-k="${c.key}" value="${esc(v || '')}"></div>`;
     if (c.type === 'textarea') return `<textarea class="textarea" data-k="${c.key}" rows="2" aria-label="${esc(c.label)}" style="min-width:${c.w || 200}px">${esc(v ?? '')}</textarea>`;
     return `<input class="input" data-k="${c.key}" type="${c.type === 'number' ? 'text' : 'text'}" ${c.type === 'number' ? 'inputmode="numeric"' : ''} value="${esc(c.type === 'number' && v ? won(v) : v ?? '')}" aria-label="${esc(c.label)}" style="min-width:${c.w || 120}px">`;
   }
@@ -595,14 +595,16 @@ PAGES.short = async () => {
   main.innerHTML = `<div class="a-title"><div><h1>단기 차종 · 요금 · 보험</h1><p class="desc">차종별 일요금과 대표 이미지(현대 · 기아)를 관리합니다. 예약 가능한 대수는 ${s.erpEnabled ? 'rentcarerp 배차 일정에서 자동으로' : '아래 임시 차량 목록으로'} 계산됩니다.</p></div></div>
 <div id="models"></div><div id="ins"></div>${s.erpEnabled ? '' : '<div id="fleet"></div>'}`;
   await listEditor({
-    target: '#models', endpoint: 'short-models', title: '단기 차종', desc: '차종 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시됩니다. 제조사 이미지는 사용 조건을 확인한 파일로 등록해 주세요.',
+    target: '#models', endpoint: 'short-models', title: '단기 차종 · 대여기간별 1일 요금', desc: '요금 = 대여 일수 × 해당 구간 1일 요금 (비워둔 구간은 앞 구간 요금 사용). 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시되며, 없으면 차급별 기본 그림이 나옵니다.',
     columns: [
-      { key: 'image_key', label: '대표 이미지', type: 'image', folder: 'model' }, { key: 'maker', label: '제조사', w: 70 }, { key: 'name', label: '차종', w: 150 },
+      { key: 'image_key', label: '대표 이미지', type: 'image', folder: 'model', fallback: true }, { key: 'maker', label: '제조사', w: 70 }, { key: 'name', label: '차종', w: 150 },
       { key: 'class', label: '차급', type: 'select', options: ['경차', '준중형', '중형', '대형', 'SUV', '승합', '수입'].map((x) => [x, x]) },
-      { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', type: 'number', w: 50 }, { key: 'day_rate', label: '1일 요금', type: 'number', w: 100 },
+      { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', type: 'number', w: 50 },
+      { key: 'day_rate', label: '1~2일 (1일)', type: 'number', w: 90 }, { key: 'rate_3_4', label: '3~4일 (1일)', type: 'number', w: 90 },
+      { key: 'rate_5_6', label: '5~6일 (1일)', type: 'number', w: 90 }, { key: 'rate_7', label: '7일 이상 (1일)', type: 'number', w: 90 },
       { key: 'features', label: '주요 옵션', type: 'textarea', w: 180 }, { key: 'erp_code', label: 'ERP 차종코드', w: 100 }, { key: 'active', label: '사용', type: 'check' },
     ],
-    blank: { maker: '현대', name: '새 차종', class: '준중형', fuel: '가솔린', seats: 5, day_rate: 0, active: 0 },
+    blank: { maker: '기아', name: '새 차종', class: '준중형', fuel: '', seats: 5, day_rate: 0, active: 0 },
   });
   await listEditor({
     target: '#ins', endpoint: 'insurance', title: '자차 보험 선택지', desc: '1일 요금 × 대여 일수로 계산됩니다.',

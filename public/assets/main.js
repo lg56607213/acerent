@@ -1,4 +1,4 @@
-import { api, $, esc, won, nl, defaultPeriod, initLayout } from './common.js';
+import { api, $, esc, won, nl, defaultPeriod, initLayout, classImage } from './common.js';
 
 const site = await initLayout();
 
@@ -46,7 +46,7 @@ try {
     ? list
         .map(
           (v) => `<a class="car-card" href="/car.html?id=${v.id}">
-<div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : '사진 준비 중'}</div>
+<div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : `<img src="${classImage(v.class)}" alt="" style="object-fit:contain">`}</div>
 <div><span class="meta">${esc(v.class)} · ${v.year || ''}년식 · ${won(v.km)}km</span><br><strong class="name">${esc(v.name)}</strong><br>
 <span>월 <strong class="price">${v.min ? won(v.min) : '상담'}</strong>${v.min ? '원~' : ''}</span></div></a>`
         )

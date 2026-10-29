@@ -1,4 +1,4 @@
-import { api, $, $$, esc, won, initLayout, setBusy } from './common.js';
+import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.js';
 
 await initLayout();
 const qs = new URLSearchParams(location.search);
@@ -20,7 +20,7 @@ document.title = `${v.name} 중장기렌트 | 에이스렌터카`;
 
 // 사진
 const showPhoto = (i) => {
-  $('#mainPhoto').innerHTML = v.photos[i] ? `<img src="${esc(v.photos[i])}" alt="${esc(v.name)} 실차 사진 ${i + 1}">` : '실차 사진 준비 중';
+  $('#mainPhoto').innerHTML = v.photos[i] ? `<img src="${esc(v.photos[i])}" alt="${esc(v.name)} 실차 사진 ${i + 1}">` : `<img src="${classImage(v.class)}" alt="실차 사진 준비 중" style="object-fit:contain">`;
   $$('#thumbs button').forEach((b, j) => b.classList.toggle('on', i === j));
 };
 $('#thumbs').innerHTML = v.photos.map((p, i) => `<button type="button" aria-label="사진 ${i + 1} 보기"><img src="${esc(p)}" alt="" loading="lazy"></button>`).join('');

@@ -58,6 +58,18 @@ export async function nextNo(db, table, prefix) {
   return `${prefix}-${day}-${String(seq).padStart(4, '0')}`;
 }
 
+// 대여 일수 구간별 1일 요금 (1~2일 / 3~4일 / 5~6일 / 7일 이상). 0 인 구간은 앞 구간 요금 사용
+export function dayRateFor(model, days) {
+  const r12 = model.day_rate || 0;
+  const r34 = model.rate_3_4 || r12;
+  const r56 = model.rate_5_6 || r34;
+  const r7 = model.rate_7 || r56;
+  if (days >= 7) return r7;
+  if (days >= 5) return r56;
+  if (days >= 3) return r34;
+  return r12;
+}
+
 export function cleanText(v, max = 200) {
   if (v === undefined || v === null) return '';
   return String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max);

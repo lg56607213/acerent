@@ -1,4 +1,4 @@
-import { api, $, $$, esc, won, shortDt, defaultPeriod, initLayout, setBusy } from './common.js';
+import { api, $, $$, esc, won, shortDt, defaultPeriod, initLayout, setBusy, classImage } from './common.js';
 
 const site = await initLayout();
 const qs = new URLSearchParams(location.search);
@@ -70,9 +70,9 @@ function render() {
     ? list
         .map(
           (m) => `<article class="car-row">
-<div class="photo">${m.image ? `<img src="${esc(m.image)}" alt="${esc(m.name)}" loading="lazy">` : '차종 이미지'}</div>
-<div class="info"><span class="small muted">${esc(m.class)} · ${esc(m.fuel)} · ${m.seats}인승</span><strong style="font-size:18px">${esc(m.maker)} ${esc(m.name)}</strong>
-<span class="small muted">${esc(m.features)}</span><span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
+<div class="photo"><img src="${esc(m.image || classImage(m.class))}" alt="${esc(m.maker + ' ' + m.name)}" loading="lazy" style="${m.image ? '' : 'object-fit:contain'}"></div>
+<div class="info"><span class="small muted">${[m.class, m.fuel, m.seats ? m.seats + '인승' : ''].filter(Boolean).map(esc).join(' · ')}</span><strong style="font-size:18px">${esc(m.maker)} ${esc(m.name)}</strong>
+${m.features ? `<span class="small muted">${esc(m.features)}</span>` : ''}<span class="small muted">1일 요금 1~2일 ${won(m.tiers[0])} · 3~4일 ${won(m.tiers[1])} · 5~6일 ${won(m.tiers[2])} · 7일~ ${won(m.tiers[3])}</span><span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
 <div class="pay"><span class="small muted">1일 ${won(m.dayRate)}원 × ${st.days}일</span><strong>${won(m.rent)}원</strong>
 <button type="button" class="btn ${m.id === st.modelId ? 'btn-red' : ''} btn-block" style="height:42px;margin-top:8px" data-id="${m.id}" aria-pressed="${m.id === st.modelId}">${m.id === st.modelId ? '선택됨' : '선택'}</button></div>
 </article>`

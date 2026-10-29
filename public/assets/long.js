@@ -1,4 +1,4 @@
-import { api, $, $$, esc, won, initLayout, setBusy } from './common.js';
+import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.js';
 
 await initLayout();
 const qs = new URLSearchParams(location.search);
@@ -41,7 +41,7 @@ function draw() {
     ? list
         .map(
           (v) => `<a class="car-card" href="/car.html?id=${v.id}&term=${st.term}&dep=${st.dep}">
-<div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : '실차 사진 준비 중'}</div>
+<div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : `<img src="${classImage(v.class)}" alt="" style="object-fit:contain">`}</div>
 <div style="display:flex;flex-direction:column;gap:4px">
 <span class="badge">${esc(v.status === 'reserved' ? '상담 진행 중' : v.badge)}</span>
 <strong class="name">${esc(v.name)}</strong>

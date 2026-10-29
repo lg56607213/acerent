@@ -76,3 +76,6 @@ body.admin { background: var(--bg-soft); }
 .order-btns { white-space: nowrap; }
 .order-btns button { width: 30px; height: 30px; border: 1px solid var(--input); background: #fff; cursor: pointer; font-size: 11px; }
 .hint { font-size: 12px; color: var(--gray); }
+.a-table .thumb, .a-table td > div > span { flex: none; }
+.a-table td select.select { min-width: 100px; }
+.a-table td .order-btns, .a-table td.order-btns { white-space: nowrap; }
