@@ -1,0 +1,57 @@
+// 에이스렌터카 홈페이지 — Cloudflare Workers 설정
+// 테스트: onlycartalk.co.kr  →  최종: acerentcar.co.kr (vars 와 routes 만 바꾸면 됨)
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "acerentcar",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // 화면(HTML/CSS/JS)은 public 폴더에서 바로 제공하고, /api 와 /img 만 Worker 코드가 처리
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*", "/img/*"]
+  },
+
+  // DB: 예약·신청·문의·고객·게시판·설정
+  // 처음 한 번: npx wrangler d1 create acerentcar-db  → 나온 database_id 를 아래에 붙여넣기
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "acerentcar-db",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // 사진: 메인 배너, 중장기 실차 사진, 단기 차종 이미지, 문의 첨부
+  // 처음 한 번: npx wrangler r2 bucket create acerentcar-images
+  "r2_buckets": [
+    { "binding": "IMAGES", "bucket_name": "acerentcar-images" }
+  ],
+
+  // 관리자 알림 메일 (Email Routing 에서 인증한 수신 주소로만 발송 — 무료)
+  "send_email": [
+    { "name": "MAILER" }
+  ],
+
+  // 실패한 알림 메일 자동 재발송 (10분마다, 최대 3회)
+  "triggers": { "crons": ["*/10 * * * *"] },
+
+  "vars": {
+    "SITE_NAME": "에이스렌터카",
+    "SITE_URL": "https://onlycartalk.co.kr",
+    // 보내는 주소: Email Routing 을 켠 도메인의 주소여야 함
+    "MAIL_FROM": "noti@onlycartalk.co.kr",
+    "MAIL_FROM_NAME": "에이스렌터카 홈페이지",
+    // rentcarerp 연동: 비워두면 관리자 화면의 '단기 차량(임시)' 목록으로 동작
+    "ERP_API_BASE": ""
+  },
+  // 비밀값(대시보드 또는 wrangler secret put 으로 등록):
+  //   ERP_API_KEY   — rentcarerp 연동 키
+  //   SESSION_SECRET — 관리자 로그인 서명용 임의 문자열 (32자 이상)
+
+  "observability": { "enabled": true }
+}

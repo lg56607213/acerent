@@ -1,0 +1,16 @@
+{
+  "name": "acerent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "에이스렌터카 홈페이지 — Cloudflare Workers + D1 + R2",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply acerentcar-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply acerentcar-db --remote",
+    "db:export": "wrangler d1 export acerentcar-db --remote --output=backup/acerentcar-db.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.155.0"
+  }
+}

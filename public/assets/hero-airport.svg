@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#C9DAE8"/>
+<stop offset="0.7" stop-color="#EEF3F7"/>
+<stop offset="1" stop-color="#F6F8FA"/>
+</linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#7E97AC"/>
+<stop offset="1" stop-color="#B9C9D6"/>
+</linearGradient>
+<linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#5B6168"/>
+<stop offset="1" stop-color="#3D4247"/>
+</linearGradient>
+</defs>
+
+<rect width="1200" height="800" fill="url(#sky)"/>
+
+<!-- distant clouds -->
+<g fill="#FFFFFF" opacity="0.75">
+<ellipse cx="210" cy="140" rx="120" ry="22"/>
+<ellipse cx="290" cy="128" rx="80" ry="18"/>
+<ellipse cx="930" cy="250" rx="140" ry="20"/>
+<ellipse cx="1030" cy="238" rx="70" ry="15"/>
+</g>
+
+<!-- airplane climbing -->
+<g transform="translate(760 150) rotate(-14)">
+<path d="M0 22 L230 14 Q262 13 272 22 Q262 31 230 30 L0 26 Z" fill="#F4F6F8" stroke="#8C9AA6" stroke-width="2"/>
+<path d="M120 22 L70 -38 L92 -38 L168 20 Z" fill="#E3E8ED" stroke="#8C9AA6" stroke-width="2"/>
+<path d="M118 26 L80 70 L100 70 L160 28 Z" fill="#D6DDE3" stroke="#8C9AA6" stroke-width="2"/>
+<path d="M6 22 L-10 -14 L6 -14 L34 20 Z" fill="#C8102E"/>
+<path d="M14 26 L-2 44 L10 44 L36 27 Z" fill="#D6DDE3" stroke="#8C9AA6" stroke-width="1.5"/>
+<g fill="#6E7F8D">
+<rect x="150" y="17" width="5" height="4" rx="1"/><rect x="162" y="17" width="5" height="4" rx="1"/><rect x="174" y="17" width="5" height="4" rx="1"/><rect x="186" y="17" width="5" height="4" rx="1"/><rect x="198" y="17" width="5" height="4" rx="1"/><rect x="210" y="16" width="5" height="4" rx="1"/><rect x="138" y="17" width="5" height="4" rx="1"/><rect x="126" y="17" width="5" height="4" rx="1"/><rect x="114" y="18" width="5" height="4" rx="1"/><rect x="102" y="18" width="5" height="4" rx="1"/><rect x="90" y="18" width="5" height="4" rx="1"/><rect x="78" y="18" width="5" height="4" rx="1"/>
+</g>
+<path d="M248 16 Q260 16 266 22 L248 22 Z" fill="#5C6B78"/>
+<ellipse cx="120" cy="40" rx="18" ry="6" fill="#B4BFC8"/>
+</g>
+
+<!-- control tower -->
+<g>
+<rect x="128" y="300" width="34" height="210" fill="#D3DBE2"/>
+<rect x="128" y="300" width="34" height="210" fill="none" stroke="#9AA8B4" stroke-width="2"/>
+<path d="M100 300 L190 300 L178 250 L112 250 Z" fill="#5E7387"/>
+<path d="M104 250 L186 250 L180 232 L110 232 Z" fill="#D3DBE2" stroke="#9AA8B4" stroke-width="2"/>
+<rect x="141" y="206" width="8" height="26" fill="#9AA8B4"/>
+</g>
+
+<!-- terminal building -->
+<g>
+<rect x="60" y="430" width="1100" height="150" fill="url(#glass)"/>
+<g stroke="#E8EEF3" stroke-width="2" opacity="0.8">
+<line x1="60" y1="480" x2="1160" y2="480"/>
+<line x1="60" y1="530" x2="1160" y2="530"/>
+</g>
+<g stroke="#E8EEF3" stroke-width="2" opacity="0.6">
+<line x1="120" y1="430" x2="120" y2="580"/><line x1="180" y1="430" x2="180" y2="580"/><line x1="240" y1="430" x2="240" y2="580"/><line x1="300" y1="430" x2="300" y2="580"/><line x1="360" y1="430" x2="360" y2="580"/><line x1="420" y1="430" x2="420" y2="580"/><line x1="480" y1="430" x2="480" y2="580"/><line x1="540" y1="430" x2="540" y2="580"/><line x1="600" y1="430" x2="600" y2="580"/><line x1="660" y1="430" x2="660" y2="580"/><line x1="720" y1="430" x2="720" y2="580"/><line x1="780" y1="430" x2="780" y2="580"/><line x1="840" y1="430" x2="840" y2="580"/><line x1="900" y1="430" x2="900" y2="580"/><line x1="960" y1="430" x2="960" y2="580"/><line x1="1020" y1="430" x2="1020" y2="580"/><line x1="1080" y1="430" x2="1080" y2="580"/><line x1="1140" y1="430" x2="1140" y2="580"/>
+</g>
+<!-- wave roof -->
+<path d="M20 438 Q300 372 600 396 Q900 420 1190 370 L1190 396 Q900 446 600 422 Q300 398 20 452 Z" fill="#EEF2F5" stroke="#9AA8B4" stroke-width="2"/>
+<!-- roof columns -->
+<g fill="#9AA8B4">
+<rect x="96" y="440" width="6" height="140"/><rect x="396" y="414" width="6" height="166"/><rect x="696" y="414" width="6" height="166"/><rect x="996" y="408" width="6" height="172"/>
+</g>
+</g>
+
+<!-- departures canopy -->
+<g>
+<rect x="40" y="572" width="1140" height="22" fill="#2B3036"/>
+<rect x="430" y="548" width="340" height="30" fill="#1A1A1A"/>
+<text x="600" y="569" text-anchor="middle" font-family="'Noto Sans KR', Arial, sans-serif" font-size="17" font-weight="700" fill="#FFFFFF" letter-spacing="3">DEPARTURES</text>
+<rect x="560" y="552" width="18" height="18" fill="none"/>
+<g fill="#2B3036">
+<rect x="120" y="594" width="8" height="58"/><rect x="420" y="594" width="8" height="58"/><rect x="760" y="594" width="8" height="58"/><rect x="1060" y="594" width="8" height="58"/>
+</g>
+</g>
+
+<!-- curb and sidewalk -->
+<rect x="0" y="640" width="1200" height="26" fill="#C4CBD1"/>
+<rect x="0" y="664" width="1200" height="6" fill="#8E979F"/>
+<!-- road -->
+<rect x="0" y="670" width="1200" height="130" fill="url(#road)"/>
+<g fill="#E9ECEF" opacity="0.85">
+<rect x="40" y="748" width="90" height="6"/><rect x="200" y="748" width="90" height="6"/><rect x="360" y="748" width="90" height="6"/><rect x="520" y="748" width="90" height="6"/><rect x="680" y="748" width="90" height="6"/><rect x="840" y="748" width="90" height="6"/><rect x="1000" y="748" width="90" height="6"/>
+</g>
+
+<!-- travellers silhouettes -->
+<g fill="#4A535C">
+<circle cx="560" cy="600" r="8"/><rect x="552" y="609" width="16" height="32" rx="5"/>
+<rect x="572" y="622" width="14" height="18" rx="2" fill="#8C6F52"/><rect x="578" y="612" width="2" height="10"/>
+<circle cx="600" cy="602" r="7"/><rect x="593" y="610" width="14" height="30" rx="5"/>
+</g>
+
+<!-- gray sedan parked -->
+<g transform="translate(150 640)">
+<path d="M8 62 L8 44 Q10 34 24 32 L62 28 L92 10 Q100 6 112 6 L178 6 Q192 6 202 16 L222 30 L250 34 Q266 37 268 48 L268 62 Z" fill="#C2C9CF" stroke="#6B757E" stroke-width="2"/>
+<path d="M98 14 L112 12 L150 12 L150 30 L76 30 Z" fill="#7E8E9B"/>
+<path d="M158 12 L180 12 Q190 12 198 20 L208 30 L158 30 Z" fill="#7E8E9B"/>
+<circle cx="66" cy="64" r="17" fill="#2B3036"/><circle cx="66" cy="64" r="7" fill="#9AA4AD"/>
+<circle cx="214" cy="64" r="17" fill="#2B3036"/><circle cx="214" cy="64" r="7" fill="#9AA4AD"/>
+</g>
+
+<!-- red rental car pulling up -->
+<g transform="translate(560 650)">
+<path d="M10 74 L10 52 Q12 40 30 37 L78 32 L114 12 Q124 6 138 6 L214 6 Q232 6 244 18 L268 34 L304 39 Q324 43 326 56 L326 74 Z" fill="#C8102E" stroke="#7E0A1D" stroke-width="2"/>
+<path d="M120 15 L138 12 L184 12 L184 34 L92 34 Z" fill="#3F4D58"/>
+<path d="M192 12 L218 12 Q230 12 240 22 L252 34 L192 34 Z" fill="#3F4D58"/>
+<rect x="306" y="48" width="18" height="8" rx="2" fill="#FCE7A8"/>
+<rect x="12" y="50" width="12" height="8" rx="2" fill="#7E0A1D"/>
+<line x1="188" y1="38" x2="188" y2="70" stroke="#7E0A1D" stroke-width="1.5"/>
+<circle cx="82" cy="76" r="20" fill="#1F2327"/><circle cx="82" cy="76" r="8" fill="#B6BEC5"/>
+<circle cx="262" cy="76" r="20" fill="#1F2327"/><circle cx="262" cy="76" r="8" fill="#B6BEC5"/>
+</g>
+</svg>
