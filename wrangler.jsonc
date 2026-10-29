@@ -16,12 +16,12 @@
   },
 
   // DB: 예약·신청·문의·고객·게시판·설정
-  // 처음 한 번: npx wrangler d1 create acerentcar-db  → 나온 database_id 를 아래에 붙여넣기
+  // Cloudflare 대시보드에서 만든 acerentcar-db
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "acerentcar-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "64a4a7be-8999-4c74-84f5-e13e89266e50",
       "migrations_dir": "migrations"
     }
   ],
