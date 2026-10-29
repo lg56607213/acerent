@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>에이스렌터카 | 인천·김포공항 렌터카, 단기·중장기 렌트</title>
+<meta name="description" content="인천·김포공항 단기렌트 예약금 없이 실시간 예약, 즉시 출고 가능한 중장기 렌트카 월 렌트료 확인과 신청. 대표전화 1644-8891">
+<meta property="og:type" content="website">
+<meta property="og:title" content="에이스렌터카 | 인천·김포공항 렌터카, 단기·중장기 렌트">
+<meta property="og:description" content="인천·김포공항 단기렌트 예약금 없이 실시간 예약, 즉시 출고 가능한 중장기 렌트카 월 렌트료 확인과 신청. 대표전화 1644-8891">
+<meta property="og:image" content="/assets/og.png">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="util"><div class="wrap">
+<a href="/support.html?tab=notice">공지사항</a>
+<a href="/support.html?tab=qna">1:1 문의</a>
+<a href="/support.html">고객센터</a>
+</div></div>
+<header class="header"><div class="wrap">
+<a class="logo" href="/" aria-label="에이스렌터카 홈"><img src="/assets/logo.svg" alt="Ace RENTCAR 에이스렌터카" width="89" height="52"></a>
+<button class="menu-btn" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+<nav class="gnb" aria-label="주 메뉴">
+<a href="/short.html">단기렌트</a>
+<a href="/long.html">중장기렌트</a>
+<a href="/long.html#corp">법인렌트</a>
+<a href="/support.html">고객센터</a>
+</nav>
+<a class="tel" href="tel:16448891" data-site="tel"><span>24시간 예약상담</span><strong data-site="phone">1644-8891</strong></a>
+</div></header>
+<main>
+<style>
+.hero { background: var(--bg-soft); }
+.hero .wrap { display: flex; flex-wrap: wrap; align-items: stretch; }
+.hero-img { flex: 1 1 520px; min-width: 0; min-height: 420px; position: relative; overflow: hidden; background: #C9DAE8; }
+.hero-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
+.hero-copy { position: relative; padding: 36px 40px; display: flex; flex-direction: column; gap: 10px; }
+.hero-copy .tag { align-self: flex-start; font-size: 13px; font-weight: 700; color: #fff; background: var(--red); padding: 4px 10px; }
+.hero-copy p { margin: 0; font-size: 32px; font-weight: 700; line-height: 1.35; white-space: pre-line; }
+.hero-copy span.sub { font-size: 15px; color: #2B3036; }
+.booking { flex: 0 1 440px; min-width: 0; background: #fff; border: 1px solid #D5D5D5; border-top: 4px solid var(--red); }
+.booking [role=tablist] { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #D5D5D5; }
+.booking [role=tab] { height: 54px; border: 0; background: #FAFAFA; color: #666; font-size: 16px; cursor: pointer; }
+.booking [role=tab][aria-selected=true] { background: #fff; color: var(--ink); font-weight: 700; border-bottom: 3px solid var(--ink); margin-bottom: -1px; }
+.booking form { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.quick { border-bottom: 1px solid #E5E5E5; }
+.quick .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.quick a { display: flex; flex-direction: column; gap: 4px; padding: 26px 24px; border-left: 1px solid #E5E5E5; }
+.quick a:last-child { border-right: 1px solid #E5E5E5; }
+.quick strong { font-size: 17px; }
+.quick span { font-size: 13px; color: var(--gray); }
+.bottom3 { display: flex; flex-wrap: wrap; gap: 40px; padding: 40px 20px 24px; }
+.bottom3 > div { flex: 1 1 320px; min-width: 0; }
+.mini-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--ink); padding-bottom: 12px; }
+.mini-head h2 { font-size: 18px; }
+.mini-list { margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.mini-list li { display: flex; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
+@media (max-width: 600px) { .hero-copy { padding: 24px; } .hero-copy p { font-size: 24px; } .hero-img { min-height: 300px; } }
+</style>
+
+<section class="hero"><div class="wrap">
+<div class="hero-img">
+<img id="heroImg" src="/assets/hero-airport.svg" alt="공항 출국장 앞에 렌터카가 도착하는 모습">
+<div class="hero-copy">
+<span class="tag">인천공항 · 김포공항</span>
+<p id="heroText">공항 렌터카,
+예약금 없이 바로 예약</p>
+<span class="sub" id="heroSub">인천·김포공항 인수 · 반납</span>
+</div>
+</div>
+
+<div class="booking">
+<div role="tablist" aria-label="상품 선택">
+<button role="tab" id="tabShort" aria-selected="true" aria-controls="formShort" type="button">단기렌트 예약</button>
+<button role="tab" id="tabLong" aria-selected="false" aria-controls="formLong" type="button">중장기렌트 찾기</button>
+</div>
+<form id="formShort" role="tabpanel" aria-labelledby="tabShort" action="/short.html">
+<label class="field">대여 장소<select class="select" name="loc" id="mLoc"><option value="">불러오는 중…</option></select></label>
+<label class="field">대여 일시<input class="input" type="datetime-local" name="from" id="mFrom" step="1800" required></label>
+<label class="field">반납 일시<input class="input" type="datetime-local" name="to" id="mTo" step="1800" required></label>
+<button class="btn btn-red btn-lg" type="submit">예약 가능한 차량 조회</button>
+</form>
+<form id="formLong" role="tabpanel" aria-labelledby="tabLong" action="/long.html" hidden>
+<label class="field">차종<select class="select" name="cls"><option value="">전체</option><option>경차</option><option>준중형</option><option>중형</option><option>SUV</option><option>승합·화물</option></select></label>
+<label class="field">계약 기간<select class="select" name="term"><option value="36">36개월</option><option value="24">24개월</option><option value="12">12개월</option></select></label>
+<label class="field">보증금<select class="select" name="dep"><option value="0">무보증</option><option value="10">10%</option><option value="20">20%</option></select></label>
+<button class="btn btn-red btn-lg" type="submit">차량 및 월 렌트료 보기</button>
+</form>
+</div>
+</div></section>
+
+<section class="quick"><div class="wrap">
+<a href="/short.html"><strong>단기렌트</strong><span>1일~29일 · 공항 인도</span></a>
+<a href="/short.html"><strong>월렌트</strong><span>1개월 단위 · 보험 포함</span></a>
+<a href="/long.html"><strong>중장기렌트</strong><span>12~36개월 · 즉시 출고</span></a>
+<a href="/support.html?tab=qna"><strong>사고 보험대차</strong><span>사고 접수 · 대차 문의</span></a>
+</div></section>
+
+<section class="wrap" style="padding-top:56px">
+<div class="sec-head"><h2>즉시 출고 가능한 중장기 차량</h2><a class="muted small" href="/long.html">전체보기 +</a></div>
+<div class="car-grid" id="mainCars"><p class="loading">차량을 불러오는 중…</p></div>
+</section>
+
+<section class="wrap bottom3">
+<div>
+<div class="mini-head"><h2>공지사항</h2><a class="muted small" href="/support.html?tab=notice">더보기 +</a></div>
+<ul class="mini-list" id="mainNotice"><li class="muted">등록된 공지가 없습니다.</li></ul>
+</div>
+<div>
+<div class="mini-head"><h2 id="corp">법인 장기렌트</h2><a class="muted small" href="/long.html#corp">견적 신청 +</a></div>
+<p style="margin:16px 0 0;font-size:14px;line-height:1.8;color:#444">2대 이상 계약, 업무용승용차 운행기록부 발급, GPS 기반 공용차량 관리까지 법인 담당자가 직접 견적을 드립니다.</p>
+</div>
+<div class="callbox">
+<span style="font-size:14px">고객센터 · 24시간 상담</span>
+<a href="tel:16448891" data-site="tel"><span data-site="phone">1644-8891</span></a>
+<span style="font-size:13px;line-height:1.7">카카오톡 · 라인 · 위챗 <span data-site="messenger">ace16448891</span><br>사고 접수는 24시간 가능합니다</span>
+</div>
+</section>
+</main>
+<footer class="footer"><div class="wrap">
+<img src="/assets/logo.svg" alt="Ace RENTCAR" width="69" height="40">
+<div class="info">
+<div class="links"><a href="/support.html?tab=notice">공지사항</a><a href="/terms.html">이용약관</a><a href="/privacy.html"><strong>개인정보처리방침</strong></a><a href="/terms.html#rental">대여약관</a></div>
+<span>상호 : 에이스렌터카 | 주소 : <span data-site="address">경기도 고양시 일산서구 주화로 210 우리프라자 9층</span> | 대표전화 : <span data-site="phone">1644-8891</span></span>
+<span>사업자등록번호 : <span data-site="biz">[사업자번호]</span> | 대표자 : <span data-site="ceo">[대표자명]</span> | 카카오톡 · 라인 · 위챗 : <span data-site="messenger">ace16448891</span></span>
+<span>© 에이스렌터카. All Rights Reserved.</span>
+</div>
+</div></footer>
+<script type="module" src="/assets/main.js"></script>
+</body>
+</html>

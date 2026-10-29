@@ -288,6 +288,7 @@ export function registerAdmin(r) {
     r.post(`/api/admin/${name}/order`, async ({ env, request }) => {
       const b = await readJson(request);
       const ids = Array.isArray(b.ids) ? b.ids.map((x) => int(x)) : [];
+      if (!ids.length) return json({ ok: true });
       await env.DB.batch(ids.map((id, i) => env.DB.prepare(`UPDATE ${def.table} SET sort = ? WHERE id = ?`).bind(i + 1, id)));
       return json({ ok: true });
     });
@@ -368,6 +369,7 @@ export function registerAdmin(r) {
   r.post('/api/admin/long/:id/photos/order', async ({ env, params, request }) => {
     const b = await readJson(request);
     const ids = Array.isArray(b.ids) ? b.ids.map((x) => int(x)) : [];
+    if (!ids.length) return json({ ok: true });
     await env.DB.batch(ids.map((pid, i) => env.DB.prepare('UPDATE long_photos SET sort = ? WHERE id = ? AND vehicle_id = ?').bind(i + 1, pid, int(params.id))));
     return json({ ok: true });
   });

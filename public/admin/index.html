@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>홈페이지 관리자 | 에이스렌터카</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body class="admin">
+
+<div id="loginView" class="login" hidden>
+<form id="loginForm" class="login-box" novalidate>
+<img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:48px;margin:0 auto 8px">
+<h1 id="loginTitle">홈페이지 관리자</h1>
+<p class="small muted" id="loginHint" hidden>처음 사용하시는군요. 관리자 계정을 만들어 주세요.</p>
+<label class="field" id="setupName" hidden>이름<input class="input" name="name" autocomplete="name"></label>
+<label class="field">아이디<input class="input" name="username" autocomplete="username" required></label>
+<label class="field">비밀번호<input class="input" name="password" type="password" autocomplete="current-password" required></label>
+<p class="error-msg" id="loginErr" role="alert"></p>
+<button class="btn btn-red btn-lg btn-block" type="submit" id="loginBtn">로그인</button>
+</form>
+</div>
+
+<div id="appView" class="app" hidden>
+<header class="a-head">
+<div style="display:flex;align-items:center;gap:14px">
+<button class="menu-btn a-menu" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+<a href="/" target="_blank" rel="noopener"><img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:34px"></a>
+<strong style="font-size:15px;padding-left:14px;border-left:1px solid var(--line)">홈페이지 관리자</strong>
+</div>
+<div style="display:flex;align-items:center;gap:14px;font-size:13px;color:var(--gray);flex-wrap:wrap">
+<span id="erpState"></span>
+<span id="whoami"></span>
+<button class="btn" type="button" id="logoutBtn" style="height:34px;padding:0 12px;font-size:13px">로그아웃</button>
+</div>
+</header>
+<div class="a-body">
+<nav class="a-nav" aria-label="관리자 메뉴">
+<a href="#reservations">단기 예약<span class="cnt" id="cntShort"></span></a>
+<a href="#applications">중장기 신청 · 법인 견적<span class="cnt" id="cntLong"></span></a>
+<a href="#customers">고객 관리</a>
+<a href="#inquiries">1:1 문의<span class="cnt" id="cntInq"></span></a>
+<a href="#posts">공지 · 이벤트 · FAQ</a>
+<div class="a-nav-group">차량 · 요금</div>
+<a href="#long">중장기 차량 · 사진 · 가격표</a>
+<a href="#short">단기 차종 · 요금 · 보험</a>
+<a href="#locations">단기 예약 장소</a>
+<div class="a-nav-group">사이트</div>
+<a href="#banners">메인 배너</a>
+<a href="#notify">메일 알림 · 발송 기록<span class="cnt" id="cntMail"></span></a>
+<a href="#settings">회사 정보 · 관리자 계정</a>
+</nav>
+<main class="a-main" id="main" tabindex="-1"></main>
+</div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<dialog id="dlg" class="dlg"><form method="dialog" id="dlgForm"><div id="dlgBody"></div></form></dialog>
+
+<script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

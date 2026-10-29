@@ -1,0 +1,149 @@
+/* 에이스렌터카 홈페이지 공통 스타일 — 간판·로고의 빨강 + 검정 + 흰색 */
+:root {
+  --red: #C8102E;
+  --red-soft: #FBE9EC;
+  --ink: #1A1A1A;
+  --gray: #555555;
+  --line: #DDDDDD;
+  --line-soft: #EEEEEE;
+  --bg-soft: #F5F5F5;
+  --input: #BDBDBD;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: #fff; color: var(--ink);
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  font-size: 15px; line-height: 1.6; letter-spacing: -0.02em;
+}
+a { color: var(--ink); text-decoration: none; }
+a:hover { color: var(--red); }
+img { max-width: 100%; display: block; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+h1, h2, h3 { margin: 0; line-height: 1.35; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.red { color: var(--red); }
+.muted { color: var(--gray); }
+.small { font-size: 13px; }
+[hidden] { display: none !important; }
+
+/* 상단 유틸 · 헤더 */
+.util { background: var(--bg-soft); border-bottom: 1px solid #E5E5E5; font-size: 12px; }
+.util .wrap { height: 34px; display: flex; align-items: center; justify-content: flex-end; gap: 18px; }
+.util a { color: var(--gray); }
+.header { border-bottom: 2px solid var(--ink); background: #fff; position: relative; z-index: 10; }
+.header .wrap { min-height: 84px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.logo img { height: 52px; width: auto; }
+.gnb { display: flex; gap: 40px; flex-wrap: wrap; font-size: 17px; font-weight: 700; }
+.gnb a { padding: 28px 0 25px; border-bottom: 3px solid transparent; }
+.gnb a.on { color: var(--red); border-bottom-color: var(--red); }
+.tel { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+.tel span { font-size: 12px; color: var(--gray); }
+.tel strong { font-size: 24px; color: var(--red); letter-spacing: 0; }
+.menu-btn { display: none; width: 44px; height: 44px; border: 1px solid var(--line); background: #fff; }
+@media (max-width: 860px) {
+  .header .wrap { min-height: 64px; }
+  .logo img { height: 40px; }
+  .tel { display: none; }
+  .menu-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .gnb { display: none; width: 100%; flex-direction: column; gap: 0; font-size: 16px; padding-bottom: 8px; }
+  .gnb.open { display: flex; }
+  .gnb a { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+  .gnb a.on { border-bottom-color: var(--line-soft); }
+}
+
+/* 페이지 머리 */
+.page-head { padding-top: 32px; }
+.crumb { font-size: 13px; color: var(--gray); }
+.page-head h1 { font-size: 28px; margin-top: 6px; }
+.page-head p { margin: 4px 0 0; color: #444; font-size: 14px; }
+
+/* 폼 요소 */
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
+.input, .select, .textarea {
+  width: 100%; height: 46px; border: 1px solid var(--input); border-radius: 2px; padding: 0 12px;
+  font-size: 15px; font-weight: 400; background: #fff;
+}
+.textarea { height: auto; padding: 10px 12px; resize: vertical; }
+.input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--ink); outline-offset: -1px; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--red); flex: none; }
+
+/* 버튼 */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 48px; padding: 0 24px;
+  border: 1px solid var(--ink); border-radius: 2px; background: #fff; color: var(--ink);
+  font-weight: 700; font-size: 15px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { color: var(--ink); background: var(--bg-soft); }
+.btn-red { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-red:hover { background: #A90D26; color: #fff; }
+.btn-black { background: var(--ink); color: #fff; }
+.btn-black:hover { background: #333; color: #fff; }
+.btn-lg { height: 54px; font-size: 16px; }
+.btn-block { width: 100%; }
+.btn[disabled] { opacity: .55; cursor: default; }
+
+/* 칩 · 탭 */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { height: 38px; min-width: 88px; padding: 0 14px; border: 1px solid var(--input); border-radius: 2px; background: #fff; font-size: 14px; cursor: pointer; }
+.chip.on { border-color: var(--red); background: var(--red); color: #fff; font-weight: 700; }
+.tabs-line { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--ink); }
+.tabs-line button { height: 46px; padding: 0 18px; border: 0; background: transparent; color: #444; font-size: 15px; cursor: pointer; }
+.tabs-line button.on { color: var(--red); font-weight: 700; border-bottom: 3px solid var(--red); margin-bottom: -1px; }
+
+/* 표 형식 폼 / 정보 */
+.form-table { border-top: 2px solid var(--ink); font-size: 14px; }
+.form-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.form-row > .th { flex: 0 0 150px; background: var(--bg-soft); padding: 16px; font-weight: 700; }
+.form-row > .td { flex: 1 1 300px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.form-row .td .input, .form-row .td .select { max-width: 420px; height: 42px; }
+.info-table { width: 100%; border-collapse: collapse; font-size: 14px; border-top: 2px solid var(--ink); }
+.info-table th { text-align: left; padding: 12px 14px; background: var(--bg-soft); width: 140px; font-weight: 700; }
+.info-table td { padding: 12px 14px; }
+.info-table tr { border-bottom: 1px solid var(--line); }
+.list-table { width: 100%; border-collapse: collapse; font-size: 14px; border-top: 2px solid var(--ink); }
+.list-table th { background: var(--bg-soft); padding: 12px 8px; font-weight: 700; border-bottom: 1px solid var(--line); }
+.list-table td { padding: 14px 8px; border-bottom: 1px solid var(--line-soft); text-align: center; }
+.list-table td.l { text-align: left; }
+
+/* 사진 자리 */
+.photo { aspect-ratio: 4 / 3; background: #EEEEEE; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--gray); overflow: hidden; }
+.photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 차량 카드 (목록) */
+.car-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 36px 20px; }
+.car-card { display: flex; flex-direction: column; gap: 12px; }
+.car-card .meta { font-size: 13px; color: var(--gray); }
+.car-card .name { font-size: 17px; font-weight: 700; }
+.car-card .badge { font-size: 12px; font-weight: 700; color: var(--red); }
+.car-card dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; row-gap: 4px; font-size: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.car-card dt { color: var(--gray); }
+.car-card dd { margin: 0; text-align: right; }
+.car-card .price { font-size: 19px; font-weight: 700; color: var(--red); }
+
+/* 섹션 제목 */
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--ink); padding-bottom: 14px; margin-bottom: 24px; }
+.sec-head h2 { font-size: 24px; }
+
+/* 안내 상자 */
+.notice-box { background: var(--bg-soft); padding: 16px 20px; font-size: 14px; color: #444; }
+.empty { padding: 56px 0; text-align: center; color: var(--gray); border-bottom: 1px solid var(--line); }
+.error-msg { color: var(--red); font-size: 14px; font-weight: 700; min-height: 20px; }
+.callbox { background: var(--red); color: #fff; padding: 22px 26px; display: flex; flex-direction: column; gap: 4px; }
+.callbox a { color: #fff; font-size: 30px; font-weight: 700; letter-spacing: 0; }
+
+/* 완료 화면 */
+.done-box { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line); padding: 40px 20px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
+.done-box h2 { font-size: 24px; }
+
+/* 푸터 */
+.footer { background: var(--bg-soft); border-top: 1px solid #E5E5E5; margin-top: 40px; }
+.footer .wrap { padding: 32px 20px 40px; display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+.footer img { height: 40px; width: auto; }
+.footer .info { flex: 1 1 520px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.7; color: var(--gray); }
+.footer .links { display: flex; gap: 16px; flex-wrap: wrap; color: var(--ink); font-weight: 500; }
+
+/* 로딩 */
+.loading { padding: 40px 0; text-align: center; color: var(--gray); }

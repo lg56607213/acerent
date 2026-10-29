@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>중장기렌트 차량 검색 | 에이스렌터카</title>
+<meta name="description" content="즉시 출고 가능한 중장기 렌트 차량의 월 렌트료와 보증금을 확인하고 바로 신청하세요. 법인 견적 가능.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="중장기렌트 차량 검색 | 에이스렌터카">
+<meta property="og:description" content="즉시 출고 가능한 중장기 렌트 차량의 월 렌트료와 보증금을 확인하고 바로 신청하세요. 법인 견적 가능.">
+<meta property="og:image" content="/assets/og.png">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="util"><div class="wrap">
+<a href="/support.html?tab=notice">공지사항</a>
+<a href="/support.html?tab=qna">1:1 문의</a>
+<a href="/support.html">고객센터</a>
+</div></div>
+<header class="header"><div class="wrap">
+<a class="logo" href="/" aria-label="에이스렌터카 홈"><img src="/assets/logo.svg" alt="Ace RENTCAR 에이스렌터카" width="89" height="52"></a>
+<button class="menu-btn" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+<nav class="gnb" aria-label="주 메뉴">
+<a href="/short.html">단기렌트</a>
+<a href="/long.html" class="on" aria-current="page">중장기렌트</a>
+<a href="/long.html#corp">법인렌트</a>
+<a href="/support.html">고객센터</a>
+</nav>
+<a class="tel" href="tel:16448891" data-site="tel"><span>24시간 예약상담</span><strong data-site="phone">1644-8891</strong></a>
+</div></header>
+<main>
+<style>
+.filter { border-top: 2px solid var(--ink); font-size: 14px; }
+.filter .form-row > .th { display: flex; align-items: center; }
+.filter .td { padding: 10px 16px; }
+.corp-band { background: var(--bg-soft); border-top: 1px solid #E5E5E5; margin-top: 24px; }
+.corp-band .wrap { padding: 28px 20px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: space-between; }
+</style>
+<div class="wrap page-head">
+<p class="crumb">홈 &gt; 중장기렌트 &gt; 차량 검색</p>
+<h1>중장기렌트 차량 검색</h1>
+<p>에이스렌터카 보유 차량입니다. 종합보험, 자동차세, 정기 정비가 월 렌트료에 포함됩니다.</p>
+</div>
+
+<section class="wrap" aria-label="검색 조건" style="margin-top:22px">
+<div class="filter">
+<div class="form-row"><div class="th">계약 기간</div><div class="td chips" id="fTerm"></div></div>
+<div class="form-row"><div class="th">보증금</div><div class="td chips" id="fDep"></div></div>
+<div class="form-row"><div class="th">차종</div><div class="td chips" id="fCls"></div></div>
+<div class="form-row"><div class="th"><label for="fMax">월 렌트료</label></div><div class="td"><input type="range" id="fMax" min="300000" max="1500000" step="50000" value="1500000" style="flex:0 1 320px;accent-color:var(--red)"><strong id="fMaxLabel">전체</strong></div></div>
+</div>
+</section>
+
+<section class="wrap" style="padding-top:32px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--ink);padding-bottom:12px;margin-bottom:20px">
+<span aria-live="polite">검색 결과 <strong class="red" id="count">0</strong>대 <span class="muted" id="cond"></span></span>
+<label><span class="sr">정렬</span><select class="select" id="sort" style="height:38px;width:auto"><option value="low">월 렌트료 낮은순</option><option value="new">최신 연식순</option><option value="km">주행거리 짧은순</option></select></label>
+</div>
+<div class="car-grid" id="grid"><p class="loading">차량을 불러오는 중…</p></div>
+<p class="small muted" style="margin:28px 0 0;border-top:1px solid var(--line);padding-top:14px">※ 월 렌트료는 VAT 포함이며, 심사 결과에 따라 보증금 조건이 달라질 수 있습니다.</p>
+</section>
+
+<section class="corp-band" id="corp"><div class="wrap">
+<div style="flex:1 1 360px;min-width:0">
+<h2 style="font-size:20px">법인 · 개인사업자 장기렌트 견적</h2>
+<p style="margin:6px 0 0;font-size:14px;color:#444">2대 이상 계약, 원하는 차종, 운행기록부 발급이 필요하면 아래에 남겨주세요. 담당자가 직접 견적을 드립니다.</p>
+</div>
+<form id="corpForm" style="flex:1 1 480px;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px" novalidate>
+<label class="field">법인명<input class="input" name="company" required></label>
+<label class="field">사업자등록번호<input class="input" name="bizNo" placeholder="000-00-00000"></label>
+<label class="field">담당자 이름<input class="input" name="name" required></label>
+<label class="field">휴대폰 번호<input class="input" name="phone" type="tel" inputmode="numeric" required></label>
+<label class="field">원하는 차종<input class="input" name="vehicleWish" placeholder="예: 포터2, 카니발"></label>
+<label class="field">필요 대수<select class="select" name="qty"><option>1대</option><option>2~4대</option><option>5대 이상</option></select></label>
+<label class="field" style="grid-column:1/-1">요청 사항<textarea class="textarea" name="request" rows="3"></textarea></label>
+<input type="text" name="website" tabindex="-1" autocomplete="off" class="sr" aria-hidden="true">
+<label class="check" style="grid-column:1/-1"><input type="checkbox" name="agree">[필수] 개인정보 수집·이용에 동의합니다</label>
+<p class="error-msg" id="corpMsg" role="alert" style="grid-column:1/-1;margin:0"></p>
+<button class="btn btn-black btn-lg" type="submit" style="grid-column:1/-1">법인 견적 신청</button>
+</form>
+</div></section>
+</main>
+<footer class="footer"><div class="wrap">
+<img src="/assets/logo.svg" alt="Ace RENTCAR" width="69" height="40">
+<div class="info">
+<div class="links"><a href="/support.html?tab=notice">공지사항</a><a href="/terms.html">이용약관</a><a href="/privacy.html"><strong>개인정보처리방침</strong></a><a href="/terms.html#rental">대여약관</a></div>
+<span>상호 : 에이스렌터카 | 주소 : <span data-site="address">경기도 고양시 일산서구 주화로 210 우리프라자 9층</span> | 대표전화 : <span data-site="phone">1644-8891</span></span>
+<span>사업자등록번호 : <span data-site="biz">[사업자번호]</span> | 대표자 : <span data-site="ceo">[대표자명]</span> | 카카오톡 · 라인 · 위챗 : <span data-site="messenger">ace16448891</span></span>
+<span>© 에이스렌터카. All Rights Reserved.</span>
+</div>
+</div></footer>
+<script type="module" src="/assets/long.js"></script>
+</body>
+</html>

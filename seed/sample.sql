@@ -45,4 +45,4 @@ INSERT INTO posts (board, title, body, sort) VALUES
   ('faq', '사고가 나면 어떻게 하나요?', '1644-8891로 24시간 사고 접수가 가능합니다.', 5);
 
 INSERT INTO banners (image_key, text, sub_text, link, visible, sort) VALUES
-  ('', '공항 렌터카,\n예약금 없이 바로 예약', '인천·김포공항 인수 · 반납', '/short.html', 1, 1);
+  ('', '공항 렌터카,' || char(10) || '예약금 없이 바로 예약', '인천·김포공항 인수 · 반납', '/short.html', 1, 1);
