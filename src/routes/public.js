@@ -9,6 +9,16 @@ import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { saveUpload } from './upload.js';
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
+// rentcarerp 연결이 잠시 안 될 때는 오류 대신 안내 문구
+async function availableSafe(env, args) {
+  try {
+    return await availableByModel(env, args);
+  } catch (e) {
+    console.error('rentcarerp 조회 실패', e);
+    throw new HttpError(503, '실시간 차량 조회가 잠시 안 됩니다. 1644-8891로 전화 주시면 바로 예약해 드립니다.');
+  }
+}
+
 const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
 
 export function registerPublic(r) {
@@ -41,7 +51,7 @@ export function registerPublic(r) {
     if (!isLocalDateTime(from) || !isLocalDateTime(to)) throw bad('대여·반납 일시를 확인해 주세요.');
     const days = rentalDays(from, to);
     if (!days) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
-    const avail = await availableByModel(env, { from, to, locationId });
+    const avail = await availableSafe(env, { from, to, locationId });
     const { results } = await env.DB.prepare('SELECT * FROM short_models WHERE active = 1 ORDER BY sort, id').all();
     const models = [];
     const soldOut = [];
@@ -77,7 +87,7 @@ export function registerPublic(r) {
     if (!loc) throw bad('대여 장소를 다시 선택해 주세요.');
     const model = await env.DB.prepare('SELECT * FROM short_models WHERE id = ? AND active = 1').bind(int(b.modelId)).first();
     if (!model) throw bad('차량을 다시 선택해 주세요.');
-    const avail = await availableByModel(env, { from, to, locationId: loc.id });
+    const avail = await availableSafe(env, { from, to, locationId: loc.id });
     if (!(avail.get(model.id) > 0)) throw new HttpError(409, '방금 선택하신 차량이 마감되었습니다. 다른 차량을 선택해 주세요.');
 
     const ins = b.insuranceId
