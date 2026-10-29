@@ -7,6 +7,9 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
 
+  // 테스트용 주소 acerentcar.<계정>.workers.dev 켜기 (도메인 연결 전 확인용)
+  "workers_dev": true,
+
   // 화면(HTML/CSS/JS)은 public 폴더에서 바로 제공하고, /api 와 /img 만 Worker 코드가 처리
   "assets": {
     "directory": "./public",
