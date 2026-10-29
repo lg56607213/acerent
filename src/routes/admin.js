@@ -5,7 +5,8 @@ import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
 
-const img = (key) => (key ? `/img/${key}` : '');
+// R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
+const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
 
 // 단순 목록형 테이블: 허용 칸만 받아서 추가·수정·삭제
 const SIMPLE = {

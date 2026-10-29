@@ -8,7 +8,8 @@ import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { saveUpload } from './upload.js';
 
-const img = (key) => (key ? `/img/${key}` : '');
+// R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
+const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
 
 export function registerPublic(r) {
   // 사이트 공통 정보: 연락처, 배너, 예약 장소, 보험
