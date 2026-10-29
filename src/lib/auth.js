@@ -80,3 +80,10 @@ export async function endSession(request, db) {
   const token = readCookie(request);
   if (token) await db.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256Hex(token)).run();
 }
+
+// 비밀번호를 바꾸면 지금 화면을 뺀 나머지 로그인은 모두 끊는다
+export async function endOtherSessions(db, userId, request) {
+  const token = readCookie(request);
+  const keep = token ? await sha256Hex(token) : '';
+  await db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?').bind(userId, keep).run();
+}

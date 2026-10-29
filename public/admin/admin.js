@@ -81,6 +81,34 @@ $('#loginForm').addEventListener('submit', async (e) => {
     $('#loginErr').textContent = err.message;
   }
 });
+// 비밀번호 변경 창 (상단 버튼)
+function openPasswordDialog() {
+  const d = $('#dlg');
+  $('#dlgBody').innerHTML = `<h2 style="font-size:17px">내 비밀번호 변경</h2>
+<label class="field">현재 비밀번호<input class="input" id="dpCur" type="password" autocomplete="current-password"></label>
+<label class="field">새 비밀번호 (8자 이상)<input class="input" id="dpNew" type="password" autocomplete="new-password"></label>
+<label class="field">새 비밀번호 확인<input class="input" id="dpNew2" type="password" autocomplete="new-password"></label>
+<p class="error-msg" id="dpErr" role="alert" style="margin:0"></p>
+<p class="hint" style="margin:0">바꾸면 다른 기기에 로그인된 화면은 자동으로 로그아웃됩니다.</p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="dpSave">변경</button></div>`;
+  d.showModal();
+  $('#dpCur').focus();
+  $('#dpSave').addEventListener('click', async () => {
+    const err = $('#dpErr');
+    err.textContent = '';
+    if ($('#dpNew').value.length < 8) return (err.textContent = '새 비밀번호는 8자 이상으로 정해 주세요.');
+    if ($('#dpNew').value !== $('#dpNew2').value) return (err.textContent = '새 비밀번호 확인이 일치하지 않습니다.');
+    try {
+      await api('/api/admin/password', { method: 'POST', body: { current: $('#dpCur').value, next: $('#dpNew').value } });
+      d.close();
+      toast('비밀번호를 바꿨습니다.');
+    } catch (e) {
+      err.textContent = e.message;
+    }
+  });
+}
+$('#pwBtn').addEventListener('click', openPasswordDialog);
+
 $('#logoutBtn').addEventListener('click', async () => {
   await api('/api/admin/logout', { method: 'POST' });
   location.hash = '';
@@ -662,12 +690,13 @@ PAGES.settings = async () => {
 <div class="grid2">${f('site_phone', '대표전화')}${f('site_messenger', '카카오톡 · 라인 · 위챗 ID')}${f('company_address', '주소')}${f('company_biz_no', '사업자등록번호')}${f('company_ceo', '대표자')}${f('short_min_age_note', '단기 운전자 조건 문구')}</div>
 <div style="display:flex;justify-content:flex-end"><button class="btn btn-red btn-sm" id="sSave">저장</button></div></div>
 <div class="split"><div class="l box box-pad" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:16px">관리자 계정</h2>
-<table class="a-table"><tbody>${users.map((u) => `<tr><td><strong>${esc(u.username)}</strong> ${esc(u.name)}</td><td class="hint">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right">${u.id === me.id ? '<span class="hint">본인</span>' : `<button class="btn-link" data-deluser="${u.id}">삭제</button>`}</td></tr>`).join('')}</tbody></table>
+<table class="a-table"><tbody>${users.map((u) => `<tr><td><strong>${esc(u.username)}</strong> ${esc(u.name)}</td><td class="hint">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right">${u.id === me.id ? '<span class="hint">본인</span>' : `<button class="btn btn-xs" data-resetpw="${u.id}" data-name="${esc(u.username)}">비밀번호 재설정</button> <button class="btn-link" data-deluser="${u.id}">삭제</button>`}</td></tr>`).join('')}</tbody></table>
 <div class="grid2"><label class="field">아이디<input class="input" id="nuId" autocomplete="off"></label><label class="field">이름<input class="input" id="nuName"></label><label class="field">비밀번호 (8자 이상)<input class="input" id="nuPw" type="password" autocomplete="new-password"></label></div>
 <div style="display:flex;justify-content:flex-end"><button class="btn btn-black btn-sm" id="nuAdd">관리자 추가</button></div></div>
 <div class="r box box-pad" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:16px">내 비밀번호 변경</h2>
 <label class="field">현재 비밀번호<input class="input" id="pwCur" type="password" autocomplete="current-password"></label>
 <label class="field">새 비밀번호 (8자 이상)<input class="input" id="pwNew" type="password" autocomplete="new-password"></label>
+<label class="field">새 비밀번호 확인<input class="input" id="pwNew2" type="password" autocomplete="new-password"></label>
 <div style="display:flex;justify-content:flex-end"><button class="btn btn-black btn-sm" id="pwSave">변경</button></div></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:10px;border-color:var(--red)"><h2 style="font-size:16px" class="red">테스트 데이터 정리 (최종 전환 전)</h2>
 <p class="small" style="margin:0">예약 · 중장기 신청 · 문의 · 고객 · 메일 기록을 <strong>모두 삭제</strong>합니다. 차량 · 사진 · 가격표 · 장소 · 게시글 · 설정은 그대로 남습니다. 아래 칸에 <strong>테스트 데이터 삭제</strong>를 그대로 입력하세요.</p>
@@ -675,7 +704,36 @@ PAGES.settings = async () => {
   $('#sSave').addEventListener('click', () => run(() => api('/api/admin/settings', { method: 'PUT', body: Object.fromEntries($$('[data-s]').map((i) => [i.dataset.s, i.value])) }), '저장했습니다.'));
   $('#nuAdd').addEventListener('click', async () => { await run(() => api('/api/admin/users', { method: 'POST', body: { username: $('#nuId').value, name: $('#nuName').value, password: $('#nuPw').value } }), '관리자를 추가했습니다.'); route(); });
   $$('[data-deluser]').forEach((b) => b.addEventListener('click', async () => { if (!(await confirmBox('이 관리자 계정을 삭제할까요?', '삭제'))) return; await run(() => api('/api/admin/users/' + b.dataset.deluser, { method: 'DELETE' }), '삭제했습니다.'); route(); }));
-  $('#pwSave').addEventListener('click', () => run(() => api('/api/admin/password', { method: 'POST', body: { current: $('#pwCur').value, next: $('#pwNew').value } }), '비밀번호를 바꿨습니다.'));
+  $('#pwSave').addEventListener('click', async () => {
+    if ($('#pwNew').value !== $('#pwNew2').value) return toast('새 비밀번호 확인이 일치하지 않습니다.', true);
+    await run(() => api('/api/admin/password', { method: 'POST', body: { current: $('#pwCur').value, next: $('#pwNew').value } }), '비밀번호를 바꿨습니다.');
+    ['#pwCur', '#pwNew', '#pwNew2'].forEach((x) => ($(x).value = ''));
+  });
+  $$('[data-resetpw]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const d = $('#dlg');
+      $('#dlgBody').innerHTML = `<h2 style="font-size:17px">${esc(b.dataset.name)} 비밀번호 재설정</h2>
+<p class="hint" style="margin:0">새 비밀번호를 정해 해당 관리자에게 전달해 주세요. 그 관리자는 로그인 후 '비밀번호 변경'으로 다시 바꾸면 됩니다.</p>
+<label class="field">새 비밀번호 (8자 이상)<input class="input" id="rpNew" type="password" autocomplete="new-password"></label>
+<label class="field">새 비밀번호 확인<input class="input" id="rpNew2" type="password" autocomplete="new-password"></label>
+<p class="error-msg" id="rpErr" role="alert" style="margin:0"></p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="rpSave">재설정</button></div>`;
+      d.showModal();
+      $('#rpSave').addEventListener('click', async () => {
+        const err = $('#rpErr');
+        err.textContent = '';
+        if ($('#rpNew').value.length < 8) return (err.textContent = '비밀번호는 8자 이상으로 정해 주세요.');
+        if ($('#rpNew').value !== $('#rpNew2').value) return (err.textContent = '비밀번호 확인이 일치하지 않습니다.');
+        try {
+          await api(`/api/admin/users/${b.dataset.resetpw}/password`, { method: 'POST', body: { password: $('#rpNew').value } });
+          d.close();
+          toast('비밀번호를 재설정했습니다.');
+        } catch (e) {
+          err.textContent = e.message;
+        }
+      });
+    })
+  );
   $('#cleanGo').addEventListener('click', async () => {
     if (!(await confirmBox('예약 · 신청 · 문의 · 고객 · 메일 기록을 모두 삭제합니다. 되돌릴 수 없습니다.', '모두 삭제'))) return;
     await run(() => api('/api/admin/cleanup-test', { method: 'POST', body: { confirm: $('#clean').value } }), '테스트 데이터를 정리했습니다.');

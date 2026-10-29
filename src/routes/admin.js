@@ -1,6 +1,6 @@
 // 관리자 API (모두 로그인 필요 — 로그인·최초설정 제외)
 import { HttpError, bad, json, readJson, cleanText, int, getSettings, esc } from '../lib/util.js';
-import { hashPassword, verifyPassword, createSession, sessionCookie, clearCookie, requireAdmin, endSession, currentAdmin } from '../lib/auth.js';
+import { hashPassword, verifyPassword, createSession, sessionCookie, clearCookie, requireAdmin, endSession, currentAdmin, endOtherSessions } from '../lib/auth.js';
 import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
@@ -75,7 +75,7 @@ export function registerAdmin(r) {
     const u = await env.DB.prepare('SELECT * FROM admin_users WHERE username = ?').bind(cleanText(b.username, 30)).first();
     if (!u || !(await verifyPassword(String(b.password || ''), u.pw_hash, u.pw_salt))) {
       await new Promise((res) => setTimeout(res, 800));
-      throw new HttpError(401, '아이디 또는 비밀번호가 맞지 않습니다.');
+      throw new HttpError(400, '아이디 또는 비밀번호가 맞지 않습니다.');
     }
     const s = await createSession(env.DB, u.id);
     return json({ ok: true }, 200, { 'set-cookie': sessionCookie(s.token, s.maxAge, url.protocol === 'https:') });
@@ -93,6 +93,24 @@ export function registerAdmin(r) {
     if (String(b.next || '').length < 8) throw bad('새 비밀번호는 8자 이상으로 정해 주세요.');
     const { hash, salt } = await hashPassword(String(b.next));
     await env.DB.prepare('UPDATE admin_users SET pw_hash = ?, pw_salt = ? WHERE id = ?').bind(hash, salt, admin.id).run();
+    // 다른 기기에 남아 있는 로그인은 끊기 (지금 쓰는 화면은 유지)
+    await endOtherSessions(env.DB, admin.id, request);
+    return json({ ok: true });
+  });
+
+  // 다른 관리자 비밀번호 재설정 (비밀번호를 잊었을 때)
+  r.post('/api/admin/users/:id/password', async ({ env, params, request, admin }) => {
+    const id = int(params.id);
+    if (id === admin.id) throw bad('본인 비밀번호는 \'내 비밀번호 변경\'에서 바꿔 주세요.');
+    const b = await readJson(request);
+    if (String(b.password || '').length < 8) throw bad('새 비밀번호는 8자 이상으로 정해 주세요.');
+    const u = await env.DB.prepare('SELECT id FROM admin_users WHERE id = ?').bind(id).first();
+    if (!u) throw new HttpError(404, '관리자를 찾을 수 없습니다.');
+    const { hash, salt } = await hashPassword(String(b.password));
+    await env.DB.batch([
+      env.DB.prepare('UPDATE admin_users SET pw_hash = ?, pw_salt = ? WHERE id = ?').bind(hash, salt, id),
+      env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id),
+    ]);
     return json({ ok: true });
   });
 
