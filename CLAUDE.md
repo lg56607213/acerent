@@ -8,3 +8,4 @@
 - DB 구조 변경은 `migrations/000N_*.sql` 새 파일로 추가(기존 파일 수정 금지).
 - 로컬: `npx wrangler d1 migrations apply acerentcar-db --local && npx wrangler dev`
 - rentcarerp 연동 명세: docs/rentcarerp-api.md
+- 중장기 월 대여료 계산식은 public/assets/longcalc.js 하나(화면 · 서버 공용). 기간별 기준 월 대여료는 long_prices 의 dep_pct = 0 행.

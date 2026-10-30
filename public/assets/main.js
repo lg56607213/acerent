@@ -1,4 +1,5 @@
 import { api, $, esc, won, nl, defaultPeriod, initLayout, classImage } from './common.js';
+import { quote } from './longcalc.js';
 
 const site = await initLayout();
 
@@ -38,8 +39,9 @@ try {
   const box = $('#mainCars');
   const list = vehicles
     .map((v) => {
-      const p = v.prices.filter((x) => x.term === 36).sort((a, b) => a.monthly - b.monthly)[0] || v.prices.sort((a, b) => a.monthly - b.monthly)[0];
-      return { ...v, min: p ? p.monthly : 0 };
+      // 가장 긴 계약 기간 · 무보증 · 기본 약정거리 기준 (가장 낮은 월 대여료)
+      const q = v.bases.length ? quote(v, v.pricing, v.bases, { term: Math.max(...v.bases.map((b) => b.term)) }) : null;
+      return { ...v, min: q ? q.monthly : 0 };
     })
     .slice(0, 4);
   box.innerHTML = list.length

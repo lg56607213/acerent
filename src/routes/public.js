@@ -7,6 +7,9 @@ import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { saveUpload } from './upload.js';
+import { pricingOf, quote, describe } from '../../public/assets/longcalc.js';
+
+const jsonList = (s) => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
 // rentcarerp 연결이 잠시 안 될 때는 오류 대신 안내 문구
@@ -131,7 +134,7 @@ export function registerPublic(r) {
     return json({ ok: true, no, total, days, model: model.name, location: loc.name, pickupAt: from, returnAt: to });
   });
 
-  // 중장기: 노출 중인 차량 목록
+  // 중장기: 노출 중인 차량 목록 (기간별 기준 월 렌트료 + 가격 조건)
   r.get('/api/long', async ({ env }) => {
     const { results: vs } = await env.DB
       .prepare(`SELECT * FROM long_vehicles WHERE visible = 1 AND status <> 'contracted' ORDER BY sort, id DESC`)
@@ -140,16 +143,16 @@ export function registerPublic(r) {
     const ids = vs.map((v) => v.id);
     const q = ids.map(() => '?').join(',');
     const [prices, photos] = await Promise.all([
-      env.DB.prepare(`SELECT * FROM long_prices WHERE vehicle_id IN (${q})`).bind(...ids).all(),
+      env.DB.prepare(`SELECT vehicle_id, term, monthly FROM long_prices WHERE dep_pct = 0 AND vehicle_id IN (${q})`).bind(...ids).all(),
       env.DB.prepare(`SELECT vehicle_id, image_key FROM long_photos WHERE vehicle_id IN (${q}) ORDER BY sort, id`).bind(...ids).all(),
     ]);
     const firstPhoto = new Map();
     for (const p of photos.results) if (!firstPhoto.has(p.vehicle_id)) firstPhoto.set(p.vehicle_id, p.image_key);
     return json({
       vehicles: vs.map((v) => ({
-        id: v.id, name: v.name, class: v.class, year: v.year, km: v.km, fuel: v.fuel, badge: v.badge, carValue: v.car_value,
-        status: v.status, photo: img(firstPhoto.get(v.id)),
-        prices: prices.results.filter((p) => p.vehicle_id === v.id).map((p) => ({ term: p.term, dep: p.dep_pct, monthly: p.monthly })),
+        id: v.id, name: v.name, class: v.class, year: v.year, km: v.km, fuel: v.fuel, badge: v.badge, car_value: v.car_value,
+        status: v.status, avail_note: v.avail_note, photo: img(firstPhoto.get(v.id)), pricing: pricingOf(v.pricing),
+        bases: prices.results.filter((p) => p.vehicle_id === v.id).map((p) => ({ term: p.term, monthly: p.monthly })),
       })),
     });
   });
@@ -159,14 +162,21 @@ export function registerPublic(r) {
     const v = await env.DB.prepare(`SELECT * FROM long_vehicles WHERE id = ? AND visible = 1`).bind(int(params.id)).first();
     if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
     const [prices, photos] = await Promise.all([
-      env.DB.prepare('SELECT term, dep_pct AS dep, monthly FROM long_prices WHERE vehicle_id = ? ORDER BY term, dep_pct').bind(v.id).all(),
+      env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0 ORDER BY term DESC').bind(v.id).all(),
       env.DB.prepare('SELECT image_key FROM long_photos WHERE vehicle_id = ? ORDER BY sort, id').bind(v.id).all(),
     ]);
-    const { plate, erp_ref, ...pub } = v;
-    return json({ vehicle: { ...pub, photos: photos.results.map((p) => img(p.image_key)) }, prices: prices.results });
+    const { plate, erp_ref, sort, created_at, ...pub } = v;
+    return json({
+      vehicle: {
+        ...pub, plate: v.show_plate ? plate : '', pricing: pricingOf(v.pricing),
+        added_options: jsonList(v.added_options), usage_history: jsonList(v.usage_history), repair_history: jsonList(v.repair_history),
+        photos: photos.results.map((p) => img(p.image_key)),
+      },
+      bases: prices.results,
+    });
   });
 
-  // 중장기 신청 · 법인 견적
+  // 중장기 신청 · 법인 견적 (월 렌트료 · 보증금 · 선납금은 서버에서 다시 계산)
   r.post('/api/long/applications', async ({ env, request, ctx }) => {
     const b = await readJson(request);
     if (b.website) return json({ ok: true });
@@ -179,19 +189,21 @@ export function registerPublic(r) {
     const company = cleanText(b.company, 60);
     if (corp && !company) throw bad('법인명을 입력해 주세요.');
 
-    let vehicle = null, price = null;
+    let vehicle = null, q = null;
     if (b.vehicleId) {
       vehicle = await env.DB.prepare('SELECT * FROM long_vehicles WHERE id = ? AND visible = 1').bind(int(b.vehicleId)).first();
       if (!vehicle) throw bad('차량 정보를 다시 확인해 주세요.');
-      price = await env.DB
-        .prepare('SELECT * FROM long_prices WHERE vehicle_id = ? AND term = ? AND dep_pct = ?')
-        .bind(vehicle.id, int(b.term), int(b.dep))
-        .first();
-      if (!price) throw bad('선택하신 기간·보증금 조건이 없습니다. 다시 선택해 주세요.');
+      const { results: bases } = await env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0').bind(vehicle.id).all();
+      if (bases.length) {
+        if (!bases.some((x) => x.term === int(b.term))) throw bad('선택하신 계약 기간이 없습니다. 다시 선택해 주세요.');
+        q = quote(vehicle, vehicle.pricing, bases, { term: int(b.term), km: int(b.km), dep: int(b.dep), pre: int(b.pre), liab: int(b.liab), maint: !!b.maint, region: cleanText(b.region, 40) });
+      }
     }
-    const kmExtra = Math.max(0, int(b.km, 2) - 2) * 30000; // 약정거리 추가금 (화면 안내와 동일)
-    const monthly = price ? price.monthly + kmExtra : 0;
-    const depositAmt = vehicle && price ? Math.round((vehicle.car_value * price.dep_pct) / 100) : 0;
+    const s = q ? q.sel : null;
+    const monthly = q ? q.monthly : 0;
+    const depositAmt = s ? s.dep : 0;
+    const prepayAmt = s ? s.pre : 0;
+    const depPct = s && vehicle.car_value ? Math.round((s.dep / vehicle.car_value) * 1000) / 10 : 0;
     const kind = corp ? '법인 견적' : '중장기 신청';
 
     const customerId = await upsertCustomer(env.DB, {
@@ -199,31 +211,34 @@ export function registerPublic(r) {
       source: corp ? '홈페이지 법인 견적' : '홈페이지 중장기 신청',
     });
     const no = await nextNo(env.DB, 'applications', 'L');
+    const extra = q ? describe(q.p, s) : '';
     const row = {
       no, applicant_type: corp ? 'corp' : 'person', vehicle_id: vehicle ? vehicle.id : null, vehicle_name: vehicle ? vehicle.name : cleanText(b.vehicleWish, 100),
-      term: price ? price.term : null, dep_pct: price ? price.dep_pct : null, deposit_amt: depositAmt, monthly, km: price ? `연 ${int(b.km, 2)}만km` : '',
+      term: s ? s.term : null, dep_pct: s ? Math.round(depPct) : null, deposit_amt: depositAmt, prepay_amt: prepayAmt, monthly,
+      km: s ? `연 ${s.km.toLocaleString('ko-KR')}km` : '', extra,
       company, biz_no: cleanText(b.bizNo, 20), qty: cleanText(b.qty, 20), name, phone, wish_date: cleanText(b.wishDate, 20),
       request: cleanText(b.request, 1000), customer_id: customerId,
     };
     const cols = Object.keys(row);
     await env.DB.prepare(`INSERT INTO applications (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).bind(...cols.map((c) => row[c])).run();
-    if (vehicle && vehicle.status === 'available') {
+    if (vehicle && ['available', 'soon'].includes(vehicle.status)) {
       await env.DB.prepare(`UPDATE long_vehicles SET status = 'reserved', updated_at = datetime('now') WHERE id = ?`).bind(vehicle.id).run();
     }
 
-    const cond = price ? `${price.term}개월 · 보증금 ${price.dep_pct ? price.dep_pct + '%' : '무보증'} · ${row.km}` : '';
+    const cond = s ? `${s.term}개월 · ${extra}` : '';
     const html = buildMailHtml({
       title: `[${kind}] ${no}`,
       intro: corp ? '홈페이지로 법인 장기렌트 견적 요청이 접수되었습니다.' : '홈페이지로 중장기렌트 신청이 접수되었습니다. 심사 후 고객에게 연락해 주세요.',
       rows: [
         ['신청번호', no], ['구분', corp ? '법인' : '개인 · 개인사업자'], ['법인명', company], ['사업자번호', row.biz_no], ['필요 대수', row.qty],
         [corp ? '담당자' : '고객', `${name} · ${phone}`], ['차량', row.vehicle_name], ['조건', cond],
-        ['보증금', price ? won(depositAmt) : ''], ['월 렌트료', price ? won(monthly) : ''], ['희망 출고일', row.wish_date], ['요청 사항', row.request],
+        ['보증금', s ? `${won(depositAmt)}${depPct ? ` (${depPct}%)` : ''}` : ''], ['선납금', s && prepayAmt ? won(prepayAmt) : ''],
+        ['월 렌트료', s ? won(monthly) + ' (VAT 포함)' : ''], ['희망 출고일', row.wish_date], ['요청 사항', row.request],
       ],
       linkUrl: `${env.SITE_URL}/admin/#applications`, linkText: '관리자에서 확인하기',
     });
     ctx.waitUntil(notifyAdmins(env, { kind, refNo: no, subject: `[${kind}] ${no} · ${corp ? company : name}${row.vehicle_name ? ' · ' + row.vehicle_name : ''}`, html }));
-    return json({ ok: true, no, monthly, depositAmt, vehicle: row.vehicle_name, cond });
+    return json({ ok: true, no, monthly, depositAmt, prepayAmt, vehicle: row.vehicle_name, cond });
   });
 
   // 게시판 (공지 · 이벤트 · FAQ)

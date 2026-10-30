@@ -1,4 +1,5 @@
 import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.js';
+import { quote, rateAmount } from './longcalc.js';
 
 await initLayout();
 const qs = new URLSearchParams(location.search);
@@ -16,20 +17,24 @@ function chips(id, values, key, label) {
   );
 }
 function drawFilters() {
-  chips('#fTerm', [12, 24, 36], 'term', (v) => v + '개월');
-  chips('#fDep', [0, 10, 20], 'dep', (v) => (v ? v + '%' : '무보증'));
+  chips('#fTerm', [12, 24, 36, 48], 'term', (v) => v + '개월');
+  chips('#fDep', [0, 10, 20, 30], 'dep', (v) => (v ? v + '%' : '무보증'));
   chips('#fCls', CLASSES, 'cls', (v) => v);
 }
 $('#fMax').addEventListener('input', (e) => { st.max = +e.target.value; draw(); });
 $('#sort').addEventListener('change', (e) => { st.sort = e.target.value; draw(); });
 
+// 선택한 기간 · 보증금율, 기준 약정거리로 계산한 월 대여료 (그 기간이 없으면 없음)
 function priceOf(v) {
-  return v.prices.find((p) => p.term === st.term && p.dep === st.dep);
+  if (!v.bases.some((b) => b.term === st.term)) return null;
+  const q = quote(v, v.pricing, v.bases, { term: st.term, dep: rateAmount(v.car_value, st.dep) });
+  return { monthly: q.monthly, deposit: q.sel.dep };
 }
+const ST = (v) => (v.status === 'reserved' ? '상담 진행 중' : v.status === 'soon' ? '출고 예정' + (v.avail_note ? ' · ' + v.avail_note : '') : v.badge);
 
 function draw() {
   $('#fMaxLabel').textContent = st.max >= 1500000 ? '전체' : `${won(st.max)}원 이하`;
-  $('#cond').textContent = `· ${st.term}개월 / 보증금 ${st.dep ? st.dep + '%' : '무보증'} 기준`;
+  $('#cond').textContent = `· ${st.term}개월 / 보증금 ${st.dep ? st.dep + '%' : '무보증'} / 기본 약정거리 기준`;
   let list = st.list
     .map((v) => ({ ...v, p: priceOf(v) }))
     .filter((v) => (st.cls === '전체' || v.class === st.cls || (st.cls === '승합·화물' && /승합|화물/.test(v.class))) && (!v.p || v.p.monthly <= st.max));
@@ -43,10 +48,10 @@ function draw() {
           (v) => `<a class="car-card" href="/car.html?id=${v.id}&term=${st.term}&dep=${st.dep}">
 <div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : `<img src="${classImage(v.class)}" alt="" style="object-fit:contain">`}</div>
 <div style="display:flex;flex-direction:column;gap:4px">
-<span class="badge">${esc(v.status === 'reserved' ? '상담 진행 중' : v.badge)}</span>
+<span class="badge">${esc(ST(v))}</span>
 <strong class="name">${esc(v.name)}</strong>
 <span class="meta">${v.year ? v.year + '년식 | ' : ''}${won(v.km)}km | ${esc(v.fuel)}</span></div>
-<dl><dt>보증금</dt><dd>${v.p ? won(Math.round((v.carValue * v.p.dep) / 100)) + '원' : '-'}</dd>
+<dl><dt>보증금</dt><dd>${v.p ? won(v.p.deposit) + '원' : '-'}</dd>
 <dt>월 렌트료</dt><dd>${v.p ? `<strong class="price">${won(v.p.monthly)}</strong>원` : '<span class="muted">이 조건 없음</span>'}</dd></dl></a>`
         )
         .join('')

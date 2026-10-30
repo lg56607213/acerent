@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword, createSession, sessionCookie, clearCookie
 import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
+import { pricingOf } from '../../public/assets/longcalc.js';
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
 const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
@@ -23,7 +24,8 @@ function pick(body, fields) {
   for (const [k, t] of Object.entries(fields)) {
     if (!(k in body)) continue;
     const v = body[k];
-    if (t === 'i') out[k] = int(v);
+    if (typeof t === 'function') out[k] = t(v);
+    else if (t === 'i') out[k] = int(v);
     else if (t === 'b') out[k] = v ? 1 : 0;
     else if (t === 'k') out[k] = cleanText(v, 200);
     else if (t === 'j') out[k] = JSON.stringify(Array.isArray(v) ? v.map((x) => cleanText(x, 200)) : []);
@@ -314,15 +316,37 @@ export function registerAdmin(r) {
   }
 
   // ── 중장기 차량 · 가격표 · 실차 사진 ─────────────────
+  // 표 형식 입력 (추가 옵션 · 이용이력 · 사고수리내역): 숫자 칸은 정수로
+  const rows = (spec, max = 40) => (v) =>
+    JSON.stringify(
+      (Array.isArray(v) ? v : [])
+        .slice(0, max)
+        .map((x) => Object.fromEntries(Object.entries(spec).map(([k, t]) => [k, t === 'i' ? int(String(x && x[k] != null ? x[k] : '').replace(/[^\d-]/g, '')) : cleanText(x && x[k], t)])))
+        .filter((x) => Object.values(x).some((y) => y))
+    );
+  const pricingField = (v) => {
+    const p = pricingOf(v && typeof v === 'object' ? v : {});
+    const t = (x, n = 100) => cleanText(x, n);
+    return JSON.stringify({
+      ...p,
+      driverAge: t(p.driverAge, 40), deductible: t(p.deductible, 40), buyout: t(p.buyout, 20), buyoutNote: t(p.buyoutNote, 300),
+      maintAddNote: t(p.maintAddNote, 300), regionNote: t(p.regionNote, 300),
+      liability: p.liability.slice(0, 8).map((x) => ({ label: t(x.label, 30), fee: x.fee })),
+      maintItems: p.maintItems.slice(0, 20).map((x) => t(x, 200)), regions: p.regions.slice(0, 20).map((x) => t(x, 40)),
+    });
+  };
   const LONG_FIELDS = {
     erp_ref: 's40', plate: 's20', name: 's100', class: 's20', year: 'i', first_reg: 's20', km: 'i', fuel: 's20', color: 's40',
     seats: 'i', accident: 's60', pickup: 's100', options: 's1000', badge: 's20', car_value: 'i', km_note: 's60', status: 's12', visible: 'b', sort: 'i',
+    new_price: 'i', tax_cut: 'i', displacement: 'i', int_color: 's40', show_plate: 'b', location: 's40', avail_note: 's100', spec_text: 's6000',
+    added_options: rows({ name: 60, price: 'i' }), usage_history: rows({ kind: 30, period: 40, user: 40 }), repair_history: rows({ date: 20, detail: 200, cost: 'i' }),
+    pricing: pricingField,
   };
   r.get('/api/admin/long', async ({ env }) => {
     const { results } = await env.DB
       .prepare(
         `SELECT v.*, (SELECT COUNT(*) FROM long_photos p WHERE p.vehicle_id = v.id) AS photo_n,
-                (SELECT COUNT(*) FROM long_prices p WHERE p.vehicle_id = v.id) AS price_n,
+                (SELECT COUNT(*) FROM long_prices p WHERE p.vehicle_id = v.id AND p.dep_pct = 0) AS price_n,
                 (SELECT image_key FROM long_photos p WHERE p.vehicle_id = v.id ORDER BY sort, id LIMIT 1) AS photo_key
          FROM long_vehicles v ORDER BY v.sort, v.id DESC`
       )
@@ -334,10 +358,12 @@ export function registerAdmin(r) {
     const v = await env.DB.prepare('SELECT * FROM long_vehicles WHERE id = ?').bind(id).first();
     if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
     const [prices, photos] = await Promise.all([
-      env.DB.prepare('SELECT term, dep_pct, monthly FROM long_prices WHERE vehicle_id = ? ORDER BY term, dep_pct').bind(id).all(),
+      env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0 ORDER BY term DESC').bind(id).all(),
       env.DB.prepare('SELECT id, image_key, sort FROM long_photos WHERE vehicle_id = ? ORDER BY sort, id').bind(id).all(),
     ]);
-    return json({ vehicle: v, prices: prices.results, photos: photos.results.map((p) => ({ ...p, url: img(p.image_key) })) });
+    const pj = (k) => { try { return JSON.parse(v[k] || '[]'); } catch { return []; } };
+    const vehicle = { ...v, added_options: pj('added_options'), usage_history: pj('usage_history'), repair_history: pj('repair_history'), pricing: pricingOf(v.pricing) };
+    return json({ vehicle, prices: prices.results, photos: photos.results.map((p) => ({ ...p, url: img(p.image_key) })) });
   });
   r.post('/api/admin/long', async ({ env, request }) => {
     const row = pick(await readJson(request), LONG_FIELDS);
@@ -359,13 +385,13 @@ export function registerAdmin(r) {
     if (results.length) await env.IMAGES.delete(results.map((p) => p.image_key));
     return json({ ok: true });
   });
-  // 가격표 통째로 저장: { prices: [{term, dep_pct, monthly}] }
+  // 기간별 기준 월 렌트료 통째로 저장: { prices: [{term, monthly}] } (기준 약정거리 · 무보증 · 선납 없음)
   r.put('/api/admin/long/:id/prices', async ({ env, params, request }) => {
     const id = int(params.id);
     const b = await readJson(request);
     const list = (Array.isArray(b.prices) ? b.prices : [])
-      .map((p) => ({ term: int(p.term), dep: int(p.dep_pct), monthly: int(p.monthly) }))
-      .filter((p) => p.term > 0 && p.dep >= 0 && p.monthly > 0);
+      .map((p) => ({ term: int(p.term), dep: 0, monthly: int(p.monthly) }))
+      .filter((p, i, a) => p.term > 0 && p.term <= 120 && p.monthly > 0 && a.findIndex((x) => x.term === p.term) === i);
     await env.DB.batch([
       env.DB.prepare('DELETE FROM long_prices WHERE vehicle_id = ?').bind(id),
       ...list.map((p) => env.DB.prepare('INSERT INTO long_prices (vehicle_id, term, dep_pct, monthly) VALUES (?,?,?,?)').bind(id, p.term, p.dep, p.monthly)),

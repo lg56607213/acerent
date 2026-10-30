@@ -14,20 +14,22 @@ SELECT id, '테스트' || id || '-1', 2024 FROM short_models;
 INSERT INTO short_vehicles (model_id, plate, year)
 SELECT id, '테스트' || id || '-2', 2024 FROM short_models WHERE class IN ('준중형', '중형', 'SUV');
 
-INSERT INTO long_vehicles (plate, name, class, year, first_reg, km, fuel, color, seats, accident, pickup, options, badge, car_value, visible, sort)
-VALUES ('12가 ****', '쏘렌토 MQ4 하이브리드 1.6 시그니처 (예시)', 'SUV', 2024, '2024년 3월', 15800, '하이브리드', '스노우 화이트 펄', 5, '무사고', '본점 · 탁송 가능',
-        '파노라마 선루프, 통풍·열선 시트, 스마트 크루즈, 서라운드 뷰, GPS 차량관제', '즉시출고', 40000000, 1, 1);
+INSERT INTO long_vehicles (plate, show_plate, name, class, year, first_reg, km, fuel, color, int_color, seats, displacement, accident, pickup, location, options, badge,
+  new_price, tax_cut, car_value, spec_text, added_options, usage_history, repair_history, visible, sort)
+VALUES ('12가 3456', 0, '쏘렌토 MQ4 하이브리드 1.6 시그니처 (예시)', 'SUV', 2024, '2024-03-15', 15800, '하이브리드', '스노우 화이트 펄', '블랙', 5, 1598, '무사고', '본점 · 탁송 가능', '수도권',
+  '파노라마 선루프, 통풍·열선 시트, 스마트 크루즈, 서라운드 뷰', '즉시출고',
+  45000000, 1300000, 33500000,
+  '기본사양: 스마트 크루즈 컨트롤, 차로 유지 보조, 후측방 충돌방지 보조, 서라운드 뷰 모니터, 앞좌석 통풍 · 열선 시트, 12.3인치 내비게이션' || char(10) || '선택사양: 파노라마 선루프, 헤드업 디스플레이',
+  '[{"name":"파노라마 선루프","price":1190000},{"name":"헤드업 디스플레이","price":690000}]',
+  '[{"kind":"장기렌트","period":"2024-03-15 ~ 2026-09-30","user":"법인"}]',
+  '[]', 1, 1);
 
+-- 기간별 기준 월 대여료 (연 2만km · 보증금 0 · 선납금 0 기준)
 INSERT INTO long_prices (vehicle_id, term, dep_pct, monthly) VALUES
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 12, 0, 978000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 12, 10, 929000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 12, 20, 880000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 24, 0, 901000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 24, 10, 856000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 24, 20, 811000),
+  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 48, 0, 812000),
   ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 36, 0, 850000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 36, 10, 808000),
-  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 36, 20, 765000);
+  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 24, 0, 901000),
+  ((SELECT id FROM long_vehicles WHERE name LIKE '%(예시)' LIMIT 1), 12, 0, 978000);
 
 INSERT INTO posts (board, title, body, sort) VALUES
   ('faq', '예약금 없이 예약이 가능한가요?', '네. 홈페이지에서 예약 신청만 하시면 담당자가 배차를 확인한 뒤 확정 문자를 보내드립니다. 요금은 차량 인수 시 결제합니다.', 1),
