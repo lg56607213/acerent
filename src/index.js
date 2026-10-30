@@ -4,7 +4,8 @@
 //  - 그 외   : public 폴더의 화면 (Cloudflare 가 바로 제공)
 import { Router } from './lib/router.js';
 import { HttpError, json } from './lib/util.js';
-import { requireAdmin } from './lib/auth.js';
+import { requireAdmin, currentAdmin } from './lib/auth.js';
+import QUOTE_HTML from './pages/quote.html';
 import { retryFailed } from './lib/mail.js';
 import { registerPublic } from './routes/public.js';
 import { registerAdmin } from './routes/admin.js';
@@ -22,6 +23,20 @@ export default {
     try {
       if (url.pathname.startsWith('/img/')) {
         return await serveImage(env, decodeURIComponent(url.pathname.slice(5)));
+      }
+      // 장기렌트 견적기: 원가·AG수수료·금리가 들어 있어 관리자 로그인한 사람만
+      if (url.pathname === '/admin/quote' || url.pathname === '/admin/quote/') {
+        const admin = await currentAdmin(request, env.DB);
+        if (!admin) return Response.redirect(url.origin + '/admin/?next=quote', 302);
+        return new Response(QUOTE_HTML, {
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+            'x-robots-tag': 'noindex, nofollow',
+            'x-frame-options': 'DENY',
+            'referrer-policy': 'same-origin',
+          },
+        });
       }
       if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
 

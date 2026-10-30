@@ -4,6 +4,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "acerentcar",
   "main": "src/index.js",
+  // src/pages/*.html 을 문자열로 불러옴 (로그인한 관리자에게만 Worker 가 내려줌 — public 폴더에 두지 않음)
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
 
@@ -15,7 +17,7 @@
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/img/*"]
+    "run_worker_first": ["/api/*", "/img/*", "/admin/quote", "/admin/quote/"]
   },
 
   // DB: 예약·신청·문의·고객·게시판·설정

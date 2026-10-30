@@ -62,6 +62,11 @@ async function boot() {
     $('#loginForm').password.setAttribute('autocomplete', setup ? 'new-password' : 'current-password');
     return;
   }
+  // 견적기에서 로그인하러 온 경우 로그인 후 바로 돌려보냄
+  if (new URLSearchParams(location.search).get('next') === 'quote') {
+    location.replace('/admin/quote');
+    return;
+  }
   $('#loginView').hidden = true;
   $('#appView').hidden = false;
   $('#whoami').textContent = `${me.name || me.username} 님`;

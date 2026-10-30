@@ -15,6 +15,7 @@ public/            화면 (HTML · CSS · JS) — Cloudflare 가 그대로 제�
   admin/           관리자 화면
   assets/          로고, 공항 이미지, 공통 스타일·스크립트
 src/               Worker (API)
+  pages/quote.html 장기렌트 견적기 — /admin/quote, 관리자 로그인한 사람에게만 Worker 가 내려줌
   routes/public.js 고객용 API
   routes/admin.js  관리자 API
   lib/             메일, rentcarerp 연동, 로그인, 공통 도우미
