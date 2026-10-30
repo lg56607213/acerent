@@ -76,7 +76,7 @@
 <div class="booking">
 <div role="tablist" aria-label="상품 선택">
 <button role="tab" id="tabShort" aria-selected="true" aria-controls="formShort" type="button">단기렌트 예약</button>
-<button role="tab" id="tabLong" aria-selected="false" aria-controls="formLong" type="button">중장기렌트 찾기</button>
+<button role="tab" id="tabLong" aria-selected="false" aria-controls="formLong" type="button">중장기렌트</button>
 </div>
 <form id="formShort" role="tabpanel" aria-labelledby="tabShort" action="/short.html">
 <label class="field">대여 장소<select class="select" name="loc" id="mLoc"><option value="">불러오는 중…</option></select></label>
@@ -84,12 +84,10 @@
 <label class="field">반납 일시<input class="input" type="datetime-local" name="to" id="mTo" step="1800" required></label>
 <button class="btn btn-red btn-lg" type="submit">예약 가능한 차량 조회</button>
 </form>
-<form id="formLong" role="tabpanel" aria-labelledby="tabLong" action="/long.html" hidden>
-<label class="field">차종<select class="select" name="cls"><option value="">전체</option><option>경차</option><option>준중형</option><option>중형</option><option>SUV</option><option>승합·화물</option></select></label>
-<label class="field">계약 기간<select class="select" name="term"><option value="36">36개월</option><option value="24">24개월</option><option value="12">12개월</option></select></label>
-<label class="field">보증금<select class="select" name="dep"><option value="0">무보증</option><option value="10">10%</option><option value="20">20%</option></select></label>
-<button class="btn btn-red btn-lg" type="submit">차량 및 월 렌트료 보기</button>
-</form>
+<div id="formLong" role="tabpanel" aria-labelledby="tabLong" hidden style="padding:24px;display:flex;flex-direction:column;gap:14px">
+<p style="margin:0;font-size:14px;line-height:1.7;color:#444">에이스렌터카가 보유한 차량을 바로 출고합니다. 차량마다 실차 사진 · 주행거리 · 이용이력과 계약 기간 · 약정거리 · 보증금별 월 렌트료를 확인할 수 있습니다.</p>
+<a class="btn btn-red btn-lg" href="/long.html">중장기 차량 전체 보기</a>
+</div>
 </div>
 </div></section>
 

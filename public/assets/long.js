@@ -1,43 +1,20 @@
 import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.js';
-import { quote, rateAmount } from './longcalc.js';
+import { quote } from './longcalc.js';
 
 await initLayout();
-const qs = new URLSearchParams(location.search);
-const st = { term: +(qs.get('term') || 36), dep: +(qs.get('dep') || 0), cls: qs.get('cls') || '전체', max: 1500000, sort: 'low', list: [] };
-const CLASSES = ['전체', '경차', '준중형', '중형', '대형', 'SUV', '승합·화물'];
-
-function chips(id, values, key, label) {
-  $(id).innerHTML = values.map((v) => `<button type="button" class="chip ${st[key] === v ? 'on' : ''}" aria-pressed="${st[key] === v}" data-v="${esc(v)}">${esc(label(v))}</button>`).join('');
-  $$(id + ' button').forEach((b) =>
-    b.addEventListener('click', () => {
-      st[key] = typeof values[0] === 'number' ? +b.dataset.v : b.dataset.v;
-      drawFilters();
-      draw();
-    })
-  );
-}
-function drawFilters() {
-  chips('#fTerm', [12, 24, 36, 48], 'term', (v) => v + '개월');
-  chips('#fDep', [0, 10, 20, 30], 'dep', (v) => (v ? v + '%' : '무보증'));
-  chips('#fCls', CLASSES, 'cls', (v) => v);
-}
-$('#fMax').addEventListener('input', (e) => { st.max = +e.target.value; draw(); });
+const st = { sort: 'low', list: [] };
 $('#sort').addEventListener('change', (e) => { st.sort = e.target.value; draw(); });
 
-// 선택한 기간 · 보증금율, 기준 약정거리로 계산한 월 대여료 (그 기간이 없으면 없음)
+// 가장 긴 계약 기간 · 무보증 · 기본 약정거리 기준 (그 차의 가장 낮은 월 대여료)
 function priceOf(v) {
-  if (!v.bases.some((b) => b.term === st.term)) return null;
-  const q = quote(v, v.pricing, v.bases, { term: st.term, dep: rateAmount(v.car_value, st.dep) });
-  return { monthly: q.monthly, deposit: q.sel.dep };
+  if (!v.bases.length) return null;
+  const term = Math.max(...v.bases.map((b) => b.term));
+  return { term, monthly: quote(v, v.pricing, v.bases, { term }).monthly };
 }
 const ST = (v) => (v.status === 'reserved' ? '상담 진행 중' : v.status === 'soon' ? '출고 예정' + (v.avail_note ? ' · ' + v.avail_note : '') : v.badge);
 
 function draw() {
-  $('#fMaxLabel').textContent = st.max >= 1500000 ? '전체' : `${won(st.max)}원 이하`;
-  $('#cond').textContent = `· ${st.term}개월 / 보증금 ${st.dep ? st.dep + '%' : '무보증'} / 기본 약정거리 기준`;
-  let list = st.list
-    .map((v) => ({ ...v, p: priceOf(v) }))
-    .filter((v) => (st.cls === '전체' || v.class === st.cls || (st.cls === '승합·화물' && /승합|화물/.test(v.class))) && (!v.p || v.p.monthly <= st.max));
+  const list = st.list.map((v) => ({ ...v, p: priceOf(v) }));
   if (st.sort === 'low') list.sort((a, b) => (a.p ? a.p.monthly : 9e9) - (b.p ? b.p.monthly : 9e9));
   if (st.sort === 'new') list.sort((a, b) => (b.year || 0) - (a.year || 0));
   if (st.sort === 'km') list.sort((a, b) => a.km - b.km);
@@ -45,20 +22,19 @@ function draw() {
   $('#grid').innerHTML = list.length
     ? list
         .map(
-          (v) => `<a class="car-card" href="/car.html?id=${v.id}&term=${st.term}&dep=${st.dep}">
+          (v) => `<a class="car-card" href="/car.html?id=${v.id}">
 <div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : `<img src="${classImage(v.class)}" alt="" style="object-fit:contain">`}</div>
 <div style="display:flex;flex-direction:column;gap:4px">
 <span class="badge">${esc(ST(v))}</span>
 <strong class="name">${esc(v.name)}</strong>
 <span class="meta">${v.year ? v.year + '년식 | ' : ''}${won(v.km)}km | ${esc(v.fuel)}</span></div>
-<dl><dt>보증금</dt><dd>${v.p ? won(v.p.deposit) + '원' : '-'}</dd>
-<dt>월 렌트료</dt><dd>${v.p ? `<strong class="price">${won(v.p.monthly)}</strong>원` : '<span class="muted">이 조건 없음</span>'}</dd></dl></a>`
+<dl><dt>현재 차량가격</dt><dd>${v.car_value ? won(v.car_value) + '원' : '-'}</dd>
+<dt>월 렌트료${v.p ? ` (${v.p.term}개월)` : ''}</dt><dd>${v.p ? `<strong class="price">${won(v.p.monthly)}</strong>원~` : '<span class="muted">상담</span>'}</dd></dl></a>`
         )
         .join('')
-    : '<p class="empty" style="grid-column:1/-1">조건에 맞는 차량이 없습니다. 조건을 바꾸거나 아래 견적 신청을 남겨주세요.</p>';
+    : '<p class="empty" style="grid-column:1/-1">지금 출고 가능한 중장기 차량을 준비 중입니다. 1644-8891로 문의하시거나 아래 견적 신청을 남겨주세요.</p>';
 }
 
-drawFilters();
 try {
   st.list = (await api('/api/long')).vehicles;
   draw();

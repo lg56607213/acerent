@@ -34,34 +34,22 @@
 </div></header>
 <main>
 <style>
-.filter { border-top: 2px solid var(--ink); font-size: 14px; }
-.filter .form-row > .th { display: flex; align-items: center; }
-.filter .td { padding: 10px 16px; }
 .corp-band { background: var(--bg-soft); border-top: 1px solid #E5E5E5; margin-top: 24px; }
 .corp-band .wrap { padding: 28px 20px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: space-between; }
 </style>
 <div class="wrap page-head">
-<p class="crumb">홈 &gt; 중장기렌트 &gt; 차량 검색</p>
-<h1>중장기렌트 차량 검색</h1>
+<p class="crumb">홈 &gt; 중장기렌트</p>
+<h1>중장기렌트 차량</h1>
 <p>에이스렌터카 보유 차량입니다. 종합보험, 자동차세, 정기 정비가 월 렌트료에 포함됩니다.</p>
 </div>
 
-<section class="wrap" aria-label="검색 조건" style="margin-top:22px">
-<div class="filter">
-<div class="form-row"><div class="th">계약 기간</div><div class="td chips" id="fTerm"></div></div>
-<div class="form-row"><div class="th">보증금</div><div class="td chips" id="fDep"></div></div>
-<div class="form-row"><div class="th">차종</div><div class="td chips" id="fCls"></div></div>
-<div class="form-row"><div class="th"><label for="fMax">월 렌트료</label></div><div class="td"><input type="range" id="fMax" min="300000" max="1500000" step="50000" value="1500000" style="flex:0 1 320px;accent-color:var(--red)"><strong id="fMaxLabel">전체</strong></div></div>
-</div>
-</section>
-
-<section class="wrap" style="padding-top:32px">
+<section class="wrap" style="padding-top:28px">
 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--ink);padding-bottom:12px;margin-bottom:20px">
-<span aria-live="polite">검색 결과 <strong class="red" id="count">0</strong>대 <span class="muted" id="cond"></span></span>
+<span>전체 <strong class="red" id="count">0</strong>대 <span class="muted small">· 월 렌트료는 가장 긴 계약 기간 · 무보증 · 기본 약정거리 기준</span></span>
 <label><span class="sr">정렬</span><select class="select" id="sort" style="height:38px;width:auto"><option value="low">월 렌트료 낮은순</option><option value="new">최신 연식순</option><option value="km">주행거리 짧은순</option></select></label>
 </div>
 <div class="car-grid" id="grid"><p class="loading">차량을 불러오는 중…</p></div>
-<p class="small muted" style="margin:28px 0 0;border-top:1px solid var(--line);padding-top:14px">※ 월 렌트료는 VAT 포함이며, 심사 결과에 따라 보증금 조건이 달라질 수 있습니다.</p>
+<p class="small muted" style="margin:28px 0 0;border-top:1px solid var(--line);padding-top:14px">※ 월 렌트료는 VAT 포함입니다. 차량을 누르면 계약 기간 · 약정거리 · 보증금 · 선납금별 금액을 확인할 수 있습니다.</p>
 </section>
 
 <section class="corp-band" id="corp"><div class="wrap">
