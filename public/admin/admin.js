@@ -876,5 +876,97 @@ PAGES.settings = async () => {
   });
 };
 
+// ── 견적 사용자 계정 (관리자가 발급 · /quote 로 로그인) ──────
+PAGES.quoteusers = async () => {
+  const { users } = await api('/api/admin/quote-users');
+  const loginUrl = location.origin + '/quote';
+  const on = users.filter((u) => u.active).length;
+  main.innerHTML = `<div class="a-title"><div><h1>견적 사용자 계정</h1><p class="desc">제휴사 · 영업 담당자에게 발급하는 계정입니다. 이 계정으로는 관리자 화면과 관리자용 견적기에 들어올 수 없습니다.</p></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:8px"><h2 style="font-size:16px">사용자 로그인 주소</h2>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="input" id="quLink" value="${esc(loginUrl)}" readonly style="max-width:360px" aria-label="사용자 로그인 주소"><button class="btn btn-sm" id="quCopy">주소 복사</button></div>
+<p class="hint" style="margin:0">아이디 · 비밀번호와 함께 이 주소를 전달하세요.</p></div>
+<div class="box"><div class="box-head"><h2>계정 목록 <span class="hint">사용 중 ${on} · 전체 ${users.length}</span></h2></div>
+<div style="overflow-x:auto"><table class="a-table"><thead><tr><th>아이디</th><th>이름 · 소속</th><th>연락처</th><th>상태</th><th>최근 접속</th><th>등록일</th><th></th></tr></thead>
+<tbody>${users.length ? users.map((u) => `<tr><td><strong>${esc(u.username)}</strong></td><td>${esc(u.name)}${u.company ? `<br><span class="hint">${esc(u.company)}</span>` : ''}${u.memo ? `<br><span class="hint">메모: ${esc(u.memo)}</span>` : ''}</td><td>${esc(u.phone || '-')}</td><td>${u.active ? '<span class="st st-ok">사용 중</span>' : '<span class="st st-off">사용 중지</span>'}</td><td class="hint">${u.last_login_at ? kst(u.last_login_at) : '접속 전'}</td><td class="hint">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-xs" data-qedit="${u.id}">수정</button> <button class="btn btn-xs" data-qpw="${u.id}">비밀번호 재설정</button> <button class="btn-link" data-qdel="${u.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">아직 발급한 계정이 없습니다. 아래에서 첫 계정을 만들어 주세요.</td></tr>'}</tbody></table></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">새 계정 만들기</h2>
+<div class="grid2"><label class="field">아이디 (영문 · 숫자 3자 이상)<input class="input" id="qnId" autocomplete="off"></label><label class="field">비밀번호 (8자 이상)<input class="input" id="qnPw" type="text" autocomplete="off"></label>
+<label class="field">이름<input class="input" id="qnName"></label><label class="field">소속 (회사 · 지점)<input class="input" id="qnCompany"></label>
+<label class="field">연락처<input class="input" id="qnPhone" inputmode="tel"></label><label class="field">메모 (관리자만 보임)<input class="input" id="qnMemo"></label></div>
+<p class="hint" style="margin:0">비밀번호는 전달하기 쉽게 글자가 보이도록 입력됩니다. 사용자가 처음 로그인한 뒤 '비밀번호 변경'으로 바꾸도록 안내해 주세요.</p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" id="qnGen" type="button">비밀번호 자동 생성</button><button class="btn btn-red btn-sm" id="qnAdd" type="button">계정 만들기</button></div></div>`;
+
+  const copyText = async (text, inputSel) => {
+    try { await navigator.clipboard.writeText(text); toast('복사했습니다.'); } catch { $(inputSel).select(); toast('내용을 선택했습니다. Ctrl+C 로 복사하세요.'); }
+  };
+  $('#quCopy').addEventListener('click', () => copyText(loginUrl, '#quLink'));
+  const genPw = () => {
+    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    return [...crypto.getRandomValues(new Uint32Array(10))].map((x) => c[x % c.length]).join('');
+  };
+  $('#qnGen').addEventListener('click', () => ($('#qnPw').value = genPw()));
+  $('#qnAdd').addEventListener('click', async () => {
+    const body = { username: $('#qnId').value.trim(), password: $('#qnPw').value, name: $('#qnName').value, company: $('#qnCompany').value, phone: $('#qnPhone').value, memo: $('#qnMemo').value };
+    try { await run(() => api('/api/admin/quote-users', { method: 'POST', body })); } catch { return; }
+    const d = $('#dlg');
+    $('#dlgBody').innerHTML = `<h2 style="font-size:17px">계정을 만들었습니다</h2>
+<p class="hint" style="margin:0">아래 내용을 사용자에게 전달하세요. 이 창을 닫으면 비밀번호는 다시 볼 수 없습니다.</p>
+<textarea class="textarea" id="qnInfo" rows="4" readonly style="font-size:14px">로그인 주소: ${esc(loginUrl)}
+아이디: ${esc(body.username)}
+비밀번호: ${esc(body.password)}</textarea>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" type="button" id="qnCopy">복사</button><button class="btn btn-red btn-sm" value="close">닫기</button></div>`;
+    d.onclose = () => { d.onclose = null; route(); };
+    d.showModal();
+    $('#qnCopy').addEventListener('click', () => copyText($('#qnInfo').value, '#qnInfo'));
+  });
+
+  $$('[data-qedit]').forEach((b) => b.addEventListener('click', () => {
+    const u = users.find((x) => x.id === +b.dataset.qedit);
+    const d = $('#dlg');
+    $('#dlgBody').innerHTML = `<h2 style="font-size:17px">${esc(u.username)} 수정</h2>
+<label class="field">이름<input class="input" id="qeName" value="${esc(u.name)}"></label>
+<label class="field">소속<input class="input" id="qeCompany" value="${esc(u.company)}"></label>
+<label class="field">연락처<input class="input" id="qePhone" value="${esc(u.phone)}"></label>
+<label class="field">메모 (관리자만 보임)<input class="input" id="qeMemo" value="${esc(u.memo)}"></label>
+<label class="check"><input type="checkbox" id="qeActive" ${u.active ? 'checked' : ''}> 사용 중 (해제하면 바로 로그아웃되고 다시 로그인할 수 없습니다)</label>
+<p class="error-msg" id="qeErr" role="alert" style="margin:0"></p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="qeSave">저장</button></div>`;
+    d.onclose = null;
+    d.showModal();
+    $('#qeSave').addEventListener('click', async () => {
+      try {
+        await api('/api/admin/quote-users/' + u.id, { method: 'PUT', body: { name: $('#qeName').value, company: $('#qeCompany').value, phone: $('#qePhone').value, memo: $('#qeMemo').value, active: $('#qeActive').checked } });
+        d.close(); toast('저장했습니다.'); route();
+      } catch (e) { $('#qeErr').textContent = e.message; }
+    });
+  }));
+
+  $$('[data-qpw]').forEach((b) => b.addEventListener('click', () => {
+    const u = users.find((x) => x.id === +b.dataset.qpw);
+    const d = $('#dlg');
+    $('#dlgBody').innerHTML = `<h2 style="font-size:17px">${esc(u.username)} 비밀번호 재설정</h2>
+<p class="hint" style="margin:0">새 비밀번호를 사용자에게 전달해 주세요. 그 사용자가 지금 접속해 있으면 로그아웃됩니다.</p>
+<label class="field">새 비밀번호 (8자 이상)<input class="input" id="qpNew" type="text" autocomplete="off" value="${genPw()}"></label>
+<p class="error-msg" id="qpErr" role="alert" style="margin:0"></p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="qpSave">재설정</button></div>`;
+    d.onclose = null;
+    d.showModal();
+    $('#qpSave').addEventListener('click', async () => {
+      const pw = $('#qpNew').value;
+      if (pw.length < 8) return ($('#qpErr').textContent = '비밀번호는 8자 이상으로 정해 주세요.');
+      try {
+        await api(`/api/admin/quote-users/${u.id}/password`, { method: 'POST', body: { password: pw } });
+        d.close(); toast(`${u.username} 비밀번호를 재설정했습니다.`);
+      } catch (e) { $('#qpErr').textContent = e.message; }
+    });
+  }));
+
+  $$('[data-qdel]').forEach((b) => b.addEventListener('click', async () => {
+    const u = users.find((x) => x.id === +b.dataset.qdel);
+    if (!(await confirmBox(`${u.username} (${u.name}) 계정을 삭제할까요?\n잠시 못 쓰게 하려면 삭제 대신 '수정'에서 사용 중지를 하세요.`, '삭제'))) return;
+    await run(() => api('/api/admin/quote-users/' + u.id, { method: 'DELETE' }), '삭제했습니다.');
+    route();
+  }));
+};
+
 
 boot();

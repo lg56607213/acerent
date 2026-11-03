@@ -9,11 +9,13 @@ import QUOTE_HTML from './pages/quote.html';
 import { retryFailed } from './lib/mail.js';
 import { registerPublic } from './routes/public.js';
 import { registerAdmin } from './routes/admin.js';
+import { registerQuote } from './routes/quote.js';
 import { serveImage } from './routes/upload.js';
 
 const router = new Router();
 registerPublic(router);
 registerAdmin(router);
+registerQuote(router);
 
 const OPEN_ADMIN = new Set(['/api/admin/me', '/api/admin/setup', '/api/admin/login', '/api/admin/logout']);
 
@@ -44,12 +46,12 @@ export default {
       if (!found) throw new HttpError(404, '없는 주소입니다.');
 
       let admin = null;
+      // 다른 사이트에서 로그인 · 계정 기능을 호출하지 못하도록 출처 확인
+      if ((url.pathname.startsWith('/api/admin/') || url.pathname.startsWith('/api/quote/')) && request.method !== 'GET') {
+        const origin = request.headers.get('origin');
+        if (origin && origin !== url.origin) throw new HttpError(403, '허용되지 않은 요청입니다.');
+      }
       if (url.pathname.startsWith('/api/admin/')) {
-        // 다른 사이트에서 관리자 기능을 호출하지 못하도록 출처 확인
-        if (request.method !== 'GET') {
-          const origin = request.headers.get('origin');
-          if (origin && origin !== url.origin) throw new HttpError(403, '허용되지 않은 요청입니다.');
-        }
         if (!OPEN_ADMIN.has(url.pathname)) admin = await requireAdmin(request, env.DB);
       }
       return await found.handler({ request, env, ctx, url, params: found.params, admin });

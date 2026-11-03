@@ -9,3 +9,4 @@
 - 로컬: `npx wrangler d1 migrations apply acerentcar-db --local && npx wrangler dev`
 - rentcarerp 연동 명세: docs/rentcarerp-api.md
 - 중장기 월 대여료 계산식은 public/assets/longcalc.js 하나(화면 · 서버 공용). 기간별 기준 월 대여료는 long_prices 의 dep_pct = 0 행.
+- 계정 2종류: 관리자(admin_users · 쿠키 ace_admin · /admin) / 견적 사용자(quote_users · 쿠키 ace_quote · /quote, src/lib/quoteAuth.js · src/routes/quote.js). 견적 사용자에게 원가 · AG수수료 · 금리가 보이면 안 됨 — 관리자용 견적기(src/pages/quote.html)는 /admin/quote 에서 관리자에게만 제공.

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>장기렌트 견적 | 에이스렌터카</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<style>
+  .q-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 2px solid var(--ink); background: #fff; }
+  .q-head .who { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--gray); flex-wrap: wrap; }
+  .q-head .who strong { color: var(--ink); font-size: 14px; }
+  .q-main { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+  .q-ready { border: 1px solid var(--line); border-top: 4px solid var(--red); padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; }
+  .q-ready h1 { font-size: 20px; margin: 0; }
+  .q-ready p { margin: 0; }
+  .q-btn { height: 34px; padding: 0 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="loginView" class="login" hidden>
+<form id="loginForm" class="login-box" novalidate>
+<img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:48px;margin:0 auto 8px">
+<h1>장기렌트 견적</h1>
+<p class="small muted" style="margin:0">에이스렌터카에서 발급받은 아이디로 로그인하세요.</p>
+<label class="field">아이디<input class="input" name="username" autocomplete="username" required></label>
+<label class="field">비밀번호<input class="input" name="password" type="password" autocomplete="current-password" required></label>
+<p class="error-msg" id="loginErr" role="alert"></p>
+<button class="btn btn-red btn-lg btn-block" type="submit" id="loginBtn">로그인</button>
+<p class="small muted" style="margin:0">아이디 · 비밀번호를 잊으셨으면 에이스렌터카 담당자에게 재설정을 요청해 주세요.</p>
+</form>
+</div>
+
+<div id="appView" hidden>
+<header class="q-head">
+  <a href="/quote"><img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:34px;display:block"></a>
+  <div class="who">
+    <span><strong id="whoName"></strong> <span id="whoCompany"></span></span>
+    <button class="btn q-btn" type="button" id="pwBtn">비밀번호 변경</button>
+    <button class="btn q-btn" type="button" id="logoutBtn">로그아웃</button>
+  </div>
+</header>
+<main class="q-main">
+  <div class="q-ready">
+    <h1>장기렌트 견적</h1>
+    <p class="muted">로그인되었습니다. 견적 화면은 준비 중이며, 열리는 대로 이 주소에서 바로 사용하실 수 있습니다.</p>
+  </div>
+</main>
+</div>
+
+<dialog id="dlg" class="dlg"><form method="dialog" id="dlgBody">
+<h2 style="font-size:17px">비밀번호 변경</h2>
+<label class="field">현재 비밀번호<input class="input" id="pwCur" type="password" autocomplete="current-password"></label>
+<label class="field">새 비밀번호 (8자 이상)<input class="input" id="pwNew" type="password" autocomplete="new-password"></label>
+<label class="field">새 비밀번호 확인<input class="input" id="pwNew2" type="password" autocomplete="new-password"></label>
+<p class="error-msg" id="pwErr" role="alert" style="margin:0"></p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="pwSave">변경</button></div>
+</form></dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+async function api(path, { method = 'GET', body } = {}) {
+  const r = await fetch(path, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || '잠시 후 다시 시도해 주세요.');
+  return d;
+}
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600); }
+
+async function boot() {
+  const { user } = await api('/api/quote/me').catch(() => ({ user: null }));
+  $('#loginView').hidden = !!user;
+  $('#appView').hidden = !user;
+  if (!user) { $('#loginForm').username.focus(); return; }
+  $('#whoName').textContent = (user.name || user.username) + ' 님';
+  $('#whoCompany').textContent = user.company ? '· ' + user.company : '';
+}
+
+$('#loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#loginErr').textContent = '';
+  $('#loginBtn').disabled = true;
+  try {
+    await api('/api/quote/login', { method: 'POST', body: { username: f.username.value.trim(), password: f.password.value } });
+    f.reset();
+    await boot();
+  } catch (err) {
+    $('#loginErr').textContent = err.message;
+  } finally {
+    $('#loginBtn').disabled = false;
+  }
+});
+
+$('#logoutBtn').addEventListener('click', async () => { await api('/api/quote/logout', { method: 'POST' }).catch(() => {}); boot(); });
+
+$('#pwBtn').addEventListener('click', () => { ['#pwCur', '#pwNew', '#pwNew2'].forEach((x) => ($(x).value = '')); $('#pwErr').textContent = ''; $('#dlg').showModal(); });
+$('#pwSave').addEventListener('click', async () => {
+  const err = $('#pwErr');
+  err.textContent = '';
+  if ($('#pwNew').value.length < 8) return (err.textContent = '새 비밀번호는 8자 이상으로 정해 주세요.');
+  if ($('#pwNew').value !== $('#pwNew2').value) return (err.textContent = '새 비밀번호 확인이 일치하지 않습니다.');
+  try {
+    await api('/api/quote/password', { method: 'POST', body: { current: $('#pwCur').value, next: $('#pwNew').value } });
+    $('#dlg').close();
+    toast('비밀번호를 바꿨습니다.');
+  } catch (e) {
+    if (/로그인/.test(e.message)) { $('#dlg').close(); return boot(); }
+    err.textContent = e.message;
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
