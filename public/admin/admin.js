@@ -143,7 +143,7 @@ async function refreshCounts() {
 const PAGES = {};
 function route() {
   if (!me) return;
-  const [name, arg] = (location.hash.slice(1) || 'reservations').split('/');
+  const [name, arg] = (location.hash.slice(1).split('?')[0] || 'reservations').split('/');
   const page = PAGES[name] || PAGES.reservations;
   $$('.a-nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + (PAGES[name] ? name : 'reservations')));
   $('.a-nav').classList.remove('open');
@@ -887,7 +887,7 @@ PAGES.quoteusers = async () => {
 <p class="hint" style="margin:0">아이디 · 비밀번호와 함께 이 주소를 전달하세요.</p></div>
 <div class="box"><div class="box-head"><h2>계정 목록 <span class="hint">사용 중 ${on} · 전체 ${users.length}</span></h2></div>
 <div style="overflow-x:auto"><table class="a-table"><thead><tr><th>아이디</th><th>이름 · 소속</th><th>연락처</th><th>상태</th><th>최근 접속</th><th>등록일</th><th></th></tr></thead>
-<tbody>${users.length ? users.map((u) => `<tr><td><strong>${esc(u.username)}</strong></td><td>${esc(u.name)}${u.company ? `<br><span class="hint">${esc(u.company)}</span>` : ''}${u.memo ? `<br><span class="hint">메모: ${esc(u.memo)}</span>` : ''}</td><td>${esc(u.phone || '-')}</td><td>${u.active ? '<span class="st st-ok">사용 중</span>' : '<span class="st st-off">사용 중지</span>'}</td><td class="hint">${u.last_login_at ? kst(u.last_login_at) : '접속 전'}</td><td class="hint">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-xs" data-qedit="${u.id}">수정</button> <button class="btn btn-xs" data-qpw="${u.id}">비밀번호 재설정</button> <button class="btn-link" data-qdel="${u.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">아직 발급한 계정이 없습니다. 아래에서 첫 계정을 만들어 주세요.</td></tr>'}</tbody></table></div></div>
+<tbody>${users.length ? users.map((u) => `<tr><td><strong>${esc(u.username)}</strong></td><td>${esc(u.name)}${u.company ? `<br><span class="hint">${esc(u.company)}</span>` : ''}${u.memo ? `<br><span class="hint">메모: ${esc(u.memo)}</span>` : ''}</td><td>${esc(u.phone || '-')}</td><td>${u.active ? '<span class="st st-ok">사용 중</span>' : '<span class="st st-off">사용 중지</span>'}</td><td class="hint">${u.last_login_at ? kst(u.last_login_at) : '접속 전'}</td><td class="hint">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right;white-space:nowrap"><a class="btn btn-xs" href="#quotelogs?user=${u.id}">견적 기록</a> <button class="btn btn-xs" data-qedit="${u.id}">수정</button> <button class="btn btn-xs" data-qpw="${u.id}">비밀번호 재설정</button> <button class="btn-link" data-qdel="${u.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">아직 발급한 계정이 없습니다. 아래에서 첫 계정을 만들어 주세요.</td></tr>'}</tbody></table></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">새 계정 만들기</h2>
 <div class="grid2"><label class="field">아이디 (영문 · 숫자 3자 이상)<input class="input" id="qnId" autocomplete="off"></label><label class="field">비밀번호 (8자 이상)<input class="input" id="qnPw" type="text" autocomplete="off"></label>
 <label class="field">이름<input class="input" id="qnName"></label><label class="field">소속 (회사 · 지점)<input class="input" id="qnCompany"></label>
@@ -967,6 +967,116 @@ PAGES.quoteusers = async () => {
     route();
   }));
 };
+
+// ── 견적 설정: 사용자 견적에 쓰이는 금리 · 보험료 · 자동차세 · 최대 잔가율 (사용자에게는 보이지 않음) ──
+PAGES.quoteconfig = async () => {
+  const { config: c, groups, terms } = await api('/api/admin/quote-config');
+  const p100 = (x) => (x === null || x === undefined || x === '' ? '' : String(Math.round(x * 10000) / 100));
+  const f = (k, label, v = c[k]) => `<label class="field">${label}<input class="input" data-c="${k}" value="${esc(v)}"></label>`;
+  const rvRow = (key, label, arr) => `<tr data-rv="${esc(key)}"><td><strong>${esc(label)}</strong></td>${terms.map((t, i) => `<td><input class="input" style="text-align:right" data-i="${i}" value="${p100(arr?.[i])}" placeholder="-" aria-label="${esc(label)} ${t}개월"></td>`).join('')}</tr>`;
+  main.innerHTML = `<div class="a-title"><div><h1>견적 설정</h1><p class="desc">견적 사용자 화면(/quote)의 렌트료 계산에 쓰입니다. 이 화면의 값은 사용자에게 보이지 않고, 사용자는 결과 금액만 봅니다.</p></div><button class="btn btn-red btn-sm" id="qcSave1">저장</button></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">금리 · 보험료</h2>
+<div class="grid2">${f('rate', '금리 (연 %)')}${f('insurance', '보험료 (월, 원)')}${f('ag', 'AG 수수료 (% 또는 원, 예: 5% / 1000000)')}${f('maint', '정비료 (월, 원) — Self 는 0')}</div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">최대 잔가율 (%)</h2>
+<p class="hint" style="margin:0">사용자는 이 값 이하로만 잔가율을 넣을 수 있고, 비워 두면 최대값이 적용됩니다. 약정거리가 기준보다 길면 아래 조정만큼 최대값이 내려갑니다. 칸을 비우면 그 기간은 견적을 낼 수 없습니다.</p>
+<div class="grid2">${f('rvKm', '잔가 기준 약정거리 (km/년)')}${f('rvAdj', '5천km당 잔가 조정 (%p)')}</div>
+<input class="input" id="rvFind" placeholder="잔가그룹 찾기 (예: 쏘렌토)" style="max-width:280px" aria-label="잔가그룹 찾기">
+<div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="rvTbl" style="min-width:560px"><thead><tr><th style="position:sticky;top:0">잔가그룹</th>${terms.map((t) => `<th style="position:sticky;top:0;text-align:right">${t}개월</th>`).join('')}</tr></thead>
+<tbody>${rvRow('__default', '잔가표에 없는 차종', c.rvDefault)}${groups.map((g) => rvRow(g, g, c.rv[g])).join('')}</tbody></table></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자동차세</h2>
+<label class="field" style="max-width:260px">승용 자동차세 기준<select class="select" data-c="carTax">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], c.carTax)}</select></label>
+<div class="split"><div class="l" style="overflow-x:auto"><table class="a-table" id="ccTbl"><thead><tr><th>승용 배기량</th><th style="text-align:right">영업용 (cc당)</th><th style="text-align:right">비영업용 (cc당)</th></tr></thead><tbody>
+${c.cc.map((r, i) => `<tr><td>${i < c.cc.length - 1 ? `${won(r[0])} ~ ${won(c.cc[i + 1][0] - 1)}cc` : `${won(r[0])}cc 초과`}</td><td><input class="input" style="text-align:right" data-cc="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-cc="${i}" data-j="2" value="${r[2]}"></td></tr>`).join('')}</tbody></table></div>
+<div class="r" style="overflow-x:auto"><table class="a-table" id="fxTbl"><thead><tr><th>화물 · 승합 · 전기 (연 정액)</th><th style="text-align:right">영업용</th><th style="text-align:right">비영업용</th><th>적용</th></tr></thead><tbody>
+${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="2" value="${r[2]}"></td><td><select class="select" data-fx="${i}" data-j="3">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], r[3])}</select></td></tr>`).join('')}</tbody></table></div></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">취득 비용 · 시공비</h2>
+<div class="grid2">${f('acq', '취득세율 (%)')}${f('plate1', '보조번호판')}${f('plate2', '번호판대')}${f('stamp', '인지대')}${f('reg', '등록대행 수수료')}${f('bond', '공채 할인비용')}${f('tint', '썬팅 시공비 (VAT포함)')}${f('bb', '블랙박스 시공비 (VAT포함)')}${f('del1', '제조사 탁송료 기본값 (사용자가 바꿀 수 있음)')}</div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">견적서 문구 (고객 견적서에 표시)</h2>
+<div class="grid2">${f('company', '회사명')}${f('call', '사고 · 정비 콜센터')}${f('insAge', '운전가능연령')}${f('insEmp', '임직원 전용 자동차보험')}${f('insBi', '대인')}${f('insPd', '대물')}${f('insSelf', '자기신체사고')}${f('insDed', '자차 면책금')}${f('insUn', '무보험차상해')}</div>
+<label class="field">안내사항<textarea class="textarea" data-c="guide" rows="3">${esc(c.guide)}</textarea></label></div>
+<div style="display:flex;justify-content:flex-end"><button class="btn btn-red btn-sm" id="qcSave2">저장</button></div>`;
+
+  $('#rvFind').addEventListener('input', () => {
+    const q = $('#rvFind').value.trim();
+    $$('#rvTbl tbody tr').forEach((tr) => (tr.hidden = !!q && tr.dataset.rv !== '__default' && !tr.dataset.rv.includes(q)));
+  });
+  const collect = () => {
+    const b = {};
+    $$('[data-c]').forEach((el) => (b[el.dataset.c] = el.value));
+    const rvOf = (tr) => $$('input', tr).map((i) => { const v = i.value.trim().replace('%', ''); return v === '' ? null : Number(v) / 100; });
+    b.rv = {};
+    for (const tr of $$('#rvTbl tbody tr')) {
+      if (tr.dataset.rv === '__default') b.rvDefault = rvOf(tr);
+      else b.rv[tr.dataset.rv] = rvOf(tr);
+    }
+    b.cc = c.cc.map((r) => [...r]);
+    $$('[data-cc]').forEach((el) => (b.cc[+el.dataset.cc][+el.dataset.j] = el.value));
+    b.fixed = c.fixed.map((r) => [...r]);
+    $$('[data-fx]').forEach((el) => (b.fixed[+el.dataset.fx][+el.dataset.j] = el.value));
+    return b;
+  };
+  const bad = () => {
+    for (const i of $$('#rvTbl input')) { const v = i.value.trim().replace('%', ''); if (v !== '' && !(Number(v) > 0 && Number(v) < 100)) { i.focus(); return '최대 잔가율은 0보다 크고 100보다 작은 % 숫자로 넣어 주세요.'; } }
+    return '';
+  };
+  const save = async () => {
+    const msg = bad();
+    if (msg) return toast(msg, true);
+    await run(() => api('/api/admin/quote-config', { method: 'PUT', body: collect() }), '견적 설정을 저장했습니다. 사용자 견적에 바로 적용됩니다.');
+    route();
+  };
+  $('#qcSave1').addEventListener('click', save);
+  $('#qcSave2').addEventListener('click', save);
+};
+
+// ── 견적 발행 기록: 누가 어느 견적을 냈는지 ──
+PAGES.quotelogs = async (arg) => {
+  if (arg) return quoteLogDetail(+arg);
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  const user = q.get('user') || '', kw = q.get('q') || '', page = +q.get('page') || 1;
+  const d = await api(`/api/admin/quote-logs?user=${encodeURIComponent(user)}&q=${encodeURIComponent(kw)}&page=${page}`);
+  const pages = Math.max(1, Math.ceil(d.total / d.size));
+  const go = (o) => { const p = new URLSearchParams({ user, q: kw, page: 1, ...o }); location.hash = '#quotelogs?' + p.toString(); };
+  main.innerHTML = `<div class="a-title"><div><h1>견적 발행 기록</h1><p class="desc">견적 사용자가 '견적서 발행'을 누를 때마다 기록됩니다. 줄을 누르면 적용된 금리 · 보험료와 계산 내역을 볼 수 있습니다.</p></div></div>
+<div class="box"><div class="toolbar"><select class="select" id="lgUser" aria-label="사용자">${opts([['', '전체 사용자'], ...d.users.map((u) => [u.user_id, `${u.user_name || '(삭제된 계정)'}${u.user_company ? ' · ' + u.user_company : ''} (${u.n})`])], user)}</select>
+<input class="input" id="lgQ" value="${esc(kw)}" placeholder="견적번호 · 고객 · 차량 검색" style="min-width:220px"><button class="btn btn-sm" id="lgGo">검색</button><span class="hint">${d.total}건</span></div>
+<div style="overflow-x:auto"><table class="a-table"><thead><tr><th>견적번호 · 발행일시</th><th>사용자</th><th>고객</th><th>차량</th><th class="num">차량가격</th><th>월 렌트료 (VAT포함)</th></tr></thead>
+<tbody>${d.logs.length ? d.logs.map((x) => `<tr class="click" data-id="${x.id}"><td><strong>${esc(x.no)}</strong><br><span class="hint">${kst(x.created_at)}</span></td><td>${esc(x.user_name)}<br><span class="hint">${esc(x.user_company || x.username)}</span></td><td>${esc(x.customer_name || '-')}<br><span class="hint">${esc(x.customer_type)}</span></td><td>${esc(x.vehicle)}</td><td class="num">${won(x.price)}</td><td>${esc(x.summary)}</td></tr>`).join('') : '<tr><td colspan="6" class="muted" style="padding:40px;text-align:center">아직 발행된 견적이 없습니다.</td></tr>'}</tbody></table></div>
+${pages > 1 ? `<div class="toolbar" style="border-top:1px solid var(--line);border-bottom:0;justify-content:center">${page > 1 ? `<button class="btn btn-xs" data-pg="${page - 1}">이전</button>` : ''}<span class="hint">${page} / ${pages}</span>${page < pages ? `<button class="btn btn-xs" data-pg="${page + 1}">다음</button>` : ''}</div>` : ''}</div>`;
+  $('#lgUser').addEventListener('change', () => go({ user: $('#lgUser').value }));
+  $('#lgGo').addEventListener('click', () => go({ q: $('#lgQ').value.trim() }));
+  $('#lgQ').addEventListener('keydown', (e) => e.key === 'Enter' && go({ q: $('#lgQ').value.trim() }));
+  $$('[data-pg]').forEach((b) => b.addEventListener('click', () => go({ page: b.dataset.pg })));
+  $$('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => (location.hash = '#quotelogs/' + tr.dataset.id)));
+};
+
+async function quoteLogDetail(id) {
+  const { log: x } = await api('/api/admin/quote-logs/' + id);
+  const r = x.result || {}, inp = x.input || {}, v = r.vehicle || {}, it = r.internal || {};
+  const ps = (r.products || []).filter((o) => o.on);
+  const pc = (n) => (Number.isFinite(n) ? (Math.round(n * 10000) / 100).toFixed(2) + '%' : '-');
+  const row = (label, f, cls = '') => `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td>${ps.map((o) => `<td class="num">${o.error ? (label === '월 납입금' ? `<span class="red">${esc(o.error)}</span>` : '') : f(o)}</td>`).join('')}</tr>`;
+  main.innerHTML = `<div class="a-title"><div><h1>견적 ${esc(x.no)}</h1><p class="desc">${kst(x.created_at)} 발행</p></div><a class="btn btn-sm" href="#quotelogs">목록으로</a></div>
+<div class="split"><div class="l box box-pad" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:16px">발행 정보</h2>
+<dl class="dl"><dt>사용자</dt><dd>${esc(x.user_name)} (${esc(x.username)})${x.user_company ? ' · ' + esc(x.user_company) : ''}</dd>
+<dt>고객</dt><dd>${esc(x.customer_name || '-')} (${esc(x.customer_type)})</dd><dt>견적서 담당자</dt><dd>${esc([inp.mgr, inp.tel].filter(Boolean).join(' / ') || '-')}</dd><dt>견적일</dt><dd>${esc(inp.date || '-')}</dd></dl></div>
+<div class="r box box-pad" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:16px">차량</h2>
+<dl class="dl"><dt>차량</dt><dd>${esc(x.vehicle)}</dd><dt>기본가격</dt><dd>${won(v.base)}원</dd>
+<dt>옵션</dt><dd>${(v.optList || []).length ? v.optList.map((o) => `${esc(o[0])} (${won(o[1])})`).join('\n') : '없음'}</dd>
+<dt>추가금</dt><dd>${won(v.extra)}원</dd><dt>차량가격</dt><dd><strong>${won(v.price)}원</strong></dd>
+<dt>색상</dt><dd>외장 ${esc(inp.ext || '-')} / 내장 ${esc(inp.int || '-')}</dd>
+<dt>탁송</dt><dd>제조사 ${won(inp.del1)} · 2차 ${won(inp.del2)} · 3차 ${won(inp.del3)}</dd>
+<dt>장착</dt><dd>썬팅 ${esc(inp.tint)} · 블랙박스 ${esc(inp.bb)}${inp.otherName ? ` · ${esc(inp.otherName)} ${won(inp.otherAmt)}원` : ''}</dd></dl></div></div>
+<div class="box"><div class="box-head"><h2>상품별 계산 (관리자만 보임)</h2><span class="hint">적용 금리 ${pc(it.rate)} · 보험료 월 ${won(it.ins)}원 · AG ${esc(it.ag)} · 연 자동차세 ${won(it.yTax)}원 · 잔가그룹 ${esc(it.rvGroup || '-')}</span></div>
+<div style="overflow-x:auto"><table class="a-table"><thead><tr><th>항목</th>${ps.map((o) => `<th class="num">${o.n}개월</th>`).join('')}</tr></thead><tbody>
+${row('약정거리', (o) => won(o.km) + 'km')}${row('선납금', (o) => won(o.pre))}${row('보증금', (o) => won(o.dep))}
+${row('잔가율 (적용 / 최대)', (o) => `${pc(o.rv)} / ${pc(o.rvMax)}`)}${row('잔가금액 (공급가)', (o) => won(o.rvAmt))}
+${row('총 취득원가', () => won(it.acqCost))}${row('AG 수수료', (o) => won(o.ag))}${row('총 투입원가', (o) => won(o.invest))}
+${row('월 렌트료 (금융분)', (o) => won(o.fin))}${row('자동차세 (월)', (o) => won(o.tax))}${row('보험료 (월)', (o) => won(o.ins))}${row('정비 (월)', (o) => won(o.maint))}
+${row('월 렌트료 (공급가)', (o) => won(o.supply))}${row('부가세', (o) => won(o.vat))}${row('월 납입금', (o) => `<strong>${won(o.month)}</strong>`)}
+${row('출고 전 납입', (o) => won(o.upfront))}${row('총 납입 (월 × 기간 + 선납)', (o) => won(o.total))}${row('실질금리 (AG 지급 후)', (o) => pc(o.irr))}
+</tbody></table></div></div>`;
+}
 
 
 boot();

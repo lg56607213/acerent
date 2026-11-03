@@ -11,16 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="stylesheet" href="/admin/admin.css">
-<style>
-  .q-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 2px solid var(--ink); background: #fff; }
-  .q-head .who { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--gray); flex-wrap: wrap; }
-  .q-head .who strong { color: var(--ink); font-size: 14px; }
-  .q-main { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
-  .q-ready { border: 1px solid var(--line); border-top: 4px solid var(--red); padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; }
-  .q-ready h1 { font-size: 20px; margin: 0; }
-  .q-ready p { margin: 0; }
-  .q-btn { height: 34px; padding: 0 12px; font-size: 13px; }
-</style>
+<link rel="stylesheet" href="/quote/quote.css">
 </head>
 <body>
 
@@ -39,19 +30,74 @@
 
 <div id="appView" hidden>
 <header class="q-head">
-  <a href="/quote"><img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:34px;display:block"></a>
+  <div style="display:flex;align-items:center;gap:14px">
+    <a href="/quote/"><img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:34px;display:block"></a>
+    <strong style="font-size:15px;padding-left:14px;border-left:1px solid var(--line)">장기렌트 견적</strong>
+  </div>
   <div class="who">
     <span><strong id="whoName"></strong> <span id="whoCompany"></span></span>
-    <button class="btn q-btn" type="button" id="pwBtn">비밀번호 변경</button>
-    <button class="btn q-btn" type="button" id="logoutBtn">로그아웃</button>
+    <button class="btn" type="button" id="resetBtn">새 견적</button>
+    <button class="btn" type="button" id="pwBtn">비밀번호 변경</button>
+    <button class="btn" type="button" id="logoutBtn">로그아웃</button>
+    <button class="btn btn-red" type="button" id="issueBtn" disabled>견적서 발행 (PDF)</button>
   </div>
 </header>
-<main class="q-main">
-  <div class="q-ready">
-    <h1>장기렌트 견적</h1>
-    <p class="muted">로그인되었습니다. 견적 화면은 준비 중이며, 열리는 대로 이 주소에서 바로 사용하실 수 있습니다.</p>
+
+<div class="q-wrap">
+  <div class="q-col">
+    <section class="q-box">
+      <h2>차량 선택 <span class="tag" id="vehTag">미선택</span></h2>
+      <div class="q-fields">
+        <label class="field">브랜드<select class="select" id="mk"></select></label>
+        <label class="field">구분<select class="select" id="cat"></select></label>
+        <label class="field">모델<select class="select" id="model"></select></label>
+        <label class="field">라인업<select class="select" id="line"></select></label>
+        <label class="field wide">트림<select class="select" id="trim"></select></label>
+      </div>
+      <div class="q-opts" id="opts"></div>
+      <div class="q-status" id="vehStatus"></div>
+      <div class="q-price" id="priceBox"></div>
+    </section>
+
+    <section class="q-box">
+      <h2>색상 · 탁송 · 장착</h2>
+      <div class="q-fields">
+        <label class="field">외장 색상<input class="input" id="ext" list="extList" autocomplete="off"><datalist id="extList"></datalist></label>
+        <label class="field">내장 색상<input class="input" id="int" list="intList" autocomplete="off"><datalist id="intList"></datalist></label>
+        <label class="field">색상 · 기타 추가금<input class="input num" id="extra" inputmode="numeric"></label>
+        <label class="field">제조사 탁송료 (VAT포함)<input class="input num" id="del1" inputmode="numeric"></label>
+        <label class="field">2차 탁송 (외주)<input class="input num" id="del2" inputmode="numeric"></label>
+        <label class="field">3차 탁송 (납품)<input class="input num" id="del3" inputmode="numeric"></label>
+        <label class="field">썬팅<select class="select" id="tint"><option>고객자체시공</option><option>에이스렌트카 시공</option></select></label>
+        <label class="field">블랙박스<select class="select" id="bb"><option>고객자체시공</option><option>에이스렌트카 시공</option></select></label>
+        <label class="field">기타 외주장착 (견적서 표기)<input class="input" id="otherName"></label>
+        <label class="field">기타 외주장착 금액 (VAT포함)<input class="input num" id="otherAmt" inputmode="numeric"></label>
+      </div>
+      <p class="small muted" id="colorNote" style="margin:10px 0 0"></p>
+    </section>
+
+    <section class="q-box">
+      <h2>고객 · 담당자</h2>
+      <div class="q-fields">
+        <label class="field">고객구분<select class="select" id="ctype"><option>법인</option><option>개인사업자</option><option>개인</option></select></label>
+        <label class="field">고객명<input class="input" id="cname" placeholder="예) 주식회사 한빛물류"></label>
+        <label class="field">담당자<input class="input" id="mgr"></label>
+        <label class="field">연락처<input class="input" id="tel" inputmode="tel"></label>
+        <label class="field">견적일<input class="input" id="qdate" type="date"></label>
+      </div>
+    </section>
+
+    <section class="q-box">
+      <h2>상품 조건 <span class="tag" id="prodTag"></span></h2>
+      <div class="q-scroll"><table class="q-pt" id="pt"></table></div>
+    </section>
   </div>
-</main>
+
+  <div class="q-col q-preview">
+    <h2>고객 견적서 미리보기</h2>
+    <div class="q-stage" id="stage"><div class="q-scaler" id="scaler"><div class="paper" id="paper"></div></div></div>
+  </div>
+</div>
 </div>
 
 <dialog id="dlg" class="dlg"><form method="dialog" id="dlgBody">
@@ -62,62 +108,11 @@
 <p class="error-msg" id="pwErr" role="alert" style="margin:0"></p>
 <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="pwSave">변경</button></div>
 </form></dialog>
+<div id="offscreen"></div>
 <div class="toast" id="toast" hidden></div>
 
-<script type="module">
-const $ = (s) => document.querySelector(s);
-async function api(path, { method = 'GET', body } = {}) {
-  const r = await fetch(path, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || '잠시 후 다시 시도해 주세요.');
-  return d;
-}
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600); }
-
-async function boot() {
-  const { user } = await api('/api/quote/me').catch(() => ({ user: null }));
-  $('#loginView').hidden = !!user;
-  $('#appView').hidden = !user;
-  if (!user) { $('#loginForm').username.focus(); return; }
-  $('#whoName').textContent = (user.name || user.username) + ' 님';
-  $('#whoCompany').textContent = user.company ? '· ' + user.company : '';
-}
-
-$('#loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  $('#loginErr').textContent = '';
-  $('#loginBtn').disabled = true;
-  try {
-    await api('/api/quote/login', { method: 'POST', body: { username: f.username.value.trim(), password: f.password.value } });
-    f.reset();
-    await boot();
-  } catch (err) {
-    $('#loginErr').textContent = err.message;
-  } finally {
-    $('#loginBtn').disabled = false;
-  }
-});
-
-$('#logoutBtn').addEventListener('click', async () => { await api('/api/quote/logout', { method: 'POST' }).catch(() => {}); boot(); });
-
-$('#pwBtn').addEventListener('click', () => { ['#pwCur', '#pwNew', '#pwNew2'].forEach((x) => ($(x).value = '')); $('#pwErr').textContent = ''; $('#dlg').showModal(); });
-$('#pwSave').addEventListener('click', async () => {
-  const err = $('#pwErr');
-  err.textContent = '';
-  if ($('#pwNew').value.length < 8) return (err.textContent = '새 비밀번호는 8자 이상으로 정해 주세요.');
-  if ($('#pwNew').value !== $('#pwNew2').value) return (err.textContent = '새 비밀번호 확인이 일치하지 않습니다.');
-  try {
-    await api('/api/quote/password', { method: 'POST', body: { current: $('#pwCur').value, next: $('#pwNew').value } });
-    $('#dlg').close();
-    toast('비밀번호를 바꿨습니다.');
-  } catch (e) {
-    if (/로그인/.test(e.message)) { $('#dlg').close(); return boot(); }
-    err.textContent = e.message;
-  }
-});
-
-boot();
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module" src="/quote/quote.js"></script>
 </body>
 </html>

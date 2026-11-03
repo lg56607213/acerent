@@ -10,3 +10,4 @@
 - rentcarerp 연동 명세: docs/rentcarerp-api.md
 - 중장기 월 대여료 계산식은 public/assets/longcalc.js 하나(화면 · 서버 공용). 기간별 기준 월 대여료는 long_prices 의 dep_pct = 0 행.
 - 계정 2종류: 관리자(admin_users · 쿠키 ace_admin · /admin) / 견적 사용자(quote_users · 쿠키 ace_quote · /quote, src/lib/quoteAuth.js · src/routes/quote.js). 견적 사용자에게 원가 · AG수수료 · 금리가 보이면 안 됨 — 관리자용 견적기(src/pages/quote.html)는 /admin/quote 에서 관리자에게만 제공.
+- 견적 사용자 렌트료 계산은 src/lib/rentcalc.js (서버 전용, 엑셀 견적기와 같은 식). 설정은 settings.quote_config(JSON). 사용자 응답은 toPublic() 으로 결과 금액만 — 금리 · 보험료 · 원가 · 금융분 · IRR 을 응답에 넣지 말 것. 차량 가격표 데이터는 src/data/quote-data.json.
