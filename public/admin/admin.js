@@ -976,7 +976,8 @@ PAGES.quoteconfig = async () => {
   const rvRow = (key, label, arr) => `<tr data-rv="${esc(key)}"><td><strong>${esc(label)}</strong></td>${terms.map((t, i) => `<td><input class="input" style="text-align:right" data-i="${i}" value="${p100(arr?.[i])}" placeholder="-" aria-label="${esc(label)} ${t}개월"></td>`).join('')}</tr>`;
   main.innerHTML = `<div class="a-title"><div><h1>견적 설정</h1><p class="desc">견적 사용자 화면(/quote)의 렌트료 계산에 쓰입니다. 이 화면의 값은 사용자에게 보이지 않고, 사용자는 결과 금액만 봅니다.</p></div><button class="btn btn-red btn-sm" id="qcSave1">저장</button></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">금리 · 보험료</h2>
-<div class="grid2">${f('rate', '금리 (연 %)')}${f('insurance', '보험료 (월, 원)')}${f('ag', 'AG 수수료 (% 또는 원, 예: 5% / 1000000)')}${f('maint', '정비료 (월, 원) — Self 는 0')}</div></div>
+<p class="hint" style="margin:0">렌트료 계산의 AG 수수료는 여기서 정한 관리자 AG에, 사용자가 상품별로 직접 넣는 사용자 AG를 더한 금액입니다.</p>
+<div class="grid2">${f('rate', '금리 (연 %)')}${f('insurance', '보험료 (월, 원)')}${f('ag', '관리자 AG 수수료 (% 또는 원, 예: 1%) — 사용자에게 안 보임')}${f('maint', '정비료 (월, 원) — Self 는 0')}</div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">최대 잔가율 (%)</h2>
 <p class="hint" style="margin:0">사용자는 이 값 이하로만 잔가율을 넣을 수 있고, 비워 두면 최대값이 적용됩니다. 약정거리가 기준보다 길면 아래 조정만큼 최대값이 내려갑니다. 칸을 비우면 그 기간은 견적을 낼 수 없습니다.</p>
 <div class="grid2">${f('rvKm', '잔가 기준 약정거리 (km/년)')}${f('rvAdj', '5천km당 잔가 조정 (%p)')}</div>
@@ -1067,11 +1068,11 @@ async function quoteLogDetail(id) {
 <dt>색상</dt><dd>외장 ${esc(inp.ext || '-')} / 내장 ${esc(inp.int || '-')}</dd>
 <dt>탁송</dt><dd>제조사 ${won(inp.del1)} · 2차 ${won(inp.del2)} · 3차 ${won(inp.del3)}</dd>
 <dt>장착</dt><dd>썬팅 ${esc(inp.tint)} · 블랙박스 ${esc(inp.bb)}${inp.otherName ? ` · ${esc(inp.otherName)} ${won(inp.otherAmt)}원` : ''}</dd></dl></div></div>
-<div class="box"><div class="box-head"><h2>상품별 계산 (관리자만 보임)</h2><span class="hint">적용 금리 ${pc(it.rate)} · 보험료 월 ${won(it.ins)}원 · AG ${esc(it.ag)} · 연 자동차세 ${won(it.yTax)}원 · 잔가그룹 ${esc(it.rvGroup || '-')}</span></div>
+<div class="box"><div class="box-head"><h2>상품별 계산 (관리자만 보임)</h2><span class="hint">적용 금리 ${pc(it.rate)} · 보험료 월 ${won(it.ins)}원 · 관리자 AG ${esc(it.ag)} · 연 자동차세 ${won(it.yTax)}원 · 잔가그룹 ${esc(it.rvGroup || '-')}</span></div>
 <div style="overflow-x:auto"><table class="a-table"><thead><tr><th>항목</th>${ps.map((o) => `<th class="num">${o.n}개월</th>`).join('')}</tr></thead><tbody>
 ${row('약정거리', (o) => won(o.km) + 'km')}${row('선납금', (o) => won(o.pre))}${row('보증금', (o) => won(o.dep))}
 ${row('잔가율 (적용 / 최대)', (o) => `${pc(o.rv)} / ${pc(o.rvMax)}`)}${row('잔가금액 (공급가)', (o) => won(o.rvAmt))}
-${row('총 취득원가', () => won(it.acqCost))}${row('AG 수수료', (o) => won(o.ag))}${row('총 투입원가', (o) => won(o.invest))}
+${row('총 취득원가', () => won(it.acqCost))}${row('AG 수수료 · 관리자', (o) => won(o.agAdmin ?? o.ag))}${row('AG 수수료 · 사용자 입력', (o) => (o.agUser !== undefined ? won(o.agUser) : '-'))}${row('AG 수수료 합계', (o) => won(o.ag))}${row('총 투입원가', (o) => won(o.invest))}
 ${row('월 렌트료 (금융분)', (o) => won(o.fin))}${row('자동차세 (월)', (o) => won(o.tax))}${row('보험료 (월)', (o) => won(o.ins))}${row('정비 (월)', (o) => won(o.maint))}
 ${row('월 렌트료 (공급가)', (o) => won(o.supply))}${row('부가세', (o) => won(o.vat))}${row('월 납입금', (o) => `<strong>${won(o.month)}</strong>`)}
 ${row('출고 전 납입', (o) => won(o.upfront))}${row('총 납입 (월 × 기간 + 선납)', (o) => won(o.total))}${row('실질금리 (AG 지급 후)', (o) => pc(o.irr))}

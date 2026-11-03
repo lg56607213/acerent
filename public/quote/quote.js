@@ -17,7 +17,7 @@ const pct = (x) => (Math.round(x * 1000) / 10).toFixed(1) + '%';
 function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.classList.toggle('err', !!err); t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 3000); }
 
 function blankState() {
-  const P = (term, dep) => ({ on: true, term, km: 30000, pre: '0', dep, rv: '' });
+  const P = (term, dep) => ({ on: true, term, km: 30000, pre: '0', dep, rv: '', ag: '0' });
   return {
     date: today(), v: { mk: '', cat: '', model: '', line: '', trim: '' }, opts: [],
     ext: '', int: '', extra: '0', del1: String(CFG.del1 ?? 330000), del2: '0', del3: '0',
@@ -44,6 +44,7 @@ async function boot() {
   } catch (e) { return toast(e.message, true); }
   S = loadDraft() || blankState();
   if (!S.P || S.P.length !== 3) S = blankState();
+  S.P.forEach((p) => { if (p.ag === undefined) p.ag = '0'; });
   syncInputs(); renderVehicle(); buildProducts(); recalc(true);
 }
 
@@ -137,6 +138,7 @@ ${row('약정거리 (km/년)', (i) => sel(i, 'km', KMS, (x) => won(x)))}
 ${row('선납금 (% 또는 원)', (i) => inp(i, 'pre', '0'))}
 ${row('보증금 (% 또는 원)', (i) => inp(i, 'dep', '10%'))}
 ${row('잔가율 (%)', (i) => inp(i, 'rv', '최대'))}
+${row('AG수수료 (% 또는 원)', (i) => inp(i, 'ag', '0'))}
 ${res('월 렌트료 (공급가)', 'sup')}${res('부가세', 'vat')}${res('월 납입금', 'mon', 'main')}${res('출고 전 납입', 'up')}
 </tbody>`;
 }
@@ -196,7 +198,7 @@ function renderResults() {
   S.P.forEach((p, i) => {
     const o = ps?.[i];
     const set = (k, v) => { const el = $('#r' + i + k); if (el) { el.textContent = v; el.classList.remove('err'); } };
-    ['pre', 'dep', 'rv'].forEach((k) => { const s = $('#s' + i + k); if (s) { s.textContent = ''; s.classList.remove('warn'); } });
+    ['pre', 'dep', 'rv', 'ag'].forEach((k) => { const s = $('#s' + i + k); if (s) { s.textContent = ''; s.classList.remove('warn'); } });
     if (!o) { ['sup', 'vat', 'mon', 'up'].forEach((k) => set(k, '-')); return; }
     if (o.error) {
       ['sup', 'vat', 'up'].forEach((k) => set(k, ''));
@@ -205,6 +207,7 @@ function renderResults() {
     }
     $('#s' + i + 'pre').textContent = won(o.pre) + '원';
     $('#s' + i + 'dep').textContent = won(o.dep) + '원';
+    $('#s' + i + 'ag').textContent = won(o.agUser) + '원';
     const rs = $('#s' + i + 'rv');
     rs.textContent = o.rvCapped ? `최대 ${pct(o.rvMax)}까지 · ${pct(o.rv)} 적용` : `${pct(o.rv)} 적용 (최대 ${pct(o.rvMax)})`;
     rs.classList.toggle('warn', !!o.rvCapped);

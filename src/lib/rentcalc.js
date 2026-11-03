@@ -9,7 +9,7 @@ export const TERMS = [12, 24, 36, 48, 60];
 export const DEFAULT_QUOTE_CONFIG = {
   rate: 12, // 연 %
   insurance: 100000, // 월 보험료 (원)
-  ag: '5%', // AG 수수료: % 또는 원
+  ag: '1%', // 관리자 AG 수수료 (사용자에게 안 보임): % 또는 원. 사용자 AG 는 상품별로 사용자가 따로 입력
   maint: 0, // 월 정비료 (Self)
   acq: 4, // 취득세율 %
   plate1: 10800, plate2: 22000, stamp: 2000, reg: 20000, bond: 0,
@@ -112,7 +112,7 @@ export function cleanInput(b) {
       on: !!p?.on,
       term: TERMS.includes(+p?.term) ? +p.term : 36,
       km: Math.min(100000, Math.max(5000, Math.round(num(p?.km)) || 30000)),
-      pre: s(p?.pre, 20), dep: s(p?.dep, 20), rv: s(p?.rv, 10),
+      pre: s(p?.pre, 20), dep: s(p?.dep, 20), rv: s(p?.rv, 10), ag: s(p?.ag, 20),
     })),
   };
 }
@@ -143,7 +143,10 @@ export function computeQuote(input, cfg) {
 
   const products = input.P.map((p) => {
     const o = { on: p.on, n: p.term, km: p.km };
-    o.ag = amountOf(cfg.ag, price, 1.1);
+    // AG 수수료 = 관리자 AG(고정, 비공개) + 사용자 AG(사용자가 렌트료를 맞추려고 직접 넣는 값)
+    o.agAdmin = Math.max(0, amountOf(cfg.ag, price, 1.1));
+    o.agUser = Math.max(0, amountOf(p.ag, price, 1.1));
+    o.ag = o.agAdmin + o.agUser;
     o.invest = acqCost + o.ag;
     o.pre = amountOf(p.pre, price);
     o.pre11 = R(o.pre / 1.1);
@@ -186,7 +189,7 @@ export function toPublic(r) {
     products: r.products.map((o) =>
       o.error
         ? { on: o.on, n: o.n, km: o.km, error: o.error }
-        : { on: o.on, n: o.n, km: o.km, pre: o.pre, dep: o.dep, rv: o.rv, rvMax: o.rvMax, rvCapped: o.rvCapped, rvAmtVat: o.rvAmtVat, supply: o.supply, vat: o.vat, month: o.month, upfront: o.upfront, total: o.total }
+        : { on: o.on, n: o.n, km: o.km, pre: o.pre, dep: o.dep, agUser: o.agUser, rv: o.rv, rvMax: o.rvMax, rvCapped: o.rvCapped, rvAmtVat: o.rvAmtVat, supply: o.supply, vat: o.vat, month: o.month, upfront: o.upfront, total: o.total }
     ),
   };
 }

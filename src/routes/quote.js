@@ -105,7 +105,7 @@ export function registerQuote(r) {
     if (broken) throw bad(broken.error);
     const v = res.vehicle;
     const vehicle = [v.mk, v.model, v.line, v.trim].filter(Boolean).join(' ');
-    const summary = shown.map((o) => `${o.n}개월 ${wonTxt(o.month)}`).join(' / ');
+    const summary = shown.map((o) => `${o.n}개월 ${wonTxt(o.month)}${o.agUser ? ` (사용자AG ${wonTxt(o.agUser)})` : ''}`).join(' / ');
     let no = '';
     for (let i = 0; i < 3; i++) {
       no = await nextNo(env.DB, 'quote_logs', 'Q');
