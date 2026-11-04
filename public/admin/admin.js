@@ -970,7 +970,8 @@ PAGES.quoteusers = async () => {
 
 // ── 견적 설정: 사용자 견적에 쓰이는 금리 · 보험료 · 자동차세 · 최대 잔가율 (사용자에게는 보이지 않음) ──
 PAGES.quoteconfig = async () => {
-  const { config: c, groups, terms } = await api('/api/admin/quote-config');
+  const { config: c, groups, terms, models, insFields } = await api('/api/admin/quote-config');
+  let grades = c.insGrades.map((g) => ({ ...g }));
   const p100 = (x) => (x === null || x === undefined || x === '' ? '' : String(Math.round(x * 10000) / 100));
   const f = (k, label, v = c[k]) => `<label class="field">${label}<input class="input" data-c="${k}" value="${esc(v)}"></label>`;
   const rvRow = (key, label, arr) => `<tr data-rv="${esc(key)}"><td><strong>${esc(label)}</strong></td>${terms.map((t, i) => `<td><input class="input" style="text-align:right" data-i="${i}" value="${p100(arr?.[i])}" placeholder="-" aria-label="${esc(label)} ${t}개월"></td>`).join('')}</tr>`;
@@ -992,10 +993,46 @@ ${c.cc.map((r, i) => `<tr><td>${i < c.cc.length - 1 ? `${won(r[0])} ~ ${won(c.cc
 ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="2" value="${r[2]}"></td><td><select class="select" data-fx="${i}" data-j="3">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], r[3])}</select></td></tr>`).join('')}</tbody></table></div></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">취득 비용 · 시공비</h2>
 <div class="grid2">${f('acq', '취득세율 (%)')}${f('plate1', '보조번호판')}${f('plate2', '번호판대')}${f('stamp', '인지대')}${f('reg', '등록대행 수수료')}${f('bond', '공채 할인비용')}${f('tint', '썬팅 시공비 (VAT포함)')}${f('bb', '블랙박스 시공비 (VAT포함)')}${f('del1', '제조사 탁송료 기본값 (사용자가 바꿀 수 있음)')}</div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">보험 조건 (차종별 · 고객 견적서에 표시)</h2>
+<p class="hint" style="margin:0">보험 등급마다 보상 한도와 면책금을 정하고, 아래 차종 표에서 차종별로 등급을 지정합니다. 견적서에는 선택한 차종의 등급 값이 나갑니다.</p>
+<div class="grid2">${f('insAge', '운전가능연령 (전 차종 공통)')}</div>
+<div style="overflow-x:auto"><table class="a-table" id="grTbl" style="min-width:1100px"></table></div>
+<div><button class="btn btn-sm" type="button" id="grAdd">+ 보험 등급 추가</button></div>
+<input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
+<div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">견적서 문구 (고객 견적서에 표시)</h2>
-<div class="grid2">${f('company', '회사명')}${f('call', '사고 · 정비 콜센터')}${f('insAge', '운전가능연령')}${f('insEmp', '임직원 전용 자동차보험')}${f('insBi', '대인')}${f('insPd', '대물')}${f('insSelf', '자기신체사고')}${f('insDed', '자차 면책금')}${f('insUn', '무보험차상해')}</div>
+<div class="grid2">${f('company', '회사명')}${f('call', '사고접수 · 긴급출동 번호')}${f('maturity', '만기처리 (예: 반납형)')}${f('insNote', '보험 안내 문구 (보험 표 아래 ※ 한 줄, 비우면 표시 안 함)')}</div>
 <label class="field">안내사항<textarea class="textarea" data-c="guide" rows="3">${esc(c.guide)}</textarea></label></div>
 <div style="display:flex;justify-content:flex-end"><button class="btn btn-red btn-sm" id="qcSave2">저장</button></div>`;
+
+  // 보험 등급 표 · 차종별 등급 지정
+  const curMap = { ...c.insMap };
+  const drawGrades = () => {
+    $('#grTbl').innerHTML = `<thead><tr><th>등급명</th>${insFields.map(([, l]) => `<th>${esc(l)}</th>`).join('')}<th>차종 수</th><th></th></tr></thead><tbody>${grades.map((g, i) => `<tr><td><input class="input" data-g="${i}" data-k="name" value="${esc(g.name)}" style="min-width:90px"></td>${insFields.map(([k]) => `<td><input class="input" data-g="${i}" data-k="${k}" value="${esc(g[k] || '')}" style="min-width:100px"></td>`).join('')}<td class="hint" style="white-space:nowrap">${Object.values(curMap).filter((v) => v === g.id).length}개</td><td>${grades.length > 1 ? `<button class="btn-link" type="button" data-gdel="${i}">삭제</button>` : ''}</td></tr>`).join('')}</tbody>`;
+    $$('[data-gdel]').forEach((b) => b.addEventListener('click', () => {
+      const g = grades[+b.dataset.gdel];
+      grades.splice(+b.dataset.gdel, 1);
+      for (const k in curMap) if (curMap[k] === g.id) curMap[k] = grades[0].id;
+      drawGrades(); drawMap();
+    }));
+  };
+  const drawMap = () => {
+    const q = $('#imFind').value.trim();
+    $('#imTbl').innerHTML = `<thead><tr><th style="position:sticky;top:0">제조사</th><th style="position:sticky;top:0">구분</th><th style="position:sticky;top:0">모델</th><th style="position:sticky;top:0">보험 등급</th></tr></thead><tbody>${models.filter((m) => !q || m.model.includes(q) || m.cat.includes(q)).map((m) => `<tr><td>${esc(m.mk)}</td><td>${esc(m.cat)}</td><td><strong>${esc(m.model)}</strong></td><td><select class="select" data-im="${esc(m.key)}">${opts(grades.map((g) => [g.id, `${g.name} (자차 ${g.car || '-'})`]), curMap[m.key])}</select></td></tr>`).join('')}</tbody>`;
+    $$('[data-im]').forEach((s) => s.addEventListener('change', () => { curMap[s.dataset.im] = s.value; drawGrades(); }));
+  };
+  $('#grTbl').addEventListener('input', (e) => {
+    const t = e.target; if (t.dataset.g === undefined) return;
+    grades[+t.dataset.g][t.dataset.k] = t.value;
+    if (t.dataset.k === 'name' || t.dataset.k === 'car') drawMap();
+  });
+  $('#grAdd').addEventListener('click', () => {
+    let n = grades.length + 1; while (grades.some((g) => g.id === 'g' + n)) n++;
+    grades.push({ ...grades[grades.length - 1], id: 'g' + n, name: '새 등급' });
+    drawGrades(); drawMap();
+  });
+  $('#imFind').addEventListener('input', drawMap);
+  drawGrades(); drawMap();
 
   $('#rvFind').addEventListener('input', () => {
     const q = $('#rvFind').value.trim();
@@ -1014,6 +1051,8 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
     $$('[data-cc]').forEach((el) => (b.cc[+el.dataset.cc][+el.dataset.j] = el.value));
     b.fixed = c.fixed.map((r) => [...r]);
     $$('[data-fx]').forEach((el) => (b.fixed[+el.dataset.fx][+el.dataset.j] = el.value));
+    b.insGrades = grades;
+    b.insMap = curMap;
     return b;
   };
   const bad = () => {
@@ -1067,6 +1106,7 @@ async function quoteLogDetail(id) {
 <dt>추가금</dt><dd>${won(v.extra)}원</dd><dt>차량가격</dt><dd><strong>${won(v.price)}원</strong></dd>
 <dt>색상</dt><dd>외장 ${esc(inp.ext || '-')} / 내장 ${esc(inp.int || '-')}</dd>
 <dt>탁송</dt><dd>제조사 ${won(inp.del1)} · 2차 ${won(inp.del2)} · 3차 ${won(inp.del3)}</dd>
+<dt>보험</dt><dd>${v.ins ? `${esc(v.ins.grade)} · 자차 한도 ${esc(v.ins.car)} · 면책금 대인 ${esc(v.ins.dBi)} / 대물 ${esc(v.ins.dPd)} / 자손 ${esc(v.ins.dSelf)} / 자차 ${esc(v.ins.dCar)}` : '-'}</dd>
 <dt>장착</dt><dd>썬팅 ${esc(inp.tint)} · 블랙박스 ${esc(inp.bb)}${inp.otherName ? ` · ${esc(inp.otherName)} ${won(inp.otherAmt)}원` : ''}</dd></dl></div></div>
 <div class="box"><div class="box-head"><h2>상품별 계산 (관리자만 보임)</h2><span class="hint">적용 금리 ${pc(it.rate)} · 보험료 월 ${won(it.ins)}원 · 관리자 AG ${esc(it.ag)} · 연 자동차세 ${won(it.yTax)}원 · 잔가그룹 ${esc(it.rvGroup || '-')}</span></div>
 <div style="overflow-x:auto"><table class="a-table"><thead><tr><th>항목</th>${ps.map((o) => `<th class="num">${o.n}개월</th>`).join('')}</tr></thead><tbody>

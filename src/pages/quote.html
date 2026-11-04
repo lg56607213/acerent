@@ -231,6 +231,7 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
   </div>
   <div>
     <h2>견적서 문구</h2>
+    <p class="note" style="margin:0 0 8px">보험 조건(차종별 보상 한도 · 면책금), 운전가능연령, 만기처리, 사고접수 번호는 홈페이지 관리자 › 견적 설정에서 정합니다.</p>
     <div class="fields" id="docFields"></div>
   </div>
   <div class="row"><button class="btn" id="setDefault" type="button">처음 값으로</button><button class="btn primary" id="setClose" type="button">저장하고 닫기</button></div>
@@ -271,6 +272,20 @@ function defState(sample){
   }
   return s;
 }
+// 차종별 보험 조건: 관리자 '견적 설정'(/api/admin/quote-config)에서 받아오고, 못 받으면 계약서 기준 기본값
+const INS_LARGE=['그랜저','K8','K9','싼타페','쏘렌토','팰리세이드(가솔린)','팰리세이드 Hybird','타스만','카니발','카니발 하이리무진','스타리아','스타리아 Hybrid','스타리아 라운지','스타리아 킨더','스타리아 리무진','아이오닉9','EV9','디올 뉴 넥쏘','더 뉴 스타리아 Electric','더 뉴 스타리아 라운지 Electric','더 뉴 스타리아 리무진 Electric'];
+const INS_G=(id,name,car)=>({id,name,bi:'무제한',pd:'1억',self:'1,500만원',car,un:'가입',dBi:'50만원',dPd:'50만원',dSelf:'50만원',dCar:'50만원'});
+let INS={insAge:'만 26세 이상',call:'1661-7977',maturity:'반납형',insNote:'보험 보상 및 면책 조건의 세부 내용은 렌트 계약서 기준으로 적용됩니다.',insGrades:[INS_G('mid','소·중형','400만원'),INS_G('large','대형','700만원')],insMap:null};
+function insGrade(){
+  const v=S.v, key=v.mk+'|'+v.cat+'|'+v.model;
+  const id=INS.insMap?INS.insMap[key]:(INS_LARGE.includes(v.model)?'large':'mid');
+  return INS.insGrades.find(g=>g.id===id)||INS.insGrades[0]||{};
+}
+fetch('/api/admin/quote-config',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
+  if(!d||!d.config) return; const c=d.config;
+  INS={insAge:c.insAge,call:c.call,maturity:c.maturity,insNote:c.insNote,insGrades:c.insGrades,insMap:c.insMap};
+  if(typeof update==='function'&&C) update();
+}).catch(()=>{});
 let SET = load('ace_set') || structuredClone(DEF_SET);
 for(const k in DEF_SET) if(SET[k]===undefined) SET[k]=structuredClone(DEF_SET[k]);
 let S = load('ace_state') || defState(true);
@@ -510,7 +525,7 @@ function renderPaper(){
   <h3>계약정보</h3>`;
   if(!on.length) h+='<div class="guide">견적서에 표시할 상품을 하나 이상 선택하세요.</div>';
   else h+=`<table class="k"><tr><th></th>${on.map(x=>'<th class="prod">'+x[0].n+'개월</th>').join('')}</tr>
-  <tr><th>만기처리</th>${cell(()=>'반납/인수 선택형','c')}</tr>
+  <tr><th>만기처리</th>${cell(()=>esc(INS.maturity||'반납형'),'c')}</tr>
   <tr><th>정비상품</th>${cell((o,p)=>esc(p.mName),'c')}</tr>
   <tr><th>약정거리</th>${cell(o=>won(o.km)+'km/년')}</tr>
   <tr><th>선납금</th>${cell(o=>won(o.pre)+'원')}</tr>
@@ -521,10 +536,13 @@ function renderPaper(){
   <tr><th>부가세</th>${cell(o=>won(o.qVat)+'원')}</tr>
   <tr class="total"><th>월 렌트료</th>${cell(o=>won(o.qMonth)+'원')}</tr></table>
   <div class="fine">※ 잔존가치는 차량가격(VAT 포함) 기준입니다. 선납금은 월 렌트료 할인에 반영되었습니다. 선납금/보증금 입금 계좌 : 고객별 전용 가상계좌 발급</div>`;
+  const ig=insGrade(), iv=k=>esc((tr&&ig[k])||'-');
   h+=`<h3>보험 담보 조건 및 면책금</h3>
-  <table class="grid6"><tr><th>운전가능연령</th><th>임직원 전용<br>자동차보험</th><th>대인</th><th>대물</th><th>자기신체사고</th><th>자차 면책금</th><th>무보험차상해</th></tr>
-  <tr><td>${esc(SET.insAge)}</td><td>${esc(SET.insEmp)}</td><td>${esc(SET.insBi)}</td><td>${esc(SET.insPd)}</td><td>${esc(SET.insSelf)}</td><td>${esc(SET.insDed)}</td><td>${esc(SET.insUn)}</td></tr></table>
-  <div class="fine">※ 긴급출동서비스 : 비상급유, 배터리충전, 긴급견인, 타이어펑크교체 등${SET.call?'  /  사고·정비 콜센터 : '+esc(SET.call):''}</div>
+  <table class="grid6"><tr><th>운전가능연령</th><th>대인</th><th>대물</th><th>자기신체사고</th><th>자차 한도</th><th>무보험차상해</th></tr>
+  <tr><td>${esc(INS.insAge)}</td><td>${iv('bi')}</td><td>${iv('pd')}</td><td>${iv('self')}</td><td>${iv('car')}</td><td>${iv('un')}</td></tr></table>
+  <table class="grid6" style="margin-top:6px"><tr><th>대인 면책금</th><th>대물 면책금</th><th>자손 면책금</th><th>자차 면책금</th></tr>
+  <tr><td>${iv('dBi')}</td><td>${iv('dPd')}</td><td>${iv('dSelf')}</td><td>${iv('dCar')}</td></tr></table>
+  <div class="fine">※ 긴급출동서비스 : 비상급유, 배터리충전, 긴급견인, 타이어펑크교체 등${INS.call?'  /  사고접수 · 긴급출동 : '+esc(INS.call):''}${INS.insNote?'<br>※ '+esc(INS.insNote):''}</div>
   <h3>정비상품 안내</h3>
   <table class="grid6"><tr><th>정비서비스</th>${MAINT_COLS.map(c=>'<th>'+c.replace(' ','<br>')+'</th>').join('')}</tr>
   ${(maintNames.length?maintNames:['Self']).map(n=>'<tr><td><b>'+esc(n)+'</b></td>'+(MAINT_DEF[n]||MAINT_DEF.Self).map(x=>'<td>'+x+'</td>').join('')+'</tr>').join('')}</table>
@@ -565,7 +583,7 @@ async function makePdf(){
 
 /* ---------- 설정 창 ---------- */
 const SET_FIELDS=[['rate','조달금리 기본값 (연 %)'],['ag','AG 수수료율 기본값 (%)'],['acq','취득세율 (%)'],['plate1','보조번호판'],['plate2','번호판대'],['stamp','인지대'],['reg','등록대행 수수료'],['bond','공채 할인비용'],['rvKm','잔가 기준 약정거리 (km/년)'],['rvAdj','5천km당 잔가 조정 (%p)'],['tint','썬팅 시공비 (VAT포함)'],['bb','블랙박스 시공비 (VAT포함)'],['carTax','승용 자동차세 기준','sel']];
-const DOC_FIELDS=[['company','회사명'],['call','사고·정비 콜센터'],['insAge','운전가능연령'],['insEmp','임직원 전용 보험'],['insBi','대인'],['insPd','대물'],['insSelf','자기신체사고'],['insDed','자차 면책금'],['insUn','무보험차상해'],['guide','안내사항','wide']];
+const DOC_FIELDS=[['company','회사명'],['guide','안내사항','wide']];
 function renderSettings(){
   $('setFields').innerHTML=SET_FIELDS.map(([k,l,t])=>'<div class="f"><label for="set_'+k+'">'+l+'</label>'+(t==='sel'?'<select id="set_'+k+'" data-set="'+k+'"><option'+(SET[k]==='영업용'?' selected':'')+'>영업용</option><option'+(SET[k]==='비영업용'?' selected':'')+'>비영업용</option></select>':'<input id="set_'+k+'" class="num" data-set="'+k+'" value="'+esc(SET[k])+'">')+'</div>').join('');
   $('fixTbl').innerHTML='<thead><tr><th>구분</th><th>영업용</th><th>비영업용</th><th>적용</th></tr></thead><tbody>'+SET.fixed.map((f,i)=>'<tr><th scope="row">'+esc(f[0])+'</th><td><input id="fx'+i+'a" class="num" data-fx="'+i+'" data-j="1" value="'+f[1]+'"></td><td><input id="fx'+i+'b" class="num" data-fx="'+i+'" data-j="2" value="'+f[2]+'"></td><td><select id="fx'+i+'c" data-fx="'+i+'" data-j="3"><option'+(f[3]==='영업용'?' selected':'')+'>영업용</option><option'+(f[3]==='비영업용'?' selected':'')+'>비영업용</option></select></td></tr>').join('')+'</tbody>';

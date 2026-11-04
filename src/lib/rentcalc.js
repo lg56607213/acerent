@@ -6,6 +6,27 @@ import DATA from '../data/quote-data.json';
 
 export const TERMS = [12, 24, 36, 48, 60];
 
+// ── 차종별 보험 조건 ─────────────────────────────────────
+// 보험 등급(보상 한도 · 면책금 묶음)을 만들고, 차종(제조사|구분|모델)마다 등급을 지정한다.
+// 기본값: 렌트 계약서 ⑨항 (대인 무제한 · 대물 1억 · 자손 1,500만원 · 면책금 각 50만원), 자차 한도 소·중형 400만원 / 대형 700만원
+export const INS_FIELDS = [
+  ['bi', '대인'], ['pd', '대물'], ['self', '자기신체사고'], ['car', '자차 한도'], ['un', '무보험차상해'],
+  ['dBi', '대인 면책금'], ['dPd', '대물 면책금'], ['dSelf', '자손 면책금'], ['dCar', '자차 면책금'],
+];
+const GRADE = (id, name, car) => ({ id, name, bi: '무제한', pd: '1억', self: '1,500만원', car, un: '가입', dBi: '50만원', dPd: '50만원', dSelf: '50만원', dCar: '50만원' });
+const LARGE_MODELS = new Set([
+  '그랜저', 'K8', 'K9', '싼타페', '쏘렌토', '팰리세이드(가솔린)', '팰리세이드 Hybird', '타스만', '카니발', '카니발 하이리무진',
+  '스타리아', '스타리아 Hybrid', '스타리아 라운지', '스타리아 킨더', '스타리아 리무진',
+  '아이오닉9', 'EV9', '디올 뉴 넥쏘', '더 뉴 스타리아 Electric', '더 뉴 스타리아 라운지 Electric', '더 뉴 스타리아 리무진 Electric',
+]);
+export const modelKey = (mk, cat, model) => `${mk}|${cat}|${model}`;
+export function modelList() {
+  const seen = new Set(), out = [];
+  for (const t of DATA.T) { const k = modelKey(t[0], t[1], t[2]); if (!seen.has(k)) { seen.add(k); out.push({ key: k, mk: t[0], cat: t[1], model: t[2] }); } }
+  return out;
+}
+const DEFAULT_INS_MAP = Object.fromEntries(modelList().map((m) => [m.key, LARGE_MODELS.has(m.model) ? 'large' : 'mid']));
+
 export const DEFAULT_QUOTE_CONFIG = {
   rate: 12, // 연 %
   insurance: 100000, // 월 보험료 (원)
@@ -26,19 +47,32 @@ export const DEFAULT_QUOTE_CONFIG = {
     ['승합 대형일반버스', 42000, 115000, '영업용'], ['전기 승용', 20000, 100000, '영업용'], ['특수 소형', 13500, 58500, '영업용'], ['삼륜 이하', 3300, 18000, '영업용'],
   ],
   // 견적서 문구
-  company: '에이스렌트카', call: '',
-  insAge: '만 26세 이상', insEmp: '가입', insBi: '무제한', insPd: '1억', insSelf: '1억', insDed: '30만원', insUn: '가입',
+  company: '에이스렌트카', call: '1661-7977',
+  insAge: '만 26세 이상',
+  insGrades: [GRADE('mid', '소·중형', '400만원'), GRADE('large', '대형', '700만원')],
+  insMap: DEFAULT_INS_MAP,
+  insNote: '보험 보상 및 면책 조건의 세부 내용은 렌트 계약서 기준으로 적용됩니다.',
+  maturity: '반납형',
   guide: '본 견적서는 견적일 기준 차량가격 및 금리로 산출되었으며, 차량 출고 시점의 가격·금리·심사 결과에 따라 변동될 수 있습니다. 월 렌트료에는 자동차세, 보험료가 포함되어 있습니다.',
 };
 
 // 사용자 화면에 내려줘도 되는 설정 (견적서 문구 · 기본 탁송료 · 시공비)
-export const PUBLIC_CONFIG_KEYS = ['company', 'call', 'insAge', 'insEmp', 'insBi', 'insPd', 'insSelf', 'insDed', 'insUn', 'guide', 'del1', 'tint', 'bb'];
+export const PUBLIC_CONFIG_KEYS = ['company', 'call', 'insAge', 'insNote', 'maturity', 'guide', 'del1', 'tint', 'bb'];
 
 export async function loadQuoteConfig(db) {
   const row = await db.prepare("SELECT value FROM settings WHERE key = 'quote_config'").first();
   let saved = {};
   try { saved = row ? JSON.parse(row.value) : {}; } catch { saved = {}; }
-  return { ...DEFAULT_QUOTE_CONFIG, ...saved, rv: { ...DEFAULT_QUOTE_CONFIG.rv, ...(saved.rv || {}) } };
+  const d = DEFAULT_QUOTE_CONFIG;
+  const insGrades = Array.isArray(saved.insGrades) && saved.insGrades.length ? saved.insGrades : d.insGrades;
+  return { ...d, ...saved, rv: { ...d.rv, ...(saved.rv || {}) }, insGrades, insMap: { ...d.insMap, ...(saved.insMap || {}) } };
+}
+
+// 차종의 보험 조건 (등급이 없거나 지워졌으면 첫 등급)
+export function insuranceFor(cfg, mk, cat, model) {
+  const id = cfg.insMap[modelKey(mk, cat, model)];
+  const g = cfg.insGrades.find((x) => x.id === id) || cfg.insGrades[0] || {};
+  return { grade: g.name || '', age: cfg.insAge, ...Object.fromEntries(INS_FIELDS.map(([k]) => [k, g[k] || '-'])) };
 }
 
 export function vehicleData() {
@@ -174,7 +208,7 @@ export function computeQuote(input, cfg) {
 
   return {
     ok: true,
-    vehicle: { mk: tr[0], cat: tr[1], model: tr[2], line: tr[3], trim: tr[4], base, cc: tr[6], tax: tr[7], optList, optSum, extra, price },
+    vehicle: { mk: tr[0], cat: tr[1], model: tr[2], line: tr[3], trim: tr[4], base, cc: tr[6], tax: tr[7], optList, optSum, extra, price, ins: insuranceFor(cfg, tr[0], tr[1], tr[2]) },
     internal: { rate, ins, maint, ag: cfg.ag, acqCost, acq, yTax, mTax, rvGroup: tr[9] },
     products,
   };

@@ -246,7 +246,7 @@ function renderPaper() {
 <h3>계약정보</h3>`;
   if (!on.length) h += '<div class="guide">차량과 상품 조건을 입력하면 계약정보가 표시됩니다.</div>';
   else h += `<table class="k"><tr><th></th>${on.map(([o]) => `<th class="prod">${o.n}개월</th>`).join('')}</tr>
-<tr><th>만기처리</th>${cell(() => '반납/인수 선택형', 'c')}</tr>
+<tr><th>만기처리</th>${cell(() => esc(CFG.maturity || '반납형'), 'c')}</tr>
 <tr><th>정비상품</th>${cell(() => 'Self', 'c')}</tr>
 <tr><th>약정거리</th>${cell((o) => won(o.km) + 'km/년')}</tr>
 <tr><th>선납금</th>${cell((o) => won(o.pre) + '원')}</tr>
@@ -256,10 +256,14 @@ function renderPaper() {
 <tr><th>부가세</th>${cell((o) => won(o.vat) + '원')}</tr>
 <tr class="total"><th>월 렌트료</th>${cell((o) => won(o.month) + '원')}</tr></table>
 <div class="fine">※ 잔존가치는 차량가격(VAT 포함) 기준입니다. 선납금은 월 렌트료 할인에 반영되었습니다. 선납금/보증금 입금 계좌 : 고객별 전용 가상계좌 발급</div>`;
+  const ins = veh?.ins || {};
+  const iv = (k) => esc(ins[k] || '-');
   h += `<h3>보험 담보 조건 및 면책금</h3>
-<table class="grid6"><tr><th>운전가능연령</th><th>임직원 전용<br>자동차보험</th><th>대인</th><th>대물</th><th>자기신체사고</th><th>자차 면책금</th><th>무보험차상해</th></tr>
-<tr><td>${esc(CFG.insAge)}</td><td>${esc(CFG.insEmp)}</td><td>${esc(CFG.insBi)}</td><td>${esc(CFG.insPd)}</td><td>${esc(CFG.insSelf)}</td><td>${esc(CFG.insDed)}</td><td>${esc(CFG.insUn)}</td></tr></table>
-<div class="fine">※ 긴급출동서비스 : 비상급유, 배터리충전, 긴급견인, 타이어펑크교체 등${CFG.call ? '  /  사고·정비 콜센터 : ' + esc(CFG.call) : ''}</div>
+<table class="grid6"><tr><th>운전가능연령</th><th>대인</th><th>대물</th><th>자기신체사고</th><th>자차 한도</th><th>무보험차상해</th></tr>
+<tr><td>${esc(CFG.insAge)}</td><td>${iv('bi')}</td><td>${iv('pd')}</td><td>${iv('self')}</td><td>${iv('car')}</td><td>${iv('un')}</td></tr></table>
+<table class="grid6" style="margin-top:6px"><tr><th>대인 면책금</th><th>대물 면책금</th><th>자손 면책금</th><th>자차 면책금</th></tr>
+<tr><td>${iv('dBi')}</td><td>${iv('dPd')}</td><td>${iv('dSelf')}</td><td>${iv('dCar')}</td></tr></table>
+<div class="fine">※ 긴급출동서비스 : 비상급유, 배터리충전, 긴급견인, 타이어펑크교체 등${CFG.call ? '  /  사고접수 · 긴급출동 : ' + esc(CFG.call) : ''}${CFG.insNote ? '<br>※ ' + esc(CFG.insNote) : ''}</div>
 <h3>정비상품 안내</h3>
 <table class="grid6"><tr><th>정비서비스</th>${MAINT_COLS.map((c) => `<th>${c.replace(' ', '<br>')}</th>`).join('')}</tr>
 <tr><td><b>Self</b></td>${MAINT_COLS.map(() => '<td>-</td>').join('')}</tr></table>

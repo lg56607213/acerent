@@ -2,7 +2,7 @@
 //  - /api/quote/*               : 견적 사용자 본인 (로그인 · 로그아웃 · 내 정보 · 비밀번호 변경)
 //  - /api/admin/quote-users/*   : 관리자가 견적 사용자 계정 발급 · 수정 · 사용 중지 · 삭제
 import { HttpError, bad, json, readJson, cleanText, int, nextNo } from '../lib/util.js';
-import { loadQuoteConfig, computeQuote, toPublic, cleanInput, vehicleData, residualGroups, DEFAULT_QUOTE_CONFIG, PUBLIC_CONFIG_KEYS, TERMS } from '../lib/rentcalc.js';
+import { loadQuoteConfig, computeQuote, toPublic, cleanInput, vehicleData, residualGroups, DEFAULT_QUOTE_CONFIG, PUBLIC_CONFIG_KEYS, TERMS, INS_FIELDS, modelList } from '../lib/rentcalc.js';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import {
   createQuoteSession, quoteCookie, clearQuoteCookie, currentQuoteUser, requireQuoteUser, endQuoteSession, endOtherQuoteSessions,
@@ -34,7 +34,22 @@ function cleanConfig(b) {
   out.rvDefault = rvRow(b.rvDefault);
   out.cc = d.cc.map((row, i) => [row[0], n(b.cc?.[i]?.[1], row[1]), n(b.cc?.[i]?.[2], row[2])]);
   out.fixed = d.fixed.map((row, i) => [row[0], n(b.fixed?.[i]?.[1], row[1]), n(b.fixed?.[i]?.[2], row[2]), b.fixed?.[i]?.[3] === '비영업용' ? '비영업용' : b.fixed?.[i]?.[3] === '영업용' ? '영업용' : row[3]]);
-  for (const k of ['company', 'call', 'insAge', 'insEmp', 'insBi', 'insPd', 'insSelf', 'insDed', 'insUn']) out[k] = cleanText(b[k], 60) || (k === 'call' ? '' : d[k]);
+  for (const k of ['company', 'call', 'insAge', 'maturity']) out[k] = cleanText(b[k], 60) || (k === 'call' ? '' : d[k]);
+  out.insNote = cleanText(b.insNote, 200);
+  // 보험 등급: 최대 20개, id 는 영문 · 숫자
+  const grades = (Array.isArray(b.insGrades) ? b.insGrades : d.insGrades).slice(0, 20).map((g, i) => {
+    const id = /^[a-z0-9]{1,12}$/.test(String(g?.id || '')) ? g.id : 'g' + (i + 1);
+    const o = { id, name: cleanText(g?.name, 20) || `등급 ${i + 1}` };
+    for (const [k] of INS_FIELDS) o[k] = cleanText(g?.[k], 20);
+    return o;
+  }).filter((g, i, a) => a.findIndex((x) => x.id === g.id) === i);
+  if (!grades.length) throw bad('보험 등급을 하나 이상 남겨 주세요.');
+  out.insGrades = grades;
+  out.insMap = {};
+  for (const m of modelList()) {
+    const v = b.insMap?.[m.key] ?? d.insMap[m.key];
+    out.insMap[m.key] = grades.some((g) => g.id === v) ? v : grades[0].id;
+  }
   out.guide = cleanText(b.guide, 600) || d.guide;
   return out;
 }
@@ -124,7 +139,7 @@ export function registerQuote(r) {
 
   // ── 관리자: 견적 설정 (사용자 견적에 쓰이는 금리 · 보험료 · 자동차세 · 최대 잔가율) ──
   r.get('/api/admin/quote-config', async ({ env }) => {
-    return json({ config: await loadQuoteConfig(env.DB), groups: residualGroups(), terms: TERMS, defaults: DEFAULT_QUOTE_CONFIG });
+    return json({ config: await loadQuoteConfig(env.DB), groups: residualGroups(), terms: TERMS, models: modelList(), insFields: INS_FIELDS, defaults: DEFAULT_QUOTE_CONFIG });
   });
   r.put('/api/admin/quote-config', async ({ env, request }) => {
     const cfg = cleanConfig(await readJson(request));
