@@ -29,12 +29,39 @@ function blankState() {
 function saveDraft() { try { localStorage.setItem(DRAFT_KEY + ':' + ME.id, JSON.stringify(S)); } catch {} }
 function loadDraft() { try { const v = localStorage.getItem(DRAFT_KEY + ':' + ME.id); return v ? JSON.parse(v) : null; } catch { return null; } }
 
+// ── 로그인 · 회원가입 ─────────────────────────────────
+function showView(id) {
+  for (const v of ['loginView', 'signupView', 'signupDone', 'appView']) $('#' + v).hidden = v !== id;
+  window.scrollTo(0, 0);
+}
+$('#toSignup').addEventListener('click', () => { $('#signupErr').textContent = ''; showView('signupView'); $('#signupForm').username.focus(); });
+$('#toLogin').addEventListener('click', () => showView('loginView'));
+$('#doneLogin').addEventListener('click', () => { showView('loginView'); $('#loginForm').username.focus(); });
+$('#signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target, err = $('#signupErr');
+  err.textContent = '';
+  if (f.password.value !== f.password2.value) return (err.textContent = '비밀번호 확인이 일치하지 않습니다.');
+  if (!f.agree.checked) return (err.textContent = '개인정보 수집 · 이용에 동의해 주세요.');
+  $('#signupBtn').disabled = true;
+  try {
+    await api('/api/quote/signup', { method: 'POST', body: {
+      username: f.username.value.trim(), password: f.password.value, name: f.name.value, company: f.company.value,
+      phone: f.phone.value, email: f.email.value.trim(), note: f.note.value, agree: f.agree.checked, website: f.website.value,
+    } });
+    const id = f.username.value.trim();
+    f.reset();
+    $('#loginForm').username.value = id;
+    showView('signupDone');
+  } catch (e2) { err.textContent = e2.message; }
+  finally { $('#signupBtn').disabled = false; }
+});
+
 // ── 로그인 ───────────────────────────────────────────
 async function boot() {
   const { user } = await api('/api/quote/me').catch(() => ({ user: null }));
   ME = user;
-  $('#loginView').hidden = !!user;
-  $('#appView').hidden = !user;
+  showView(user ? 'appView' : 'loginView');
   if (!user) { $('#loginForm').username.focus(); return; }
   $('#whoName').textContent = (user.name || user.username) + ' 님';
   $('#whoCompany').textContent = user.company ? '· ' + user.company : '';

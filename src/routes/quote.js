@@ -1,7 +1,8 @@
 // 견적 사용자 API
 //  - /api/quote/*               : 견적 사용자 본인 (로그인 · 로그아웃 · 내 정보 · 비밀번호 변경)
 //  - /api/admin/quote-users/*   : 관리자가 견적 사용자 계정 발급 · 수정 · 사용 중지 · 삭제
-import { HttpError, bad, json, readJson, cleanText, int, nextNo } from '../lib/util.js';
+import { HttpError, bad, json, readJson, cleanText, cleanPhone, int, nextNo } from '../lib/util.js';
+import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
 import { loadQuoteConfig, computeQuote, toPublic, cleanInput, vehicleData, residualGroups, DEFAULT_QUOTE_CONFIG, PUBLIC_CONFIG_KEYS, TERMS, INS_FIELDS, modelList } from '../lib/rentcalc.js';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import {
@@ -55,6 +56,7 @@ function cleanConfig(b) {
 }
 
 const profile = (b) => ({
+  email: cleanText(b.email, 80),
   name: cleanText(b.name, 30),
   company: cleanText(b.company, 60),
   phone: cleanText(b.phone, 30),
@@ -72,9 +74,46 @@ export function registerQuote(r) {
       await new Promise((res) => setTimeout(res, 800));
       throw new HttpError(400, '아이디 또는 비밀번호가 맞지 않습니다.');
     }
+    if (u.status === 'pending') throw new HttpError(403, '가입 승인 대기 중입니다. 관리자가 승인하면 로그인할 수 있습니다.');
+    if (u.status === 'rejected') throw new HttpError(403, '가입이 승인되지 않았습니다. 에이스렌터카 담당자에게 문의해 주세요.');
     if (!u.active) throw new HttpError(403, '사용이 중지된 계정입니다. 에이스렌터카 담당자에게 문의해 주세요.');
     const s = await createQuoteSession(env.DB, u.id);
     return json({ ok: true }, 200, { 'set-cookie': quoteCookie(s.token, s.maxAge, url.protocol === 'https:') });
+  });
+
+  // 회원가입: 승인 대기로 저장 → 관리자가 '견적 사용자 계정'에서 승인하면 로그인 가능
+  r.post('/api/quote/signup', async ({ env, request, ctx, url }) => {
+    const b = await readJson(request);
+    if (b.website) return json({ ok: true }); // 자동 등록 방지용 숨은 칸
+    const username = cleanText(b.username, 30);
+    if (!ID_RE.test(username)) throw bad(ID_MSG);
+    if (String(b.password || '').length < 8) throw bad(PW_MSG);
+    const name = cleanText(b.name, 30);
+    if (!name) throw bad('이름을 입력해 주세요.');
+    const phone = cleanPhone(b.phone);
+    if (!phone) throw bad('연락처를 정확히 입력해 주세요.');
+    const email = cleanText(b.email, 80);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bad('이메일 형식을 확인해 주세요.');
+    if (!b.agree) throw bad('개인정보 수집 · 이용에 동의해 주세요.');
+    const company = cleanText(b.company, 60);
+    const note = cleanText(b.note, 300);
+    const dup = await env.DB.prepare('SELECT id FROM quote_users WHERE username = ?').bind(username).first();
+    if (dup) throw bad('이미 사용 중인 아이디입니다. 다른 아이디를 정해 주세요.');
+    const waiting = await env.DB.prepare("SELECT COUNT(*) AS n FROM quote_users WHERE status = 'pending'").first();
+    if (waiting.n >= 200) throw new HttpError(429, '가입 신청이 많아 잠시 접수를 멈췄습니다. 에이스렌터카 담당자에게 문의해 주세요.');
+    const { hash, salt } = await hashPassword(String(b.password));
+    await env.DB.prepare(
+      `INSERT INTO quote_users (username, name, company, phone, email, signup_note, status, signup, pw_hash, pw_salt)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)`
+    ).bind(username, name, company, phone, email, note, hash, salt).run();
+    const html = buildMailHtml({
+      title: '견적 사용자 가입 신청',
+      intro: '장기렌트 견적 사이트에 새 가입 신청이 들어왔습니다. 관리자 화면에서 승인해 주세요.',
+      rows: [['아이디', username], ['이름', name], ['소속', company], ['연락처', phone], ['이메일', email], ['신청 메모', note]],
+      linkUrl: `${url.origin}/admin/#quoteusers`, linkText: '승인하러 가기',
+    });
+    ctx.waitUntil(notifyAdmins(env, { kind: '견적 회원가입', refNo: username, subject: `[견적 회원가입] ${name}${company ? ' · ' + company : ''} (${username})`, html }).catch(() => {}));
+    return json({ ok: true });
   });
 
   r.post('/api/quote/logout', async ({ env, request, url }) => {
@@ -173,7 +212,8 @@ export function registerQuote(r) {
   // ── 관리자: 견적 사용자 계정 관리 (index.js 에서 관리자 로그인 확인) ──
   r.get('/api/admin/quote-users', async ({ env }) => {
     const { results } = await env.DB.prepare(
-      'SELECT id, username, name, company, phone, memo, active, last_login_at, created_at FROM quote_users ORDER BY active DESC, id DESC'
+      `SELECT id, username, name, company, phone, email, memo, signup_note, active, status, signup, decided_at, decided_by, reject_reason, last_login_at, created_at
+         FROM quote_users ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, active DESC, id DESC`
     ).all();
     return json({ users: results });
   });
@@ -189,8 +229,8 @@ export function registerQuote(r) {
     if (dup) throw bad('이미 있는 아이디입니다.');
     const { hash, salt } = await hashPassword(String(b.password));
     const r2 = await env.DB.prepare(
-      'INSERT INTO quote_users (username, name, company, phone, memo, pw_hash, pw_salt) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(username, p.name, p.company, p.phone, p.memo, hash, salt).run();
+      'INSERT INTO quote_users (username, name, company, phone, email, memo, pw_hash, pw_salt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(username, p.name, p.company, p.phone, p.email, p.memo, hash, salt).run();
     return json({ ok: true, id: r2.meta.last_row_id });
   });
 
@@ -203,11 +243,32 @@ export function registerQuote(r) {
     if (!p.name) throw bad('이름을 입력해 주세요.');
     const active = b.active ? 1 : 0;
     const stmts = [
-      env.DB.prepare('UPDATE quote_users SET name = ?, company = ?, phone = ?, memo = ?, active = ? WHERE id = ?').bind(p.name, p.company, p.phone, p.memo, active, id),
+      env.DB.prepare('UPDATE quote_users SET name = ?, company = ?, phone = ?, email = ?, memo = ?, active = ? WHERE id = ?').bind(p.name, p.company, p.phone, p.email, p.memo, active, id),
     ];
     // 사용 중지하면 지금 접속해 있는 화면도 끊는다
     if (!active) stmts.push(env.DB.prepare('DELETE FROM quote_sessions WHERE user_id = ?').bind(id));
     await env.DB.batch(stmts);
+    return json({ ok: true });
+  });
+
+  // 가입 승인 · 거절
+  r.post('/api/admin/quote-users/:id/approve', async ({ env, params, admin }) => {
+    const id = int(params.id);
+    const u = await env.DB.prepare('SELECT id FROM quote_users WHERE id = ?').bind(id).first();
+    if (!u) throw new HttpError(404, '견적 사용자를 찾을 수 없습니다.');
+    await env.DB.prepare("UPDATE quote_users SET status = 'approved', active = 1, decided_at = datetime('now'), decided_by = ?, reject_reason = '' WHERE id = ?")
+      .bind(admin.name || admin.username, id).run();
+    return json({ ok: true });
+  });
+  r.post('/api/admin/quote-users/:id/reject', async ({ env, params, request, admin }) => {
+    const id = int(params.id);
+    const b = await readJson(request);
+    const u = await env.DB.prepare('SELECT id FROM quote_users WHERE id = ?').bind(id).first();
+    if (!u) throw new HttpError(404, '견적 사용자를 찾을 수 없습니다.');
+    await env.DB.batch([
+      env.DB.prepare("UPDATE quote_users SET status = 'rejected', decided_at = datetime('now'), decided_by = ?, reject_reason = ? WHERE id = ?").bind(admin.name || admin.username, cleanText(b.reason, 200), id),
+      env.DB.prepare('DELETE FROM quote_sessions WHERE user_id = ?').bind(id),
+    ]);
     return json({ ok: true });
   });
 

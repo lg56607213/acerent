@@ -30,18 +30,18 @@ function readCookie(request) {
   return m ? m[1] : null;
 }
 
-// 사용 중지된 계정은 로그인이 남아 있어도 바로 막힌다
+// 사용 중지되거나 승인되지 않은 계정은 로그인이 남아 있어도 바로 막힌다
 export async function currentQuoteUser(request, db) {
   const token = readCookie(request);
   if (!token) return null;
   const row = await db
     .prepare(
-      `SELECT u.id, u.username, u.name, u.company, u.phone, u.active, s.expires_at
+      `SELECT u.id, u.username, u.name, u.company, u.phone, u.active, u.status, s.expires_at
          FROM quote_sessions s JOIN quote_users u ON u.id = s.user_id WHERE s.token_hash = ?`
     )
     .bind(await sha256Hex(token))
     .first();
-  if (!row || !row.active || row.expires_at < new Date().toISOString()) return null;
+  if (!row || !row.active || row.status !== 'approved' || row.expires_at < new Date().toISOString()) return null;
   return { id: row.id, username: row.username, name: row.name, company: row.company, phone: row.phone };
 }
 

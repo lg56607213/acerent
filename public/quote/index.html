@@ -19,13 +19,49 @@
 <form id="loginForm" class="login-box" novalidate>
 <img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:48px;margin:0 auto 8px">
 <h1>장기렌트 견적</h1>
-<p class="small muted" style="margin:0">에이스렌터카에서 발급받은 아이디로 로그인하세요.</p>
+<p class="small muted" style="margin:0">아이디와 비밀번호로 로그인하세요.</p>
 <label class="field">아이디<input class="input" name="username" autocomplete="username" required></label>
 <label class="field">비밀번호<input class="input" name="password" type="password" autocomplete="current-password" required></label>
 <p class="error-msg" id="loginErr" role="alert"></p>
 <button class="btn btn-red btn-lg btn-block" type="submit" id="loginBtn">로그인</button>
+<button class="btn btn-block" type="button" id="toSignup">회원가입</button>
 <p class="small muted" style="margin:0">아이디 · 비밀번호를 잊으셨으면 에이스렌터카 담당자에게 재설정을 요청해 주세요.</p>
 </form>
+</div>
+
+<div id="signupView" class="login" hidden>
+<form id="signupForm" class="login-box" novalidate style="max-width:460px">
+<img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:44px;margin:0 auto 4px">
+<h1>회원가입</h1>
+<p class="small muted" style="margin:0">가입 신청 후 에이스렌터카 관리자가 승인하면 견적을 이용할 수 있습니다.</p>
+<label class="field">아이디 (영문 · 숫자 3~30자)<input class="input" name="username" autocomplete="username" required></label>
+<label class="field">비밀번호 (8자 이상)<input class="input" name="password" type="password" autocomplete="new-password" required></label>
+<label class="field">비밀번호 확인<input class="input" name="password2" type="password" autocomplete="new-password" required></label>
+<label class="field">이름<input class="input" name="name" autocomplete="name" required></label>
+<label class="field">소속 (회사 · 지점, 선택)<input class="input" name="company" autocomplete="organization"></label>
+<label class="field">연락처<input class="input" name="phone" inputmode="tel" autocomplete="tel" placeholder="010-0000-0000" required></label>
+<label class="field">이메일 (선택)<input class="input" name="email" type="email" autocomplete="email"></label>
+<label class="field">남기실 말씀 (선택)<textarea class="textarea" name="note" rows="2" placeholder="예) 제휴 문의드린 한빛오토 김영업입니다."></textarea></label>
+<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
+<div style="text-align:left;border:1px solid var(--line);padding:10px 12px;font-size:12px;color:var(--gray);line-height:1.6">
+  <strong style="color:var(--ink)">개인정보 수집 · 이용 안내</strong><br>
+  수집 항목: 이름, 연락처, 소속, 이메일 · 목적: 견적 이용자 확인과 승인 안내 연락 · 보유 기간: 회원 탈퇴 또는 계정 삭제 시까지<br>
+  동의하지 않으실 수 있으며, 이 경우 가입이 제한됩니다. <a href="/privacy.html" target="_blank" rel="noopener" class="red">개인정보처리방침</a>
+</div>
+<label class="check" style="text-align:left"><input type="checkbox" name="agree"> 개인정보 수집 · 이용에 동의합니다.</label>
+<p class="error-msg" id="signupErr" role="alert"></p>
+<button class="btn btn-red btn-lg btn-block" type="submit" id="signupBtn">가입 신청</button>
+<button class="btn btn-block" type="button" id="toLogin">로그인으로 돌아가기</button>
+</form>
+</div>
+
+<div id="signupDone" class="login" hidden>
+<div class="login-box">
+<img src="/assets/logo.svg" alt="Ace RENTCAR" style="height:44px;margin:0 auto 4px">
+<h1>가입 신청이 접수되었습니다</h1>
+<p style="margin:0">관리자가 승인하면 신청하신 아이디로 로그인할 수 있습니다. 승인까지 시간이 걸릴 수 있으며, 급하시면 에이스렌터카 담당자에게 연락해 주세요.</p>
+<button class="btn btn-red btn-lg btn-block" type="button" id="doneLogin">로그인 화면으로</button>
+</div>
 </div>
 
 <div id="appView" hidden>

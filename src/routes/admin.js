@@ -143,7 +143,7 @@ export function registerAdmin(r) {
     const ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
     const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const q = (sql, ...a) => env.DB.prepare(sql).bind(...a).first();
-    const [p, t, rv, iq, m1, m2, mf] = await Promise.all([
+    const [p, t, rv, iq, m1, m2, mf, qu] = await Promise.all([
       q(`SELECT COUNT(*) AS n FROM reservations WHERE status = 'pending'`),
       q(`SELECT COUNT(*) AS n FROM reservations WHERE status IN ('pending','confirmed') AND substr(pickup_at,1,10) = ?`, today),
       q(`SELECT COUNT(*) AS n FROM applications WHERE status = 'review'`),
@@ -151,8 +151,9 @@ export function registerAdmin(r) {
       q(`SELECT COUNT(*) AS n FROM reservations WHERE substr(created_at,1,7) = ?`, ym),
       q(`SELECT COUNT(*) AS n FROM applications WHERE substr(created_at,1,7) = ?`, ym),
       q(`SELECT COUNT(*) AS n FROM mail_log WHERE status = 'failed'`),
+      q(`SELECT COUNT(*) AS n FROM quote_users WHERE status = 'pending'`),
     ]);
-    return json({ pendingShort: p.n, todayPickup: t.n, reviewLong: rv.n, waitInquiry: iq.n, monthTotal: m1.n + m2.n, mailFailed: mf.n });
+    return json({ pendingShort: p.n, todayPickup: t.n, reviewLong: rv.n, waitInquiry: iq.n, monthTotal: m1.n + m2.n, mailFailed: mf.n, pendingQuoteUsers: qu.n });
   });
 
   // ── 단기 예약 ────────────────────────────────────────

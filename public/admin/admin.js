@@ -133,6 +133,7 @@ async function refreshCounts() {
     $('#cntLong').textContent = d.reviewLong || '';
     $('#cntInq').textContent = d.waitInquiry || '';
     $('#cntMail').textContent = d.mailFailed || '';
+    if ($('#cntQuote')) $('#cntQuote').textContent = d.pendingQuoteUsers || '';
     return d;
   } catch {
     return null;
@@ -783,7 +784,7 @@ PAGES.banners = async () => {
 PAGES.notify = async () => {
   const [{ settings: s, mailFrom }, { logs }] = await Promise.all([api('/api/admin/settings'), api('/api/admin/mail-log')]);
   const kinds = JSON.parse(s.notify_kinds || '[]');
-  const ALL = ['단기 예약', '중장기 신청', '법인 견적', '1:1 문의'];
+  const ALL = ['단기 예약', '중장기 신청', '법인 견적', '1:1 문의', '견적 회원가입'];
   main.innerHTML = `<div class="a-title"><div><h1>메일 알림 · 발송 기록</h1><p class="desc">예약 · 신청 · 문의가 들어오면 아래 두 주소로 동시에 메일이 가고, 모든 발송이 아래 기록에 남습니다.</p></div></div>
 <div class="split"><div class="l box box-pad" style="display:flex;flex-direction:column;gap:14px">
 <h2 style="font-size:16px">수신 이메일</h2>
@@ -878,16 +879,22 @@ PAGES.settings = async () => {
 
 // ── 견적 사용자 계정 (관리자가 발급 · /quote 로 로그인) ──────
 PAGES.quoteusers = async () => {
-  const { users } = await api('/api/admin/quote-users');
+  const { users: all } = await api('/api/admin/quote-users');
   const loginUrl = location.origin + '/quote';
-  const on = users.filter((u) => u.active).length;
+  const pending = all.filter((u) => u.status === 'pending');
+  const users = all.filter((u) => u.status !== 'pending');
+  const on = users.filter((u) => u.active && u.status === 'approved').length;
+  const stBadge = (u) => (u.status === 'rejected' ? '<span class="st st-off">가입 거절</span>' : u.active ? '<span class="st st-ok">사용 중</span>' : '<span class="st st-off">사용 중지</span>');
   main.innerHTML = `<div class="a-title"><div><h1>견적 사용자 계정</h1><p class="desc">제휴사 · 영업 담당자에게 발급하는 계정입니다. 이 계정으로는 관리자 화면과 관리자용 견적기에 들어올 수 없습니다.</p></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:8px"><h2 style="font-size:16px">사용자 로그인 주소</h2>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="input" id="quLink" value="${esc(loginUrl)}" readonly style="max-width:360px" aria-label="사용자 로그인 주소"><button class="btn btn-sm" id="quCopy">주소 복사</button></div>
-<p class="hint" style="margin:0">아이디 · 비밀번호와 함께 이 주소를 전달하세요.</p></div>
+<p class="hint" style="margin:0">이 주소에서 사용자가 직접 회원가입을 신청할 수 있습니다. 신청은 아래 '가입 신청'에 쌓이고, 승인해야 로그인할 수 있습니다.</p></div>
+<div class="box" style="${pending.length ? 'border-color:var(--red)' : ''}"><div class="box-head"><h2>가입 신청 <span class="hint">승인 대기 ${pending.length}건</span></h2></div>
+<div style="overflow-x:auto"><table class="a-table"><thead><tr><th>신청일시</th><th>아이디</th><th>이름 · 소속</th><th>연락처 · 이메일</th><th>남긴 말씀</th><th></th></tr></thead>
+<tbody>${pending.length ? pending.map((u) => `<tr><td class="hint">${kst(u.created_at)}</td><td><strong>${esc(u.username)}</strong></td><td>${esc(u.name)}${u.company ? `<br><span class="hint">${esc(u.company)}</span>` : ''}</td><td>${esc(u.phone || '-')}${u.email ? `<br><span class="hint">${esc(u.email)}</span>` : ''}</td><td style="max-width:260px;white-space:pre-line">${esc(u.signup_note || '-')}</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-red btn-xs" data-qok="${u.id}">승인</button> <button class="btn btn-xs" data-qno="${u.id}">거절</button></td></tr>`).join('') : '<tr><td colspan="6" class="muted" style="padding:28px;text-align:center">승인을 기다리는 가입 신청이 없습니다.</td></tr>'}</tbody></table></div></div>
 <div class="box"><div class="box-head"><h2>계정 목록 <span class="hint">사용 중 ${on} · 전체 ${users.length}</span></h2></div>
 <div style="overflow-x:auto"><table class="a-table"><thead><tr><th>아이디</th><th>이름 · 소속</th><th>연락처</th><th>상태</th><th>최근 접속</th><th>등록일</th><th></th></tr></thead>
-<tbody>${users.length ? users.map((u) => `<tr><td><strong>${esc(u.username)}</strong></td><td>${esc(u.name)}${u.company ? `<br><span class="hint">${esc(u.company)}</span>` : ''}${u.memo ? `<br><span class="hint">메모: ${esc(u.memo)}</span>` : ''}</td><td>${esc(u.phone || '-')}</td><td>${u.active ? '<span class="st st-ok">사용 중</span>' : '<span class="st st-off">사용 중지</span>'}</td><td class="hint">${u.last_login_at ? kst(u.last_login_at) : '접속 전'}</td><td class="hint">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right;white-space:nowrap"><a class="btn btn-xs" href="#quotelogs?user=${u.id}">견적 기록</a> <button class="btn btn-xs" data-qedit="${u.id}">수정</button> <button class="btn btn-xs" data-qpw="${u.id}">비밀번호 재설정</button> <button class="btn-link" data-qdel="${u.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">아직 발급한 계정이 없습니다. 아래에서 첫 계정을 만들어 주세요.</td></tr>'}</tbody></table></div></div>
+<tbody>${users.length ? users.map((u) => `<tr><td><strong>${esc(u.username)}</strong></td><td>${esc(u.name)}${u.company ? `<br><span class="hint">${esc(u.company)}</span>` : ''}${u.memo ? `<br><span class="hint">메모: ${esc(u.memo)}</span>` : ''}</td><td>${esc(u.phone || '-')}${u.email ? `<br><span class="hint">${esc(u.email)}</span>` : ''}</td><td>${stBadge(u)}${u.signup ? `<br><span class="hint">회원가입${u.decided_at ? ' · ' + (u.status === 'rejected' ? '거절 ' : '승인 ') + kst(u.decided_at).slice(0, 10) + (u.decided_by ? ' ' + esc(u.decided_by) : '') : ''}</span>` : ''}${u.reject_reason ? `<br><span class="hint">사유: ${esc(u.reject_reason)}</span>` : ''}</td><td class="hint" style="white-space:nowrap">${u.last_login_at ? kst(u.last_login_at) : '접속 전'}</td><td class="hint" style="white-space:nowrap">${kst(u.created_at).slice(0, 10)}</td><td style="text-align:right;white-space:nowrap">${u.status === 'rejected' ? `<button class="btn btn-red btn-xs" data-qok="${u.id}">승인</button> ` : ''}<a class="btn btn-xs" href="#quotelogs?user=${u.id}">견적 기록</a> <button class="btn btn-xs" data-qedit="${u.id}">수정</button> <button class="btn btn-xs" data-qpw="${u.id}">비밀번호 재설정</button> <button class="btn-link" data-qdel="${u.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">아직 발급한 계정이 없습니다. 아래에서 첫 계정을 만들어 주세요.</td></tr>'}</tbody></table></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">새 계정 만들기</h2>
 <div class="grid2"><label class="field">아이디 (영문 · 숫자 3자 이상)<input class="input" id="qnId" autocomplete="off"></label><label class="field">비밀번호 (8자 이상)<input class="input" id="qnPw" type="text" autocomplete="off"></label>
 <label class="field">이름<input class="input" id="qnName"></label><label class="field">소속 (회사 · 지점)<input class="input" id="qnCompany"></label>
@@ -919,13 +926,37 @@ PAGES.quoteusers = async () => {
     $('#qnCopy').addEventListener('click', () => copyText($('#qnInfo').value, '#qnInfo'));
   });
 
+  $$('[data-qok]').forEach((b) => b.addEventListener('click', async () => {
+    const u = all.find((x) => x.id === +b.dataset.qok);
+    if (!(await confirmBox(`${u.name}${u.company ? ' (' + u.company + ')' : ''} · 아이디 ${u.username}\n가입을 승인할까요? 승인하면 바로 견적 사이트에 로그인할 수 있습니다.`, '승인'))) return;
+    await run(() => api(`/api/admin/quote-users/${u.id}/approve`, { method: 'POST' }), `${u.username} 가입을 승인했습니다.`);
+    refreshCounts(); route();
+  }));
+  $$('[data-qno]').forEach((b) => b.addEventListener('click', () => {
+    const u = all.find((x) => x.id === +b.dataset.qno);
+    const d = $('#dlg');
+    $('#dlgBody').innerHTML = `<h2 style="font-size:17px">${esc(u.username)} 가입 거절</h2>
+<p class="hint" style="margin:0">${esc(u.name)}${u.company ? ' · ' + esc(u.company) : ''} · ${esc(u.phone)}<br>거절하면 로그인할 수 없고, 계정 목록에 '가입 거절'로 남습니다. 나중에 승인으로 바꿀 수 있습니다.</p>
+<label class="field">거절 사유 (관리자만 보임, 선택)<input class="input" id="qrReason"></label>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" value="close" formnovalidate>취소</button><button class="btn btn-red btn-sm" type="button" id="qrSave">거절</button></div>`;
+    d.onclose = null;
+    d.showModal();
+    $('#qrSave').addEventListener('click', async () => {
+      try {
+        await api(`/api/admin/quote-users/${u.id}/reject`, { method: 'POST', body: { reason: $('#qrReason').value } });
+        d.close(); toast(`${u.username} 가입을 거절했습니다.`); refreshCounts(); route();
+      } catch (e) { toast(e.message, true); }
+    });
+  }));
+
   $$('[data-qedit]').forEach((b) => b.addEventListener('click', () => {
-    const u = users.find((x) => x.id === +b.dataset.qedit);
+    const u = all.find((x) => x.id === +b.dataset.qedit);
     const d = $('#dlg');
     $('#dlgBody').innerHTML = `<h2 style="font-size:17px">${esc(u.username)} 수정</h2>
 <label class="field">이름<input class="input" id="qeName" value="${esc(u.name)}"></label>
 <label class="field">소속<input class="input" id="qeCompany" value="${esc(u.company)}"></label>
 <label class="field">연락처<input class="input" id="qePhone" value="${esc(u.phone)}"></label>
+<label class="field">이메일<input class="input" id="qeEmail" value="${esc(u.email || '')}"></label>
 <label class="field">메모 (관리자만 보임)<input class="input" id="qeMemo" value="${esc(u.memo)}"></label>
 <label class="check"><input type="checkbox" id="qeActive" ${u.active ? 'checked' : ''}> 사용 중 (해제하면 바로 로그아웃되고 다시 로그인할 수 없습니다)</label>
 <p class="error-msg" id="qeErr" role="alert" style="margin:0"></p>
@@ -934,14 +965,14 @@ PAGES.quoteusers = async () => {
     d.showModal();
     $('#qeSave').addEventListener('click', async () => {
       try {
-        await api('/api/admin/quote-users/' + u.id, { method: 'PUT', body: { name: $('#qeName').value, company: $('#qeCompany').value, phone: $('#qePhone').value, memo: $('#qeMemo').value, active: $('#qeActive').checked } });
+        await api('/api/admin/quote-users/' + u.id, { method: 'PUT', body: { name: $('#qeName').value, company: $('#qeCompany').value, phone: $('#qePhone').value, email: $('#qeEmail').value, memo: $('#qeMemo').value, active: $('#qeActive').checked } });
         d.close(); toast('저장했습니다.'); route();
       } catch (e) { $('#qeErr').textContent = e.message; }
     });
   }));
 
   $$('[data-qpw]').forEach((b) => b.addEventListener('click', () => {
-    const u = users.find((x) => x.id === +b.dataset.qpw);
+    const u = all.find((x) => x.id === +b.dataset.qpw);
     const d = $('#dlg');
     $('#dlgBody').innerHTML = `<h2 style="font-size:17px">${esc(u.username)} 비밀번호 재설정</h2>
 <p class="hint" style="margin:0">새 비밀번호를 사용자에게 전달해 주세요. 그 사용자가 지금 접속해 있으면 로그아웃됩니다.</p>
@@ -961,7 +992,7 @@ PAGES.quoteusers = async () => {
   }));
 
   $$('[data-qdel]').forEach((b) => b.addEventListener('click', async () => {
-    const u = users.find((x) => x.id === +b.dataset.qdel);
+    const u = all.find((x) => x.id === +b.dataset.qdel);
     if (!(await confirmBox(`${u.username} (${u.name}) 계정을 삭제할까요?\n잠시 못 쓰게 하려면 삭제 대신 '수정'에서 사용 중지를 하세요.`, '삭제'))) return;
     await run(() => api('/api/admin/quote-users/' + u.id, { method: 'DELETE' }), '삭제했습니다.');
     route();
