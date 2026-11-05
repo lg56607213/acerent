@@ -153,6 +153,7 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
   <div class="brand"><b>에이스렌트카 장기렌트 견적기</b><span>가격표 2026.10.1 기준 · 474개 트림</span></div>
   <button class="btn" id="btnReset" type="button">새 견적</button>
   <button class="btn" id="btnSettings" type="button">기본 설정</button>
+  <button class="btn" id="btnRv" type="button">잔가 설정</button>
   <button class="btn primary" id="btnPdf" type="button">고객 견적서 PDF</button>
 </div></header>
 
@@ -224,6 +225,7 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
 
 <div class="modal" id="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <h2 id="setTitle">기본 설정</h2>
+  <p class="note" style="margin:0">저장하면 서버에 저장되어 어느 PC에서 열어도 같은 값이 나옵니다. 조달금리 · 보험료 · 취득비용 · 자동차세는 회원 견적(/quote)에도 같이 적용되고, AG 기본값은 이 관리자 견적기에만 쓰입니다. 잔가 조정은 '잔가 설정'에서 바꿉니다.</p>
   <div class="fields" id="setFields"></div>
   <div>
     <h2>화물·승합·전기 자동차세 (연 정액)</h2>
@@ -235,6 +237,22 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
     <div class="fields" id="docFields"></div>
   </div>
   <div class="row"><button class="btn" id="setDefault" type="button">처음 값으로</button><button class="btn primary" id="setClose" type="button">저장하고 닫기</button></div>
+</div></div>
+<div class="modal" id="rvModal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="rvTitle" style="max-width:1000px">
+  <h2 id="rvTitle">잔가 설정 (차종별 잔가율)</h2>
+  <p class="note" style="margin:0">잔가그룹(차종)마다 기간별 잔가율(%)을 넣습니다. 견적에서 잔가를 직접 입력하지 않으면 이 표의 값에 약정거리 조정이 더해져 적용되고, 회원 견적에서는 이 값이 최대 잔가율입니다. 칸을 비우면 그 기간은 잔가표가 없는 것으로 봅니다.</p>
+  <div class="fields">
+    <div class="f"><label for="rv_km">잔가 기준 약정거리 (km/년)</label><input id="rv_km" class="num" data-rvset="rvKm"></div>
+    <div class="f"><label for="rv_adj">5천km당 잔가 조정 (%p)</label><input id="rv_adj" class="num" data-rvset="rvAdj"></div>
+    <div class="f wide"><label>약정거리 조정 예시</label><div class="calc" id="rvExample" style="text-align:left;font-weight:500"></div></div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <input id="rvFind" placeholder="차종 · 잔가그룹 찾기 (예: 쏘렌토)" style="max-width:280px;background:var(--input);border:1px solid var(--input-line);border-radius:5px;padding:6px 8px" aria-label="차종 찾기">
+    <button class="btn" id="rvCur" type="button">현재 견적 차종만 보기</button>
+    <span class="note" id="rvCurInfo" style="margin:0"></span>
+  </div>
+  <div class="tscroll" style="max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:6px"><table class="pt" id="rvTbl" style="min-width:760px"></table></div>
+  <div class="row"><span class="note" id="rvSaveInfo" style="margin:0 auto 0 0"></span><button class="btn" id="rvCancel" type="button">닫기</button><button class="btn primary" id="rvSave" type="button">저장하고 닫기</button></div>
 </div></div>
 <div id="offscreen"></div>
 <div class="toast" id="toast" hidden></div>
@@ -249,7 +267,7 @@ const TERMS=[12,24,36,48,60];
 
 /* ---------- 설정 (엑셀 '설정' 시트) ---------- */
 const DEF_SET = {
-  rate:12, plate1:10800, plate2:22000, stamp:2000, reg:20000, bond:0, acq:4, ag:5,
+  rate:12, ins:100000, plate1:10800, plate2:22000, stamp:2000, reg:20000, bond:0, acq:4, ag:5,
   carTax:'영업용', rvKm:30000, rvAdj:1.4, tint:110000, bb:165000,
   cc:[[0,18,80],[1001,18,140],[1601,19,200],[2001,19,200],[2501,24,200]],
   fixed:[['화물 1톤 이하',6600,28500,'비영업용'],['화물 2톤 이하',9600,34500,'비영업용'],['화물 3톤 이하',13500,48000,'비영업용'],['화물 4톤 이하',18000,63000,'비영업용'],['화물 5톤 이하',22500,79500,'비영업용'],['승합 소형일반버스',25000,65000,'영업용'],['승합 대형일반버스',42000,115000,'영업용'],['전기 승용',20000,100000,'영업용'],['특수 소형',13500,58500,'영업용'],['삼륜 이하',3300,18000,'영업용']],
@@ -262,13 +280,13 @@ const MAINT_DEF={'Self':['-','-','-','-','-','-'],'Basic':['●','-','●','●'
 
 /* ---------- 기본 견적 (엑셀 렌트견적 예시값) ---------- */
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function defProd(o){return Object.assign({on:true,term:36,km:30000,pre:'0',dep:'10%',rvRate:'',rvAmt:'',ins:100000,mName:'Self',mAmt:0,rate:String(SET.rate),ag:SET.ag+'%',pay:'후불',manual:''},o)}
+function defProd(o){return Object.assign({on:true,term:36,km:30000,pre:'0',dep:'10%',rvRate:'',rvAmt:'',ins:SET.ins,mName:'Self',mAmt:0,rate:String(SET.rate),ag:SET.ag+'%',pay:'후불',manual:''},o)}
 function defState(sample){
   const s={date:today(),v:{mk:'',cat:'',model:'',line:'',trim:''},opts:[],ext:'',int:'',extra:0,del1:330000,del2:0,del3:0,tint:'고객자체시공',bb:'고객자체시공',otherName:'',otherAmt:0,mfr:'0',ctype:'법인',cname:'',mgr:'',tel:'',
     P:[defProd({term:36}),defProd({term:48}),defProd({term:60})]};
   if(sample){
     s.v={mk:'현대',cat:'포터II',model:'포터II 카고',line:'2WD',trim:'더블캡 모던'};s.opts=['5단 자동변속기'];s.ext='스노우 화이트 펄';s.int='블랙';
-    s.P=[defProd({term:36,dep:'10%',rate:'12',ag:'5%'}),defProd({term:48,dep:'5%',rvRate:'50%',rate:'14',ag:'4.5%'}),defProd({term:60,dep:'5%',rvRate:'40%',rate:'14',ag:'4.5%',pay:'선불'})];
+    s.P=[defProd({term:36,dep:'10%',rate:'12',ag:'5%'}),defProd({term:48,dep:'5%',rate:'14',ag:'4.5%'}),defProd({term:60,dep:'5%',rate:'14',ag:'4.5%',pay:'선불'})];
   }
   return s;
 }
@@ -281,10 +299,40 @@ function insGrade(){
   const id=INS.insMap?INS.insMap[key]:(INS_LARGE.includes(v.model)?'large':'mid');
   return INS.insGrades.find(g=>g.id===id)||INS.insGrades[0]||{};
 }
+// 기본 설정 · 잔가표는 서버(홈페이지 관리자 › 견적 설정)에 저장 → 어느 PC에서 열어도 같고, 회원 견적에도 같은 값이 쓰임
+let CFG=null, RVT=DATA.RV, RVD=[null,null,null,null,null];
+const pnum=v=>{const x=parseFloat(String(v??'').replace(/[,%\s원]/g,''));return isFinite(x)?x:0};
+function cfgToSet(c){
+  return {rate:pnum(c.rate), ins:pnum(c.insurance), ag:pnum(c.toolAg||'5'), acq:pnum(c.acq), plate1:c.plate1, plate2:c.plate2, stamp:c.stamp, reg:c.reg, bond:c.bond,
+    rvKm:c.rvKm, rvAdj:c.rvAdj, tint:c.tint, bb:c.bb, carTax:c.carTax, cc:c.cc, fixed:c.fixed, company:c.company||SET.company, guide:c.guide||SET.guide};
+}
+function setToCfg(){
+  return {...CFG, rate:SET.rate, insurance:SET.ins, toolAg:SET.ag+'%', acq:SET.acq, plate1:SET.plate1, plate2:SET.plate2, stamp:SET.stamp, reg:SET.reg, bond:SET.bond,
+    rvKm:SET.rvKm, rvAdj:SET.rvAdj, tint:SET.tint, bb:SET.bb, carTax:SET.carTax, cc:SET.cc, fixed:SET.fixed, company:SET.company, guide:SET.guide, rv:RVT, rvDefault:RVD};
+}
+// 기본값을 바꾸면, 기본값 그대로 쓰던 상품 칸도 같이 바뀌게
+function carryDefaults(old){
+  if(typeof S==='undefined'||!S) return;
+  for(const p of S.P){
+    if(old.rate!==undefined && Math.abs(pnum(p.rate)-old.rate)<1e-9 && old.rate!==SET.rate) p.rate=String(SET.rate);
+    if(old.ag!==undefined && Math.abs(pnum(p.ag)-old.ag)<1e-9 && old.ag!==SET.ag) p.ag=SET.ag+'%';
+    if(old.ins!==undefined && pnum(p.ins)===old.ins && old.ins!==SET.ins) p.ins=SET.ins;
+  }
+}
+async function saveCfg(){
+  if(!CFG) return {ok:false,msg:'홈페이지 관리자에 로그인한 상태에서만 서버에 저장됩니다. (이 브라우저에만 저장했습니다)'};
+  const r=await fetch('/api/admin/quote-config',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(setToCfg())});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) return {ok:false,msg:d.error||'저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
+  CFG=d.config; return {ok:true};
+}
 fetch('/api/admin/quote-config',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
-  if(!d||!d.config) return; const c=d.config;
+  if(!d||!d.config) return; const c=d.config; CFG=c;
   INS={insAge:c.insAge,call:c.call,maturity:c.maturity,insNote:c.insNote,insGrades:c.insGrades,insMap:c.insMap};
-  if(typeof update==='function'&&C) update();
+  RVT=c.rv||DATA.RV; RVD=c.rvDefault||RVD;
+  const old={rate:SET.rate,ag:SET.ag,ins:SET.ins};
+  Object.assign(SET,cfgToSet(c)); carryDefaults(old);
+  if(typeof update==='function'&&C){ buildProdTable(); update(); }
 }).catch(()=>{});
 let SET = load('ace_set') || structuredClone(DEF_SET);
 for(const k in DEF_SET) if(SET[k]===undefined) SET[k]=structuredClone(DEF_SET[k]);
@@ -364,7 +412,7 @@ function compute(){
     o.pre=(()=>{const v=num(p.pre); if(v>=1000) return R(v); if(v>=1) return R(price*v/100); return R(price*v);})();
     o.pre11=R(o.pre/1.1);
     o.dep=(()=>{const v=num(p.dep); if(v>=1000) return R(v); if(v>=1) return R(price*v/100); return R(price*v);})();
-    const idx=TERMS.indexOf(o.n); const rvRow=tr?DATA.RV[tr[9]]:null;
+    const idx=TERMS.indexOf(o.n); const rvRow=tr?(RVT[tr[9]]||RVD):null;
     o.rvTable = rvRow&&idx>=0&&rvRow[idx] ? +rvRow[idx] : 0;
     o.rvKmAdj = o.rvTable>0 ? (SET.rvKm-o.km)/5000*SET.rvAdj/100 : 0;
     const ra=num(p.rvAmt), rr=num(p.rvRate);
@@ -460,7 +508,10 @@ function update(){
     $('s'+i+'dep').textContent=won(o.dep)+'원';
     $('s'+i+'ag').textContent=won(o.ag)+'원';
     $('s'+i+'rate').textContent=pct(o.rate);
-    $('s'+i+'rv').textContent = o.rv ? '적용 '+pct(o.rv)+' · '+o.rvSrc+(o.rvTable?' (잔가표 '+pct(o.rvTable+o.rvKmAdj)+')':'') : '⚠ 잔가율 미등록 — 직접입력 필요';
+    const adjTxt = o.rvKmAdj ? (o.rvKmAdj>0?' + ':' − ')+(Math.abs(o.rvKmAdj)*100).toFixed(1)+'%p(약정거리)' : ' (약정거리 조정 0)';
+    $('s'+i+'rv').textContent = !o.rv ? '⚠ 잔가표 없음 — 잔가 설정에서 넣거나 직접입력' :
+      o.rvSrc==='잔가표' ? '잔가표 '+pct(o.rvTable)+adjTxt+' = '+pct(o.rv) :
+      o.rvSrc+' '+pct(o.rv)+(o.rvTable?' · 잔가표 기준이면 '+pct(o.rvTable+o.rvKmAdj):'')+' (직접입력엔 약정거리 조정 미적용)';
     $('r'+i+'sup').textContent=won(o.supply); $('r'+i+'vat').textContent=won(o.vat); $('r'+i+'mon').textContent=won(o.month);
     $('r'+i+'up').textContent=won(o.upfront);
     $('r'+i+'q').innerHTML = o.isManual ? '<b>'+won(o.qMonth)+'</b> <span class="qtag">수기</span>' : won(o.qMonth)+' <span class="qtag calc">계산</span>';
@@ -582,7 +633,7 @@ async function makePdf(){
 }
 
 /* ---------- 설정 창 ---------- */
-const SET_FIELDS=[['rate','조달금리 기본값 (연 %)'],['ag','AG 수수료율 기본값 (%)'],['acq','취득세율 (%)'],['plate1','보조번호판'],['plate2','번호판대'],['stamp','인지대'],['reg','등록대행 수수료'],['bond','공채 할인비용'],['rvKm','잔가 기준 약정거리 (km/년)'],['rvAdj','5천km당 잔가 조정 (%p)'],['tint','썬팅 시공비 (VAT포함)'],['bb','블랙박스 시공비 (VAT포함)'],['carTax','승용 자동차세 기준','sel']];
+const SET_FIELDS=[['rate','조달금리 기본값 (연 %)'],['ins','보험료 기본값 (월, 원)'],['ag','AG 수수료율 기본값 (%) · 관리자 견적기'],['acq','취득세율 (%)'],['plate1','보조번호판'],['plate2','번호판대'],['stamp','인지대'],['reg','등록대행 수수료'],['bond','공채 할인비용'],['tint','썬팅 시공비 (VAT포함)'],['bb','블랙박스 시공비 (VAT포함)'],['carTax','승용 자동차세 기준','sel']];
 const DOC_FIELDS=[['company','회사명'],['guide','안내사항','wide']];
 function renderSettings(){
   $('setFields').innerHTML=SET_FIELDS.map(([k,l,t])=>'<div class="f"><label for="set_'+k+'">'+l+'</label>'+(t==='sel'?'<select id="set_'+k+'" data-set="'+k+'"><option'+(SET[k]==='영업용'?' selected':'')+'>영업용</option><option'+(SET[k]==='비영업용'?' selected':'')+'>비영업용</option></select>':'<input id="set_'+k+'" class="num" data-set="'+k+'" value="'+esc(SET[k])+'">')+'</div>').join('');
@@ -591,17 +642,72 @@ function renderSettings(){
 }
 $('modal').addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.set){ SET[t.dataset.set]= t.tagName==='SELECT'?t.value:num(t.value); }
+  if(t.dataset.set){ const k=t.dataset.set, old={[k]:SET[k]}; SET[k]= t.tagName==='SELECT'?t.value:pnum(t.value); if(k==='rate'||k==='ag'||k==='ins'){ carryDefaults(old); buildProdTable(); } }
   else if(t.dataset.fx){ const f=SET.fixed[+t.dataset.fx]; f[+t.dataset.j]= t.tagName==='SELECT'?t.value:num(t.value); }
   else if(t.dataset.doc){ SET[t.dataset.doc]=t.value; }
   update();
 });
 $('btnSettings').onclick=()=>{renderSettings();$('modal').hidden=false;$('set_rate').focus()};
-$('setClose').onclick=()=>{$('modal').hidden=true;save()};
+$('setClose').onclick=async()=>{
+  const b=$('setClose'); b.disabled=true;
+  try{ const r=await saveCfg(); save(); if(r.ok){ $('modal').hidden=true; toast('기본 설정을 저장했습니다. 회원 견적에도 같은 금리 · 보험료 · 자동차세가 적용됩니다.'); } else toast(r.msg); }
+  finally{ b.disabled=false; }
+};
 $('modal').addEventListener('click',e=>{if(e.target===$('modal')){$('modal').hidden=true}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('modal').hidden)$('modal').hidden=true});
 let resetArm=0;
 $('setDefault').onclick=()=>{SET=structuredClone(DEF_SET);renderSettings();update();toast('설정을 처음 값으로 되돌렸습니다')};
+
+/* ---------- 잔가 설정 ---------- */
+const RV_GROUP_MODELS=(()=>{const m={};for(const t of DATA.T){const g=t[9]||'';(m[g]=m[g]||new Set()).add(t[2]);}return m;})();
+let rvBackup=null, rvOnlyCur=false;
+const rvP=x=>(x===null||x===undefined||x==='')?'':String(Math.round(x*10000)/100);
+function rvExample(){
+  const adj=+SET.rvAdj||0, km=+SET.rvKm||30000;
+  $('rvExample').textContent='기준 '+won(km)+'km → 약정 '+won(km+10000)+'km면 '+(adj*2).toFixed(1)+'%p 내려가고, '+won(Math.max(5000,km-10000))+'km면 '+(adj*2).toFixed(1)+'%p 올라갑니다. (잔가표 기준 상품에만 적용)';
+}
+function renderRv(){
+  const q=$('rvFind').value.trim(), cur=C&&C.tr?C.tr[9]:'';
+  $('rvCurInfo').textContent = C&&C.tr ? '현재 견적: '+S.v.model+' → 잔가그룹 「'+cur+'」' : '';
+  const groups=Object.keys(RVT).filter(g=>{
+    if(rvOnlyCur) return g===cur;
+    if(!q) return true;
+    return g.includes(q)||[...(RV_GROUP_MODELS[g]||[])].some(m=>m.includes(q));
+  });
+  const cell=(g,i,v)=>'<td><input class="num" data-rvg="'+esc(g)+'" data-rvi="'+i+'" value="'+rvP(v)+'" placeholder="-" aria-label="'+esc(g)+' '+TERMS[i]+'개월"></td>';
+  $('rvTbl').innerHTML='<thead><tr><th style="position:sticky;top:0;background:var(--surface)">잔가그룹</th><th style="position:sticky;top:0;background:var(--surface)">해당 차종</th>'+TERMS.map(t=>'<th style="position:sticky;top:0;background:var(--surface);text-align:right">'+t+'개월</th>').join('')+'</tr></thead><tbody>'
+    +(rvOnlyCur||q?'':'<tr><th scope="row">잔가표에 없는 차종</th><td class="note" style="margin:0">아래 표에 없는 잔가그룹</td>'+TERMS.map((_,i)=>cell('__default',i,RVD[i])).join('')+'</tr>')
+    +groups.map(g=>'<tr'+(g===cur?' style="background:var(--accent-soft)"':'')+'><th scope="row">'+esc(g)+'</th><td style="font-size:12px;color:var(--muted);min-width:150px;max-width:240px">'+esc([...(RV_GROUP_MODELS[g]||[])].join(', '))+'</td>'+TERMS.map((_,i)=>cell(g,i,(RVT[g]||[])[i])).join('')+'</tr>').join('')
+    +(groups.length?'':'<tr><td colspan="7" class="note" style="padding:20px;text-align:center">찾는 차종이 없습니다.</td></tr>')+'</tbody>';
+}
+$('btnRv').onclick=()=>{
+  rvBackup={rv:structuredClone(RVT),rvd:[...RVD],km:SET.rvKm,adj:SET.rvAdj};
+  $('rv_km').value=SET.rvKm; $('rv_adj').value=SET.rvAdj; rvOnlyCur=false; $('rvFind').value=''; $('rvCur').textContent='현재 견적 차종만 보기';
+  $('rvSaveInfo').textContent = CFG ? '저장하면 회원 견적의 최대 잔가율에도 적용됩니다.' : '홈페이지 관리자에 로그인하지 않아 이 브라우저에서만 쓰입니다.';
+  rvExample(); renderRv(); $('rvModal').hidden=false; $('rvFind').focus();
+};
+$('rvFind').addEventListener('input',()=>{rvOnlyCur=false;$('rvCur').textContent='현재 견적 차종만 보기';renderRv()});
+$('rvCur').onclick=()=>{rvOnlyCur=!rvOnlyCur;$('rvCur').textContent=rvOnlyCur?'전체 보기':'현재 견적 차종만 보기';renderRv()};
+$('rvModal').addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.rvset){ SET[t.dataset.rvset]=pnum(t.value); rvExample(); update(); return; }
+  if(t.dataset.rvg===undefined) return;
+  const v=t.value.trim()===''?null:pnum(t.value)/100;
+  if(v!==null&&!(v>0&&v<1)){ t.style.borderColor='var(--warn)'; return; } t.style.borderColor='';
+  const i=+t.dataset.rvi;
+  if(t.dataset.rvg==='__default') RVD[i]=v; else { RVT={...RVT,[t.dataset.rvg]:[...(RVT[t.dataset.rvg]||[null,null,null,null,null])]}; RVT[t.dataset.rvg][i]=v; }
+  update();
+});
+const rvClose=()=>{ if(rvBackup){ RVT=rvBackup.rv; RVD=rvBackup.rvd; SET.rvKm=rvBackup.km; SET.rvAdj=rvBackup.adj; rvBackup=null; update(); } $('rvModal').hidden=true; };
+$('rvCancel').onclick=rvClose;
+$('rvModal').addEventListener('click',e=>{if(e.target===$('rvModal')) rvClose()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('rvModal').hidden) rvClose()});
+$('rvSave').onclick=async()=>{
+  if([...document.querySelectorAll('#rvTbl input')].some(i=>i.style.borderColor)) return toast('잔가율은 0보다 크고 100보다 작은 %로 넣어 주세요.');
+  const b=$('rvSave'); b.disabled=true;
+  try{ const r=await saveCfg(); save(); if(r.ok){ rvBackup=null; $('rvModal').hidden=true; toast('잔가 설정을 저장했습니다.'); } else toast(r.msg); }
+  finally{ b.disabled=false; }
+};
 
 /* ---------- 입력 연결 ---------- */
 const BIND=['ext','int','extra','del1','del2','del3','tint','bb','otherName','otherAmt','mfr','ctype','cname','mgr','tel'];

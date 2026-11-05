@@ -30,6 +30,7 @@ const DEFAULT_INS_MAP = Object.fromEntries(modelList().map((m) => [m.key, LARGE_
 export const DEFAULT_QUOTE_CONFIG = {
   rate: 12, // 연 %
   insurance: 100000, // 월 보험료 (원)
+  toolAg: '5%', // 관리자용 견적기(/admin/quote)의 AG 수수료 기본값 (회원 견적과 무관)
   ag: '1%', // 관리자 AG 수수료 (사용자에게 안 보임): % 또는 원. 사용자 AG 는 상품별로 사용자가 따로 입력
   maint: 0, // 월 정비료 (Self)
   acq: 4, // 취득세율 %

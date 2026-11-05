@@ -22,7 +22,7 @@ function cleanConfig(b) {
   const n = (v, def, min = 0, max = 1e12) => { const x = Number(String(v ?? '').replace(/[,\s원%]/g, '')); return Number.isFinite(x) && x >= min && x <= max ? x : def; };
   const out = {
     rate: n(b.rate, d.rate, 0, 100), insurance: n(b.insurance, d.insurance), maint: n(b.maint, d.maint),
-    ag: cleanText(b.ag, 20) || d.ag, acq: n(b.acq, d.acq, 0, 100),
+    ag: cleanText(b.ag, 20) || d.ag, toolAg: cleanText(b.toolAg, 20) || d.toolAg, acq: n(b.acq, d.acq, 0, 100),
     plate1: n(b.plate1, d.plate1), plate2: n(b.plate2, d.plate2), stamp: n(b.stamp, d.stamp), reg: n(b.reg, d.reg), bond: n(b.bond, d.bond),
     tint: n(b.tint, d.tint), bb: n(b.bb, d.bb), del1: n(b.del1, d.del1),
     rvKm: n(b.rvKm, d.rvKm, 1000, 100000), rvAdj: n(b.rvAdj, d.rvAdj, 0, 20),
