@@ -217,9 +217,10 @@ export function computeQuote(input, cfg) {
 // 사용자 화면용: 금리 · 보험료 · 원가 · 자동차세 · IRR 은 빼고 결과 금액만
 export function toPublic(r) {
   if (!r.ok) return { ok: false, error: r.error };
+  const { tax, ...vehicle } = r.vehicle; // 세금 구분도 회원 화면에는 필요 없음
   return {
     ok: true,
-    vehicle: r.vehicle,
+    vehicle,
     products: r.products.map((o) =>
       o.error
         ? { on: o.on, n: o.n, km: o.km, error: o.error }

@@ -1006,24 +1006,10 @@ PAGES.quoteconfig = async () => {
   const p100 = (x) => (x === null || x === undefined || x === '' ? '' : String(Math.round(x * 10000) / 100));
   const f = (k, label, v = c[k]) => `<label class="field">${label}<input class="input" data-c="${k}" value="${esc(v)}"></label>`;
   const rvRow = (key, label, arr) => `<tr data-rv="${esc(key)}"><td><strong>${esc(label)}</strong></td>${terms.map((t, i) => `<td><input class="input" style="text-align:right" data-i="${i}" value="${p100(arr?.[i])}" placeholder="-" aria-label="${esc(label)} ${t}개월"></td>`).join('')}</tr>`;
-  main.innerHTML = `<div class="a-title"><div><h1>견적 설정</h1><p class="desc">견적 사용자 화면(/quote)의 렌트료 계산에 쓰입니다. 이 화면의 값은 사용자에게 보이지 않고, 사용자는 결과 금액만 봅니다.</p></div><button class="btn btn-red btn-sm" id="qcSave1">저장</button></div>
-<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">금리 · 보험료</h2>
+  main.innerHTML = `<div class="a-title"><div><h1>견적 설정</h1><p class="desc">회원 견적 화면(/quote)의 렌트료 계산과 견적서에 쓰입니다. 금리 · 보험료 · 자동차세 · 관리자 AG는 회원에게 보이지 않고, 회원은 결과 금액만 봅니다. 보험 조건(보상 한도 · 면책금)은 고객 견적서에 표시됩니다.</p></div><button class="btn btn-red btn-sm" id="qcSave1">저장</button></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">금리 · 보험료 · AG</h2>
 <p class="hint" style="margin:0">렌트료 계산의 AG 수수료는 여기서 정한 관리자 AG에, 사용자가 상품별로 직접 넣는 사용자 AG를 더한 금액입니다.</p>
 <div class="grid2">${f('rate', '금리 (연 %)')}${f('insurance', '보험료 (월, 원)')}${f('ag', '관리자 AG 수수료 (% 또는 원, 예: 1%) — 사용자에게 안 보임')}${f('maint', '정비료 (월, 원) — Self 는 0')}</div></div>
-<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">최대 잔가율 (%)</h2>
-<p class="hint" style="margin:0">사용자는 이 값 이하로만 잔가율을 넣을 수 있고, 비워 두면 최대값이 적용됩니다. 약정거리가 기준보다 길면 아래 조정만큼 최대값이 내려갑니다. 칸을 비우면 그 기간은 견적을 낼 수 없습니다.</p>
-<div class="grid2">${f('rvKm', '잔가 기준 약정거리 (km/년)')}${f('rvAdj', '5천km당 잔가 조정 (%p)')}</div>
-<input class="input" id="rvFind" placeholder="잔가그룹 찾기 (예: 쏘렌토)" style="max-width:280px" aria-label="잔가그룹 찾기">
-<div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="rvTbl" style="min-width:560px"><thead><tr><th style="position:sticky;top:0">잔가그룹</th>${terms.map((t) => `<th style="position:sticky;top:0;text-align:right">${t}개월</th>`).join('')}</tr></thead>
-<tbody>${rvRow('__default', '잔가표에 없는 차종', c.rvDefault)}${groups.map((g) => rvRow(g, g, c.rv[g])).join('')}</tbody></table></div></div>
-<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자동차세</h2>
-<label class="field" style="max-width:260px">승용 자동차세 기준<select class="select" data-c="carTax">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], c.carTax)}</select></label>
-<div class="split"><div class="l" style="overflow-x:auto"><table class="a-table" id="ccTbl"><thead><tr><th>승용 배기량</th><th style="text-align:right">영업용 (cc당)</th><th style="text-align:right">비영업용 (cc당)</th></tr></thead><tbody>
-${c.cc.map((r, i) => `<tr><td>${i < c.cc.length - 1 ? `${won(r[0])} ~ ${won(c.cc[i + 1][0] - 1)}cc` : `${won(r[0])}cc 초과`}</td><td><input class="input" style="text-align:right" data-cc="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-cc="${i}" data-j="2" value="${r[2]}"></td></tr>`).join('')}</tbody></table></div>
-<div class="r" style="overflow-x:auto"><table class="a-table" id="fxTbl"><thead><tr><th>화물 · 승합 · 전기 (연 정액)</th><th style="text-align:right">영업용</th><th style="text-align:right">비영업용</th><th>적용</th></tr></thead><tbody>
-${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="2" value="${r[2]}"></td><td><select class="select" data-fx="${i}" data-j="3">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], r[3])}</select></td></tr>`).join('')}</tbody></table></div></div></div>
-<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">취득 비용 · 시공비</h2>
-<div class="grid2">${f('acq', '취득세율 (%)')}${f('plate1', '보조번호판')}${f('plate2', '번호판대')}${f('stamp', '인지대')}${f('reg', '등록대행 수수료')}${f('bond', '공채 할인비용')}${f('tint', '썬팅 시공비 (VAT포함)')}${f('bb', '블랙박스 시공비 (VAT포함)')}${f('del1', '제조사 탁송료 기본값 (사용자가 바꿀 수 있음)')}</div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">보험 조건 (차종별 · 고객 견적서에 표시)</h2>
 <p class="hint" style="margin:0">보험 등급마다 보상 한도와 면책금을 정하고, 아래 차종 표에서 차종별로 등급을 지정합니다. 견적서에는 선택한 차종의 등급 값이 나갑니다.</p>
 <div class="grid2">${f('insAge', '운전가능연령 (전 차종 공통)')}</div>
@@ -1031,6 +1017,20 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
 <div><button class="btn btn-sm" type="button" id="grAdd">+ 보험 등급 추가</button></div>
 <input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
 <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자동차세</h2>
+<label class="field" style="max-width:260px">승용 자동차세 기준<select class="select" data-c="carTax">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], c.carTax)}</select></label>
+<div class="split"><div class="l" style="overflow-x:auto"><table class="a-table" id="ccTbl"><thead><tr><th>승용 배기량</th><th style="text-align:right">영업용 (cc당)</th><th style="text-align:right">비영업용 (cc당)</th></tr></thead><tbody>
+${c.cc.map((r, i) => `<tr><td>${i < c.cc.length - 1 ? `${won(r[0])} ~ ${won(c.cc[i + 1][0] - 1)}cc` : `${won(r[0])}cc 초과`}</td><td><input class="input" style="text-align:right" data-cc="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-cc="${i}" data-j="2" value="${r[2]}"></td></tr>`).join('')}</tbody></table></div>
+<div class="r" style="overflow-x:auto"><table class="a-table" id="fxTbl"><thead><tr><th>화물 · 승합 · 전기 (연 정액)</th><th style="text-align:right">영업용</th><th style="text-align:right">비영업용</th><th>적용</th></tr></thead><tbody>
+${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="1" value="${r[1]}"></td><td><input class="input" style="text-align:right" data-fx="${i}" data-j="2" value="${r[2]}"></td><td><select class="select" data-fx="${i}" data-j="3">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], r[3])}</select></td></tr>`).join('')}</tbody></table></div></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">최대 잔가율 (%)</h2>
+<p class="hint" style="margin:0">사용자는 이 값 이하로만 잔가율을 넣을 수 있고, 비워 두면 최대값이 적용됩니다. 약정거리가 기준보다 길면 아래 조정만큼 최대값이 내려갑니다. 칸을 비우면 그 기간은 견적을 낼 수 없습니다.</p>
+<div class="grid2">${f('rvKm', '잔가 기준 약정거리 (km/년)')}${f('rvAdj', '5천km당 잔가 조정 (%p)')}</div>
+<input class="input" id="rvFind" placeholder="잔가그룹 찾기 (예: 쏘렌토)" style="max-width:280px" aria-label="잔가그룹 찾기">
+<div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="rvTbl" style="min-width:560px"><thead><tr><th style="position:sticky;top:0">잔가그룹</th>${terms.map((t) => `<th style="position:sticky;top:0;text-align:right">${t}개월</th>`).join('')}</tr></thead>
+<tbody>${rvRow('__default', '잔가표에 없는 차종', c.rvDefault)}${groups.map((g) => rvRow(g, g, c.rv[g])).join('')}</tbody></table></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">취득 비용 · 시공비</h2>
+<div class="grid2">${f('acq', '취득세율 (%)')}${f('plate1', '보조번호판')}${f('plate2', '번호판대')}${f('stamp', '인지대')}${f('reg', '등록대행 수수료')}${f('bond', '공채 할인비용')}${f('tint', '썬팅 시공비 (VAT포함)')}${f('bb', '블랙박스 시공비 (VAT포함)')}${f('del1', '제조사 탁송료 기본값 (사용자가 바꿀 수 있음)')}</div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">견적서 문구 (고객 견적서에 표시)</h2>
 <div class="grid2">${f('company', '회사명')}${f('call', '사고접수 · 긴급출동 번호')}${f('maturity', '만기처리 (예: 반납형)')}${f('insNote', '보험 안내 문구 (보험 표 아래 ※ 한 줄, 비우면 표시 안 함)')}</div>
 <label class="field">안내사항<textarea class="textarea" data-c="guide" rows="3">${esc(c.guide)}</textarea></label></div>
