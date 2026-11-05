@@ -52,7 +52,7 @@
     "MAIL_FROM": "noti@onlycartalk.com",
     "MAIL_FROM_NAME": "에이스렌터카 홈페이지",
     // rentcarerp 연동: 비워두면 관리자 화면의 '단기 차량(임시)' 목록으로 동작
-    "ERP_API_BASE": "https://rentcarerp.com"
+    "ERP_API_BASE": ""
   },
   // 비밀값(대시보드 또는 wrangler secret put 으로 등록):
   //   ERP_API_KEY   — rentcarerp 연동 키
