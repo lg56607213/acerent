@@ -242,6 +242,7 @@ function renderResults() {
   });
   const ok = !!ps && S.P.some((p, i) => p.on && ps[i] && !ps[i].error) && !S.P.some((p, i) => p.on && ps[i]?.error);
   $('#issueBtn').disabled = !ok;
+  $('#jpgBtn').disabled = !ok;
   renderPaper();
 }
 
@@ -310,35 +311,68 @@ function fitPaper() {
 }
 new ResizeObserver(fitPaper).observe($('#stage'));
 
-// ── 견적서 발행: 서버에 기록하고 견적번호를 받은 뒤 PDF 저장 ──
-$('#issueBtn').addEventListener('click', async () => {
-  const btn = $('#issueBtn');
-  btn.disabled = true; const label = btn.textContent; btn.textContent = '발행 중…';
+// ── 견적서 발행: 서버에 기록하고 견적번호를 받은 뒤 PDF · JPG 저장 ──
+// 입력을 바꾸지 않은 같은 견적이면 PDF·JPG 를 둘 다 받아도 발행 기록은 한 번만 남긴다.
+async function ensureIssued() {
+  if (issued) return issued.no;
+  const r = await api('/api/quote/issue', { method: 'POST', body: payload() });
+  RES = r; issued = { no: r.no };
+  renderPaper();
+  return r.no;
+}
+
+// 견적서 화면을 A4 폭 이미지로 그린다
+async function paperCanvas() {
+  await document.fonts.ready;
+  const off = $('#offscreen'); off.innerHTML = '';
+  const clone = $('#paper').cloneNode(true); clone.id = 'paperClone'; clone.style.boxShadow = 'none'; off.appendChild(clone);
+  await Promise.all([...clone.querySelectorAll('img')].map((im) => (im.complete ? 0 : new Promise((res) => { im.onload = im.onerror = res; }))));
   try {
-    const r = await api('/api/quote/issue', { method: 'POST', body: payload() });
-    RES = r; issued = { no: r.no };
-    renderPaper();
-    await document.fonts.ready;
-    const off = $('#offscreen'); off.innerHTML = '';
-    const clone = $('#paper').cloneNode(true); clone.id = 'paperClone'; clone.style.boxShadow = 'none'; off.appendChild(clone);
-    await Promise.all([...clone.querySelectorAll('img')].map((im) => (im.complete ? 0 : new Promise((res) => { im.onload = im.onerror = res; }))));
-    const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', width: 794, windowWidth: 900 });
+    return await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, width: 794, windowWidth: 900 });
+  } finally {
     off.innerHTML = '';
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    let w = 210, h = (canvas.height * 210) / canvas.width, x = 0;
-    if (h > 297) { w = (210 * 297) / h; h = 297; x = (210 - w) / 2; }
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, 0, w, h);
-    const name = `견적서_${r.no}_${S.cname || '고객'}_${S.v.model}.pdf`.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '');
-    pdf.save(name);
-    toast(`견적서 ${r.no} 를 발행했습니다.`);
+  }
+}
+
+// 파일로 내려받기 (Blob + a[download] — 관리자 견적기와 같은 방식)
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+const fileName = (no, ext) => `견적서_${no}_${S.cname || '고객'}_${S.v.model}`.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '') + '.' + ext;
+
+async function download(kind) {
+  const btn = $(kind === 'pdf' ? '#issueBtn' : '#jpgBtn');
+  const both = [$('#issueBtn'), $('#jpgBtn')];
+  both.forEach((b) => (b.disabled = true));
+  const label = btn.textContent; btn.textContent = '만드는 중…';
+  try {
+    const no = await ensureIssued();
+    const canvas = await paperCanvas();
+    if (kind === 'pdf') {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      let w = 210, h = (canvas.height * 210) / canvas.width, x = 0;
+      if (h > 297) { w = (210 * 297) / h; h = 297; x = (210 - w) / 2; }
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, 0, w, h);
+      saveBlob(pdf.output('blob'), fileName(no, 'pdf'));
+    } else {
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
+      saveBlob(blob, fileName(no, 'jpg'));
+    }
+    toast(`견적서 ${no} ${kind.toUpperCase()}를 내려받았습니다.`);
   } catch (e) {
     if (/로그인/.test(e.message)) return boot();
-    toast(e.message || 'PDF를 만들지 못했습니다. 잠시 후 다시 눌러 주세요.', true);
+    toast(e.message || '견적서 파일을 만들지 못했습니다. 잠시 후 다시 눌러 주세요.', true);
   } finally {
     btn.textContent = label;
-    btn.disabled = false;
+    both.forEach((b) => (b.disabled = false));
   }
-});
+}
+$('#issueBtn').addEventListener('click', () => download('pdf'));
+$('#jpgBtn').addEventListener('click', () => download('jpg'));
 
 boot();

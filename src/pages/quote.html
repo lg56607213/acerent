@@ -154,6 +154,7 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
   <button class="btn" id="btnReset" type="button">새 견적</button>
   <button class="btn" id="btnSettings" type="button">기본 설정</button>
   <button class="btn" id="btnRv" type="button">잔가 설정</button>
+  <button class="btn" id="btnJpg" type="button">고객 견적서 JPG</button>
   <button class="btn primary" id="btnPdf" type="button">고객 견적서 PDF</button>
 </div></header>
 
@@ -495,7 +496,7 @@ function update(){
   if(!v.mk) msg='브랜드를 선택하세요'; else if(!v.cat) msg='구분을 선택하세요'; else if(!v.model) msg='모델을 선택하세요'; else if(!v.line&&!tr) msg='라인업을 선택하세요'; else if(!tr) msg='트림을 선택하세요';
   $('vehStatus').textContent=msg; $('vehStatus').className='status '+(tr?'ok':'bad');
   $('vehTag').textContent=tr?(v.model+' '+v.trim):'미선택';
-  $('btnPdf').disabled=!tr||!S.P.some(p=>p.on);
+  $('btnPdf').disabled=!tr||!S.P.some(p=>p.on); $('btnJpg').disabled=$('btnPdf').disabled;
   $('priceBox').innerHTML = tr ? '<div><span>기본가격</span>'+won(C.base)+'</div><div><span>옵션</span>'+won(C.optSum)+'</div><div><span>추가금</span>'+won(C.extra)+'</div><div class="big"><span>차량가격</span>'+won(C.price)+'원</div><div><span>공급가액</span>'+won(C.price-C.vat)+'</div><div><span>세금</span>'+esc(tr[7])+(tr[6]?' · '+won(tr[6])+'cc':'')+' · 연 자동차세 '+won(C.yTax)+'</div><div><span>잔가그룹</span>'+esc(tr[9]||'미등록')+'</div>' : '';
   $('tintAmt').textContent=won(C.tintAmt);
   const ea=colorAdd(S.ext,'외장'), ia=colorAdd(S.int,'내장');
@@ -613,22 +614,26 @@ new ResizeObserver(fitPaper).observe($('stage'));
 
 /* ---------- PDF ---------- */
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3500)}
-async function makePdf(){
-  const btn=$('btnPdf'); btn.disabled=true; const old=btn.textContent; btn.textContent='PDF 만드는 중…';
+async function makePdf(kind){
+  kind=kind==='jpg'?'jpg':'pdf';
+  const btn=$(kind==='pdf'?'btnPdf':'btnJpg'); btn.disabled=true; const old=btn.textContent; btn.textContent=kind.toUpperCase()+' 만드는 중…';
   try{
     await document.fonts.ready;
     const off=$('offscreen'); off.innerHTML=''; const clone=$('paper').cloneNode(true); clone.id='paperClone'; clone.style.boxShadow='none'; off.appendChild(clone);
     const canvas=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,width:794,windowWidth:900});
     off.innerHTML='';
-    const {jsPDF}=window.jspdf; const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
-    let w=210,h=canvas.height*210/canvas.width,x=0; if(h>297){w=210*297/h;h=297;x=(210-w)/2}
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',x,0,w,h);
-    const blob=pdf.output('blob');
-    const name=('견적서_'+(S.cname||'고객')+'_'+S.v.model+'_'+S.date).replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'')+'.pdf';
+    let blob;
+    if(kind==='pdf'){
+      const {jsPDF}=window.jspdf; const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+      let w=210,h=canvas.height*210/canvas.width,x=0; if(h>297){w=210*297/h;h=297;x=(210-w)/2}
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',x,0,w,h);
+      blob=pdf.output('blob');
+    } else blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.95));
+    const name=('견적서_'+(S.cname||'고객')+'_'+S.v.model+'_'+S.date).replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'')+'.'+kind;
     let dl=null; try{ dl = window.claude?.use ? await window.claude.use('downloads') : null; }catch(e){dl=null}
     if(dl){ try{ await dl.save({filename:name,data:blob}); toast('견적서를 저장했습니다'); }catch(e){ if(e&&e.code==='declined') toast('저장을 취소했습니다'); else toast('이 화면에서는 저장할 수 없습니다 ('+(e&&e.code||'오류')+')'); } }
-    else { const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('견적서 PDF를 내려받았습니다'); }
-  }catch(e){ console.error(e); toast('PDF를 만들지 못했습니다. 잠시 후 다시 눌러 주세요.'); }
+    else { const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('견적서 '+kind.toUpperCase()+'를 내려받았습니다'); }
+  }catch(e){ console.error(e); toast(kind.toUpperCase()+'를 만들지 못했습니다. 잠시 후 다시 눌러 주세요.'); }
   finally{ btn.textContent=old; btn.disabled=!C.tr||!S.P.some(p=>p.on); }
 }
 
@@ -727,7 +732,8 @@ for(const k of MONEY) $(k).addEventListener('blur',()=>{$(k).value=won(num(S[k])
 $('qdate').addEventListener('input',()=>{S.date=$('qdate').value;update()});
 $('pt').addEventListener('input',e=>{const t=e.target; if(t.dataset.p===undefined) return; const p=S.P[+t.dataset.p], k=t.dataset.k; p[k]= t.type==='checkbox'?t.checked:t.value; update();});
 $('pt').addEventListener('change',e=>{const t=e.target; if(t.dataset.p===undefined) return; const p=S.P[+t.dataset.p], k=t.dataset.k; p[k]= t.type==='checkbox'?t.checked:t.value; if(['ins','mAmt','rvAmt','manual'].includes(k)&&t.value) t.value=won(num(t.value)); update();});
-$('btnPdf').onclick=makePdf;
+$('btnPdf').onclick=()=>makePdf('pdf');
+$('btnJpg').onclick=()=>makePdf('jpg');
 $('btnReset').onclick=()=>{
   if(resetArm&&Date.now()-resetArm<4000){resetArm=0;$('btnReset').textContent='새 견적';S=defState(false);syncInputs();renderVehicleSelects();buildProdTable();update();toast('새 견적을 시작합니다');}
   else{resetArm=Date.now();$('btnReset').textContent='한 번 더 누르면 초기화';setTimeout(()=>{if(resetArm&&Date.now()-resetArm>=4000){resetArm=0;$('btnReset').textContent='새 견적'}},4100);}
