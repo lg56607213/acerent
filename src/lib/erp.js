@@ -70,7 +70,7 @@ export async function availableByModel(env, { from, to, locationId }) {
 export async function pushHold(env, reservation, model) {
   if (!erpEnabled(env)) return false;
   try {
-    await erpFetch(env, '/api/public/short/holds', {
+    const hold = await erpFetch(env, '/api/public/short/holds', {
       method: 'POST',
       body: JSON.stringify({
         no: reservation.no,
@@ -82,7 +82,12 @@ export async function pushHold(env, reservation, model) {
         phone: reservation.phone,
       }),
     });
-    await env.DB.prepare('UPDATE reservations SET erp_synced = 1 WHERE no = ?').bind(reservation.no).run();
+    // ERP 가 잡은 차량번호를 '배정 차량'에 넣는다 (관리자가 이미 적어 둔 값은 그대로)
+    await env.DB.prepare(
+      `UPDATE reservations SET erp_synced = 1, vehicle_ref = CASE WHEN vehicle_ref = '' THEN ? ELSE vehicle_ref END WHERE no = ?`
+    )
+      .bind(hold?.plate || '', reservation.no)
+      .run();
     return true;
   } catch {
     return false;
