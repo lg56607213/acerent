@@ -12,6 +12,9 @@ import { pricingOf, quote, describe } from '../../public/assets/longcalc.js';
 const jsonList = (s) => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
+// 단기 예약 부가 옵션 (화면 short.html 의 체크박스와 같게 유지)
+const SHORT_OPTIONS = ['추가 운전자'];
+
 // rentcarerp 연결이 잠시 안 될 때는 오류 대신 안내 문구
 async function availableSafe(env, args) {
   try {
@@ -96,7 +99,8 @@ export function registerPublic(r) {
     const ins = b.insuranceId
       ? await env.DB.prepare('SELECT * FROM insurance_options WHERE id = ? AND active = 1').bind(int(b.insuranceId)).first()
       : null;
-    const options = Array.isArray(b.options) ? b.options.map((o) => cleanText(o, 30)).filter(Boolean).slice(0, 10) : [];
+    // 실제로 제공하는 부가 옵션만 받는다 (카시트는 보유하지 않아 제외)
+    const options = Array.isArray(b.options) ? b.options.map((o) => cleanText(o, 30)).filter((o) => SHORT_OPTIONS.includes(o)) : [];
     const rate = dayRateFor(model, days);
     const rent = rate * days;
     const insAmt = ins ? ins.per_day * days : 0;
