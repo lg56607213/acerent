@@ -47,6 +47,12 @@
 .car-row .info { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .car-row .pay { flex: 0 0 200px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .car-row .pay strong { font-size: 22px; }
+.veh-pick { flex: 1 1 100%; border: 0; border-top: 1px dashed var(--line); margin: 0; padding: 14px 0 0; }
+.veh-pick legend { font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 10px; }
+.veh-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.veh-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+.veh-opt input { width: 18px; height: 18px; accent-color: var(--red); flex: none; margin: 0; }
+.veh-opt:has(input:checked) { border-color: var(--red); background: var(--red-soft); }
 .summary { flex: 1 1 320px; min-width: 0; border: 1px solid var(--ink); border-top: 4px solid var(--red); padding: 22px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 16px; }
 .summary fieldset { border: 0; padding: 0; margin: 0; }
 .summary legend { font-size: 14px; font-weight: 700; margin-bottom: 6px; }

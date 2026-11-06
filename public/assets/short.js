@@ -2,7 +2,7 @@ import { api, $, $$, esc, won, shortDt, defaultPeriod, initLayout, setBusy, clas
 
 const site = await initLayout();
 const qs = new URLSearchParams(location.search);
-const st = { models: [], days: 0, cls: '전체', modelId: null, insId: null };
+const st = { models: [], days: 0, cls: '전체', modelId: null, vehicleId: null, insId: null };
 const locs = ((site && site.locations) || []).filter((l) => l.can_pickup);
 const ins = (site && site.insurance) || [];
 if (site && site.driverNote) $('#driverNote').textContent = site.driverNote;
@@ -22,16 +22,28 @@ $('#insBox').insertAdjacentHTML(
   'beforeend',
   ins
     .map(
-      (i) => `<label class="check"><input type="radio" name="ins" value="${i.id}" ${i.id === st.insId ? 'checked' : ''}><span>${esc(i.name)}</span><span class="p">${i.per_day ? `1일 ${won(i.per_day)}원` : '0원'}</span></label>`
+      (i) => `<label class="check"><input type="radio" name="ins" value="${i.id}" ${i.id === st.insId ? 'checked' : ''}><span>${esc(i.name)}</span><span class="p">${insPriceText(i)}</span></label>`
     )
     .join('')
 );
 $$('input[name=ins]').forEach((r) => r.addEventListener('change', () => { st.insId = +r.value; summary(); }));
 $$('input[name=opt]').forEach((r) => r.addEventListener('change', summary));
 
+// 보험 요금 표시: 정액은 '+20,000원', 1일 요금은 '1일 N원'
+function insPriceText(i) {
+  const parts = [];
+  if (i.per_day) parts.push(`1일 ${won(i.per_day)}원`);
+  if (i.flat_fee) parts.push(`+${won(i.flat_fee)}원`);
+  return parts.join(' ') || '0원';
+}
+
 const loc = () => locs.find((l) => String(l.id) === $('#loc').value);
 const model = () => st.models.find((m) => m.id === st.modelId);
 const insCur = () => ins.find((i) => i.id === st.insId);
+const vehicle = () => (model() ? (model().vehicles || []).find((v) => v.id === st.vehicleId) : null);
+// '109허7702 (미색)' 처럼 한 줄 표시
+const vehLabel = (v) => (v ? `${v.plate}${v.color ? ` (${v.color})` : ''}` : '');
+const vehMeta = (v) => [v.color, v.year ? `${v.year}년식` : '', v.mileage ? `주행 ${won(v.mileage)}km` : ''].filter(Boolean).map(esc).join(' · ');
 
 let timer;
 ['loc', 'from', 'to'].forEach((id) => $('#' + id).addEventListener('change', () => { clearTimeout(timer); timer = setTimeout(search, 150); }));
@@ -46,6 +58,7 @@ async function search() {
     st.models = r.models;
     st.days = r.days;
     if (!model()) st.modelId = null;
+    if (!vehicle()) st.vehicleId = null;
     $('#period').textContent = `총 ${r.days}일`;
     $('#soldOut').innerHTML = r.soldOut.length ? `<strong style="color:var(--ink)">예약 마감</strong> &nbsp; ${r.soldOut.map((n) => `<span style="text-decoration:line-through">${esc(n)}</span>`).join(' &nbsp; ')}` : '';
     history.replaceState(null, '', `?loc=${$('#loc').value}&from=${from}&to=${to}`);
@@ -75,18 +88,29 @@ function render() {
 ${m.features ? `<span class="small muted">${esc(m.features)}</span>` : ''}<span class="small muted">1일 요금 1~2일 ${won(m.tiers[0])} · 3~4일 ${won(m.tiers[1])} · 5~6일 ${won(m.tiers[2])} · 7일~ ${won(m.tiers[3])}</span><span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
 <div class="pay"><span class="small muted">1일 ${won(m.dayRate)}원 × ${st.days}일</span><strong>${won(m.rent)}원</strong>
 <button type="button" class="btn ${m.id === st.modelId ? 'btn-red' : ''} btn-block" style="height:42px;margin-top:8px" data-id="${m.id}" aria-pressed="${m.id === st.modelId}">${m.id === st.modelId ? '선택됨' : '선택'}</button></div>
+${m.id === st.modelId && m.vehicles && m.vehicles.length ? `<fieldset class="veh-pick"><legend>차량 선택 <span class="small muted" style="font-weight:400">차량번호 · 색상 · 주행거리를 보고 골라 주세요</span></legend>
+<div class="veh-opts">${m.vehicles.map((v) => `<label class="veh-opt"><input type="radio" name="veh" value="${esc(v.id)}" ${v.id === st.vehicleId ? 'checked' : ''}><span><strong>${esc(v.plate)}</strong><br><span class="small muted">${vehMeta(v) || '-'}</span></span></label>`).join('')}</div></fieldset>` : ''}
 </article>`
         )
         .join('')
     : '<p class="empty">선택하신 기간에 예약 가능한 차량이 없습니다. 날짜를 바꾸거나 1644-8891로 문의해 주세요.</p>';
-  $$('#carList button[data-id]').forEach((b) => b.addEventListener('click', () => { st.modelId = +b.dataset.id; render(); if (innerWidth < 760) $('.summary').scrollIntoView({ behavior: 'smooth' }); }));
+  $$('#carList button[data-id]').forEach((b) => b.addEventListener('click', () => {
+    if (st.modelId !== +b.dataset.id) st.vehicleId = null;
+    st.modelId = +b.dataset.id;
+    render();
+    // 고를 차량이 있으면 차량 목록으로, 없으면 예약 내역으로
+    const pick = $('.veh-pick');
+    if (pick) pick.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    else if (innerWidth < 760) $('.summary').scrollIntoView({ behavior: 'smooth' });
+  }));
+  $$('input[name=veh]').forEach((r) => r.addEventListener('change', () => { st.vehicleId = r.value; summary(); }));
   summary();
 }
 
 function amounts() {
   const m = model(), i = insCur(), l = loc();
   const rent = m ? m.rent : 0;
-  const insAmt = i ? i.per_day * st.days : 0;
+  const insAmt = i ? i.per_day * st.days + (i.flat_fee || 0) : 0;
   const fee = l ? l.fee || 0 : 0;
   return { rent, insAmt, fee, total: rent + insAmt + fee };
 }
@@ -97,7 +121,7 @@ function summary() {
   $('#sumBody').hidden = !m;
   if (!m) return;
   const a = amounts();
-  $('#sumCar').textContent = `${m.maker} ${m.name}`;
+  $('#sumCar').textContent = `${m.maker} ${m.name}${vehicle() ? ' · ' + vehLabel(vehicle()) : ''}`;
   $('#sumPeriod').textContent = `${shortDt($('#from').value)} ~ ${shortDt($('#to').value)} · ${st.days}일`;
   $('#sumRent').textContent = won(a.rent) + '원';
   $('#sumIns').textContent = won(a.insAmt) + '원';
@@ -116,8 +140,14 @@ function step(n) {
 
 $('#goInfo').addEventListener('click', () => {
   const m = model(), a = amounts(), i = insCur();
+  if (m.vehicles && m.vehicles.length && !vehicle()) {
+    alert('차량(차량번호)을 선택해 주세요.');
+    const pick = $('.veh-pick');
+    if (pick) pick.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const opts = $$('input[name=opt]:checked').map((x) => x.value);
-  $('#cCar').textContent = `${m.maker} ${m.name}`;
+  $('#cCar').textContent = `${m.maker} ${m.name}${vehicle() ? ' · ' + vehLabel(vehicle()) : ''}`;
   $('#cLoc').textContent = loc() ? loc().name : '';
   $('#cPeriod').textContent = `${$('#from').value.replace('T', ' ')} ~ ${$('#to').value.replace('T', ' ')} (${st.days}일)`;
   $('#cIns').textContent = [i ? i.name : '', ...opts].filter(Boolean).join(' · ');
@@ -139,14 +169,14 @@ $('#submitRes').addEventListener('click', async () => {
     const r = await api('/api/short/reservations', {
       method: 'POST',
       body: {
-        locationId: +$('#loc').value, pickupAt: $('#from').value, returnAt: $('#to').value, modelId: st.modelId, insuranceId: st.insId,
+        locationId: +$('#loc').value, pickupAt: $('#from').value, returnAt: $('#to').value, modelId: st.modelId, vehicleId: st.vehicleId, insuranceId: st.insId,
         options: $$('input[name=opt]:checked').map((x) => x.value),
         name: f.name.value, phone: f.phone.value, birth: f.birth.value, license: f.license.value, flight: f.flight.value, request: f.request.value,
         website: f.website.value, agree: true,
       },
     });
     $('#dNo').textContent = r.no;
-    $('#dCar').textContent = r.model;
+    $('#dCar').textContent = r.vehicle ? `${r.model} · ${r.vehicle}` : r.model;
     $('#dPeriod').textContent = `${r.location} · ${r.pickupAt.replace('T', ' ')} ~ ${r.returnAt.replace('T', ' ')} (${r.days}일)`;
     $('#dTotal').textContent = won(r.total) + '원';
     step(3);

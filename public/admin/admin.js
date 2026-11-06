@@ -741,9 +741,9 @@ PAGES.short = async () => {
     blank: { maker: '기아', name: '새 차종', class: '준중형', fuel: '', seats: 5, day_rate: 0, active: 0 },
   });
   await listEditor({
-    target: '#ins', endpoint: 'insurance', title: '자차 보험 선택지', desc: '1일 요금 × 대여 일수로 계산됩니다.',
-    columns: [{ key: 'name', label: '보험 이름', w: 240 }, { key: 'per_day', label: '1일 요금', type: 'number', w: 100 }, { key: 'active', label: '사용', type: 'check' }],
-    blank: { name: '새 보험', per_day: 0, active: 0 },
+    target: '#ins', endpoint: 'insurance', title: '자차 보험 선택지', desc: '보험료 = 1일 요금 × 대여 일수 + 정액(예약 1건당 한 번).',
+    columns: [{ key: 'name', label: '보험 이름', w: 240 }, { key: 'per_day', label: '1일 요금', type: 'number', w: 100 }, { key: 'flat_fee', label: '정액 (건당)', type: 'number', w: 100 }, { key: 'active', label: '사용', type: 'check' }],
+    blank: { name: '새 보험', per_day: 0, flat_fee: 0, active: 0 },
   });
   if (!s.erpEnabled) {
     const { items: models } = await api('/api/admin/short-models');
