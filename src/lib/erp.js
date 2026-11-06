@@ -82,11 +82,12 @@ export async function pushHold(env, reservation, model) {
         phone: reservation.phone,
       }),
     });
-    // ERP 가 잡은 차량번호를 '배정 차량'에 넣는다 (관리자가 이미 적어 둔 값은 그대로)
+    // ERP 가 잡은 차량번호(외장색상)를 '배정 차량'에 넣는다 (관리자가 이미 적어 둔 값은 그대로)
+    const vehicle = hold?.plate ? (hold.color ? `${hold.plate} (${hold.color})` : hold.plate) : '';
     await env.DB.prepare(
       `UPDATE reservations SET erp_synced = 1, vehicle_ref = CASE WHEN vehicle_ref = '' THEN ? ELSE vehicle_ref END WHERE no = ?`
     )
-      .bind(hold?.plate || '', reservation.no)
+      .bind(vehicle, reservation.no)
       .run();
     return true;
   } catch {
