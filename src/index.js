@@ -17,7 +17,8 @@ registerPublic(router);
 registerAdmin(router);
 registerQuote(router);
 
-const OPEN_ADMIN = new Set(['/api/admin/me', '/api/admin/setup', '/api/admin/login', '/api/admin/logout']);
+// /api/admin/file 은 폼 POST(페이지 이동)라 JSON 오류 대신 204 로 답하도록 안에서 직접 로그인 확인
+const OPEN_ADMIN = new Set(['/api/admin/me', '/api/admin/setup', '/api/admin/login', '/api/admin/logout', '/api/admin/file']);
 
 export default {
   async fetch(request, env, ctx) {

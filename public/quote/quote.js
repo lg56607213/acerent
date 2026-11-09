@@ -334,12 +334,25 @@ async function paperCanvas() {
   }
 }
 
-// 파일로 내려받기 (Blob + a[download] — 관리자 견적기와 같은 방식)
-function saveBlob(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+// 파일로 내려받기: 만든 파일을 서버(/api/quote/file)에 보내 '이름이 붙은 첨부파일'로 받는다.
+// 브라우저 안 Blob 저장은 일부 Chrome 환경 · 카카오톡 등 앱 안 브라우저에서 파일 이름이 사라지거나 저장되지 않음
+function blobToBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] || '');
+    r.onerror = () => rej(new Error('견적서 파일을 읽지 못했습니다.'));
+    r.readAsDataURL(blob);
+  });
+}
+async function saveBlob(blob, name) {
+  const kind = name.toLowerCase().endsWith('.jpg') ? 'jpg' : 'pdf';
+  const data = await blobToBase64(blob);
+  const f = document.createElement('form');
+  f.method = 'POST'; f.action = '/api/quote/file'; f.enctype = 'multipart/form-data'; f.hidden = true;
+  for (const [k, v] of [['kind', kind], ['name', name], ['data', data]]) {
+    const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i);
+  }
+  document.body.appendChild(f); f.submit(); f.remove();
 }
 
 const fileName = (no, ext) => `견적서_${no}_${S.cname || '고객'}_${S.v.model}`.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '') + '.' + ext;
@@ -358,10 +371,10 @@ async function download(kind) {
       let w = 210, h = (canvas.height * 210) / canvas.width, x = 0;
       if (h > 297) { w = (210 * 297) / h; h = 297; x = (210 - w) / 2; }
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, 0, w, h);
-      saveBlob(pdf.output('blob'), fileName(no, 'pdf'));
+      await saveBlob(pdf.output('blob'), fileName(no, 'pdf'));
     } else {
       const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
-      saveBlob(blob, fileName(no, 'jpg'));
+      await saveBlob(blob, fileName(no, 'jpg'));
     }
     toast(`견적서 ${no} ${kind.toUpperCase()}를 내려받았습니다.`);
   } catch (e) {

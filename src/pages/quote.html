@@ -614,6 +614,14 @@ new ResizeObserver(fitPaper).observe($('stage'));
 
 /* ---------- PDF ---------- */
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3500)}
+// 홈페이지 관리자에 로그인한 상태면 서버(/api/admin/file)를 거쳐 '이름이 붙은 첨부파일'로 받음 — 브라우저 안 저장은 파일 이름이 사라지는 경우가 있어서
+function postFile(blob,name,kind){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=()=>rej(new Error('파일을 읽지 못했습니다'));
+    r.onload=()=>{ const f=document.createElement('form'); f.method='POST'; f.action='/api/admin/file'; f.enctype='multipart/form-data'; f.hidden=true;
+      for(const [k,v] of [['kind',kind],['name',name],['data',String(r.result).split(',')[1]||'']]){ const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; f.appendChild(i); }
+      document.body.appendChild(f); f.submit(); f.remove(); res(); };
+    r.readAsDataURL(blob); });
+}
 async function makePdf(kind){
   kind=kind==='jpg'?'jpg':'pdf';
   const btn=$(kind==='pdf'?'btnPdf':'btnJpg'); btn.disabled=true; const old=btn.textContent; btn.textContent=kind.toUpperCase()+' 만드는 중…';
@@ -632,6 +640,7 @@ async function makePdf(kind){
     const name=('견적서_'+(S.cname||'고객')+'_'+S.v.model+'_'+S.date).replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'')+'.'+kind;
     let dl=null; try{ dl = window.claude?.use ? await window.claude.use('downloads') : null; }catch(e){dl=null}
     if(dl){ try{ await dl.save({filename:name,data:blob}); toast('견적서를 저장했습니다'); }catch(e){ if(e&&e.code==='declined') toast('저장을 취소했습니다'); else toast('이 화면에서는 저장할 수 없습니다 ('+(e&&e.code||'오류')+')'); } }
+    else if(CFG){ await postFile(blob,name,kind); toast('견적서 '+kind.toUpperCase()+'를 내려받았습니다'); }
     else { const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('견적서 '+kind.toUpperCase()+'를 내려받았습니다'); }
   }catch(e){ console.error(e); toast(kind.toUpperCase()+'를 만들지 못했습니다. 잠시 후 다시 눌러 주세요.'); }
   finally{ btn.textContent=old; btn.disabled=!C.tr||!S.P.some(p=>p.on); }

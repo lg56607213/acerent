@@ -3,6 +3,8 @@
 //  - /api/admin/quote-users/*   : 관리자가 견적 사용자 계정 발급 · 수정 · 사용 중지 · 삭제
 import { HttpError, bad, json, readJson, cleanText, cleanPhone, int, nextNo } from '../lib/util.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
+import { echoFile } from '../lib/filedown.js';
+import { currentAdmin } from '../lib/auth.js';
 import { loadQuoteConfig, computeQuote, toPublic, cleanInput, vehicleData, residualGroups, DEFAULT_QUOTE_CONFIG, PUBLIC_CONFIG_KEYS, TERMS, INS_FIELDS, modelList } from '../lib/rentcalc.js';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import {
@@ -174,6 +176,16 @@ export function registerQuote(r) {
       }
     }
     return json({ ...toPublic(res), no, date: kstDate() });
+  });
+
+  // ── 견적서 파일 내려받기 (회원 · 관리자) — 폼 POST 로 와서 첨부파일로 돌아감. 로그인 안 됐으면 204
+  r.post('/api/quote/file', async ({ env, request }) => {
+    if (!(await currentQuoteUser(request, env.DB))) return new Response(null, { status: 204 });
+    return echoFile(request);
+  });
+  r.post('/api/admin/file', async ({ env, request }) => {
+    if (!(await currentAdmin(request, env.DB))) return new Response(null, { status: 204 });
+    return echoFile(request);
   });
 
   // ── 관리자: 견적 설정 (사용자 견적에 쓰이는 금리 · 보험료 · 자동차세 · 최대 잔가율) ──
