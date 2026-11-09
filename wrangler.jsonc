@@ -1,5 +1,5 @@
 // 에이스렌터카 홈페이지 — Cloudflare Workers 설정
-// 테스트: onlycartalk.com  →  최종: acerentcar.co.kr (vars 와 routes 만 바꾸면 됨)
+// 운영 주소: acerentcar.co.kr (www 포함). 예전 테스트 주소 onlycartalk.com 은 새 주소로 넘겨줌(LEGACY_HOSTS)
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "acerentcar",
@@ -12,12 +12,13 @@
   // 테스트용 주소 acerentcar.<계정>.workers.dev 켜기 (도메인 연결 전 확인용)
   "workers_dev": true,
 
-  // 화면(HTML/CSS/JS)은 public 폴더에서 바로 제공하고, /api 와 /img 만 Worker 코드가 처리
+  // 화면(HTML/CSS/JS)은 public 폴더 파일을 Worker 가 그대로 내려줌.
+  // 모든 요청이 Worker 를 먼저 거치는 이유: 예전 주소(LEGACY_HOSTS)로 온 화면 요청도 새 주소로 넘겨주기 위해 (무료 한도 하루 10만 요청)
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/img/*", "/admin/quote", "/admin/quote/"]
+    "run_worker_first": true
   },
 
   // DB: 예약·신청·문의·고객·게시판·설정
@@ -47,8 +48,11 @@
 
   "vars": {
     "SITE_NAME": "에이스렌터카",
-    "SITE_URL": "https://onlycartalk.com",
-    // 보내는 주소: Email Routing 을 켠 도메인의 주소여야 함
+    "SITE_URL": "https://acerentcar.co.kr",
+    // 이 주소로 들어오면 SITE_URL 의 같은 경로로 넘겨줌 (Worker 에 사용자 지정 도메인으로 계속 붙여 둘 것)
+    "LEGACY_HOSTS": "onlycartalk.com,www.onlycartalk.com",
+    // 보내는 주소: Email Routing 을 켠 도메인의 주소여야 함.
+    // acerentcar.co.kr 에는 Email Routing 을 켜지 말 것 — MX 가 바뀌어 다우오피스 회사 메일이 끊김. 알림 발신은 onlycartalk.com 그대로 사용
     "MAIL_FROM": "noti@onlycartalk.com",
     "MAIL_FROM_NAME": "에이스렌터카 홈페이지",
     // rentcarerp 연동: 비워두면 관리자 화면의 '단기 차량(임시)' 목록으로 동작

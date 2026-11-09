@@ -22,6 +22,12 @@ const OPEN_ADMIN = new Set(['/api/admin/me', '/api/admin/setup', '/api/admin/log
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // 예전 테스트 주소(onlycartalk.com)로 들어오면 같은 경로의 새 주소로 보냄 — 회원에게 알려준 예전 링크 · 알림 메일 링크도 계속 동작
+    const legacy = String(env.LEGACY_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean);
+    if (env.SITE_URL && legacy.includes(url.hostname)) {
+      const to = new URL(url.pathname + url.search, env.SITE_URL);
+      return Response.redirect(to.toString(), request.method === 'GET' || request.method === 'HEAD' ? 301 : 308);
+    }
     try {
       if (url.pathname.startsWith('/img/')) {
         return await serveImage(env, decodeURIComponent(url.pathname.slice(5)));

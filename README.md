@@ -2,7 +2,7 @@
 
 Cloudflare 무료 플랜(Workers · D1 · R2 · Email Routing)으로 돌아가는 에이스렌터카 홈페이지입니다.
 
-- **테스트**: onlycartalk.com → **최종**: acerentcar.co.kr
+- **운영 주소**: acerentcar.co.kr (www 포함) · 예전 테스트 주소 onlycartalk.com 은 같은 경로의 새 주소로 넘어감
 - 고객 화면: 메인, 단기렌트 실시간 예약, 중장기 차량 목록 · 상세 · 신청, 법인 견적, 고객센터(공지 · FAQ · 1:1 문의)
 - 관리자(`/admin/`): 단기 예약, 중장기 신청, 고객, 1:1 문의 답변, 게시판, 중장기 차량 · 실차 사진 · 가격표, 단기 차종 · 요금 · 보험, 예약 장소, 메인 배너, 메일 알림 · 발송 기록, 회사 정보 · 관리자 계정
 - 견적 사용자(`/quote`): 관리자가 '견적 사용자 계정' 메뉴에서 발급하거나, 사용자가 `/quote` 에서 회원가입 신청 → 관리자가 승인하면 로그인. 관리자 계정과 테이블 · 쿠키가 따로라 관리자 화면 · `/admin/quote` 에는 들어갈 수 없음
@@ -40,7 +40,7 @@ docs/              rentcarerp 연동 명세
    - 빌드 명령: 비워둠
    - 배포 명령: `npx wrangler d1 migrations apply acerentcar-db --remote && npx wrangler deploy`
    → 이후 GitHub `main` 에 올릴 때마다 자동 배포됩니다.
-4. **테스트 데이터 넣기 (테스트 도메인만)**: D1 → `acerentcar-db` → 콘솔에 `seed/sample.sql` 내용을 붙여넣고 실행 (단기 차종 14종 · 요금과 예약 장소는 배포 때 자동으로 들어가고, 이 파일은 보험 · 임시 차량 · 중장기 예시 · FAQ 용)
+4. **테스트 데이터 넣기 (처음 테스트할 때만)**: D1 → `acerentcar-db` → 콘솔에 `seed/sample.sql` 내용을 붙여넣고 실행 (단기 차종 14종 · 요금과 예약 장소는 배포 때 자동으로 들어가고, 이 파일은 보험 · 임시 차량 · 중장기 예시 · FAQ 용)
 5. **도메인 연결**: Worker → 설정 → 도메인 및 경로 → 사용자 지정 도메인 → `onlycartalk.com`, `www.onlycartalk.com`
 6. **알림 메일 켜기**: 도메인 `onlycartalk.com` → 이메일 → Email Routing 사용 → **대상 주소**에 관리자 메일 2곳 추가 → 각 메일함에서 인증 링크 클릭
 7. **관리자 계정 만들기**: `https://onlycartalk.com/admin/` 접속 → 처음 한 번 계정 생성 화면이 나옵니다
@@ -55,14 +55,20 @@ docs/              rentcarerp 연동 명세
 
 ## acerentcar.co.kr 로 최종 전환
 
-같은 Cloudflare 계정에서 도메인만 바꾸면 사진 · 가격표 · 장소 · 게시글이 그대로 이어집니다.
+같은 Worker · DB · 사진 저장소를 그대로 쓰므로 예약 · 가격표 · 견적 설정 · 견적 회원 · 견적 기록이 모두 이어집니다.
+**주의: acerentcar.co.kr 은 다우오피스 회사 메일이 쓰는 도메인입니다. 메일 레코드(MX · TXT)를 빠뜨리면 메일이 끊깁니다.**
 
-1. 관리자 → 회사 정보 → **테스트 데이터 정리** (예약 · 신청 · 문의 · 고객 · 메일 기록 삭제)
-2. Cloudflare 에 `acerentcar.co.kr` 추가 → **카페24 DNS 의 다우오피스 메일 레코드(MX · SPF · DKIM 등)를 빠짐없이 옮긴 뒤** 카페24에서 네임서버 변경
-3. 외부 메일로 회사 주소에 보내서 다우오피스 수신 확인
-4. 알림 메일은 **하위 도메인**(예: `noti.acerentcar.co.kr`)에만 Email Routing 사용 — 본 도메인 MX 는 건드리지 않음
-5. `wrangler.jsonc` 의 `SITE_URL`, `MAIL_FROM` 을 새 도메인으로 바꿔 커밋
-6. Worker 사용자 지정 도메인에 `acerentcar.co.kr`, `www.acerentcar.co.kr` 추가 (기존 카페24 홈페이지 레코드는 이때 교체)
+1. **현재 레코드 기록**: 카페24 → 도메인 관리 → acerentcar.co.kr → DNS 관리에서 모든 레코드(A · CNAME · MX · TXT)를 캡처
+2. **Cloudflare 에 도메인 추가**: Cloudflare → 도메인 추가 → `acerentcar.co.kr` → Free 플랜
+   - 자동으로 가져온 레코드를 1의 캡처와 한 줄씩 비교하고, 빠진 MX · TXT(SPF · DKIM · DMARC) · CNAME 을 추가
+   - 메일 관련 레코드는 반드시 **DNS 전용(회색 구름)**
+   - 루트(@)와 www 에 예전 홈페이지(카페24 호스팅)를 가리키는 A · CNAME 이 있으면 지움 (4에서 Worker 가 대신 붙음)
+3. **네임서버 변경**: 카페24 → 도메인 관리 → 네임서버 변경 → Cloudflare 가 알려준 네임서버 2개 입력. 활성화까지 몇 시간 ~ 최대 48시간
+4. **Worker 에 도메인 붙이기**: Worker `acerentcar` → 설정 → 도메인 및 경로 → 사용자 지정 도메인 → `acerentcar.co.kr`, `www.acerentcar.co.kr` 추가 (`onlycartalk.com` 은 지우지 말고 둠 — 예전 링크를 새 주소로 넘겨줌)
+5. **코드 반영**: `domain-acerentcar` 브랜치를 `main` 에 합치면 자동 배포 (`SITE_URL` 변경, 예전 주소 → 새 주소 넘기기)
+6. **Email Routing 은 acerentcar.co.kr 에 켜지 않음** — 켜면 MX 가 Cloudflare 로 바뀌어 다우오피스 메일이 끊김. 관리자 알림 메일은 지금처럼 `noti@onlycartalk.com` 으로 발송
+7. **확인**: 회사 메일 받기 · 보내기, `https://acerentcar.co.kr/admin/` 로그인(주소가 바뀌어 한 번 다시 로그인), `/quote` 회원 로그인, 예전 주소 `onlycartalk.com/quote` 가 새 주소로 넘어가는지
+8. 관리자 → 회사 정보 → **테스트 데이터 정리** (필요할 때만 — 예약 · 신청 · 문의 · 고객 · 메일 기록 삭제)
 
 ## 데이터 백업 · 다른 계정으로 옮기기
 
