@@ -186,6 +186,7 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
         <div class="f"><label for="del3">3차 탁송(납품)</label><input id="del3" class="num" inputmode="numeric"></div>
         <div class="f"><label for="tint">썬팅</label><select id="tint"><option>고객자체시공</option><option>에이스렌트카 시공</option></select></div>
         <div class="f"><label for="bb">블랙박스</label><select id="bb"><option>고객자체시공</option><option>에이스렌트카 시공</option></select></div>
+        <div class="f"><label for="carLim">자차 한도</label><select id="carLim"><option value="">기본 (차종 기준)</option></select></div>
         <div class="f"><label for="otherName">기타 외주장착 (견적서 표기)</label><input id="otherName"></div>
         <div class="f"><label for="otherAmt">기타 외주장착 금액 (VAT포함)</label><input id="otherAmt" class="num" inputmode="numeric"></div>
         <div class="f"><label for="mfr">제조사 수수료 (% 또는 원)</label><input id="mfr" class="num"></div>
@@ -283,7 +284,7 @@ const MAINT_DEF={'Self':['-','-','-','-','-','-'],'Basic':['●','-','●','●'
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function defProd(o){return Object.assign({on:true,term:36,km:30000,pre:'0',dep:'10%',rvRate:'',rvAmt:'',ins:SET.ins,mName:'Self',mAmt:0,rate:String(SET.rate),ag:SET.ag+'%',pay:'후불',manual:''},o)}
 function defState(sample){
-  const s={date:today(),v:{mk:'',cat:'',model:'',line:'',trim:''},opts:[],ext:'',int:'',extra:0,del1:330000,del2:0,del3:0,tint:'고객자체시공',bb:'고객자체시공',otherName:'',otherAmt:0,mfr:'0',ctype:'법인',cname:'',mgr:'',tel:'',
+  const s={date:today(),v:{mk:'',cat:'',model:'',line:'',trim:''},opts:[],ext:'',int:'',extra:0,del1:330000,del2:0,del3:0,tint:'고객자체시공',bb:'고객자체시공',carLim:'',otherName:'',otherAmt:0,mfr:'0',ctype:'법인',cname:'',mgr:'',tel:'',
     P:[defProd({term:36}),defProd({term:48}),defProd({term:60})]};
   if(sample){
     s.v={mk:'현대',cat:'포터II',model:'포터II 카고',line:'2WD',trim:'더블캡 모던'};s.opts=['5단 자동변속기'];s.ext='스노우 화이트 펄';s.int='블랙';
@@ -333,7 +334,7 @@ fetch('/api/admin/quote-config',{credentials:'same-origin'}).then(r=>r.ok?r.json
   RVT=c.rv||DATA.RV; RVD=c.rvDefault||RVD;
   const old={rate:SET.rate,ag:SET.ag,ins:SET.ins};
   Object.assign(SET,cfgToSet(c)); carryDefaults(old);
-  if(typeof update==='function'&&C){ buildProdTable(); update(); }
+  if(typeof update==='function'&&C){ buildProdTable(); if(typeof buildCarLim==='function') buildCarLim(); update(); }
 }).catch(()=>{});
 let SET = load('ace_set') || structuredClone(DEF_SET);
 for(const k in DEF_SET) if(SET[k]===undefined) SET[k]=structuredClone(DEF_SET[k]);
@@ -424,7 +425,7 @@ function compute(){
     o.rate=num(p.rate)>=1?num(p.rate)/100:num(p.rate);
     o.type=p.pay==='선불'?1:0;
     o.fin = (o.n===0||o.rv===0||price===0)?0:R(PMT(o.rate/12,o.n,-o.invest+o.pre11+o.dep,o.rvAmt-o.dep,o.type));
-    o.ins=num(p.ins); o.maint=num(p.mAmt); o.tax=c.mTax;
+    o.ins=num(p.ins)+(curLim()?num(curLim().add):0); o.maint=num(p.mAmt); o.tax=c.mTax;
     o.supply=o.fin+o.tax+o.ins+o.maint;
     o.vat=R(o.supply*0.1);
     o.month=o.supply+o.vat;
@@ -588,7 +589,8 @@ function renderPaper(){
   <tr><th>부가세</th>${cell(o=>won(o.qVat)+'원')}</tr>
   <tr class="total"><th>월 렌트료</th>${cell(o=>won(o.qMonth)+'원')}</tr></table>
   <div class="fine">※ 잔존가치는 차량가격(VAT 포함) 기준입니다. 선납금은 월 렌트료 할인에 반영되었습니다. 선납금/보증금 입금 계좌 : 고객별 전용 가상계좌 발급</div>`;
-  const ig=insGrade(), iv=k=>esc((tr&&ig[k])||'-');
+  const ig={...insGrade()}; if(curLim()) ig.car=curLim().label;
+  const iv=k=>esc((tr&&ig[k])||'-');
   h+=`<h3>보험 담보 조건 및 면책금</h3>
   <table class="grid6"><tr><th>운전가능연령</th><th>대인</th><th>대물</th><th>자기신체사고</th><th>자차 한도</th><th>무보험차상해</th></tr>
   <tr><td>${esc(INS.insAge)}</td><td>${iv('bi')}</td><td>${iv('pd')}</td><td>${iv('self')}</td><td>${iv('car')}</td><td>${iv('un')}</td></tr></table>
@@ -724,16 +726,31 @@ $('rvSave').onclick=async()=>{
 };
 
 /* ---------- 입력 연결 ---------- */
-const BIND=['ext','int','extra','del1','del2','del3','tint','bb','otherName','otherAmt','mfr','ctype','cname','mgr','tel'];
+const BIND=['ext','int','extra','del1','del2','del3','tint','bb','carLim','otherName','otherAmt','mfr','ctype','cname','mgr','tel'];
+// 자차 한도 선택지 (견적 설정에서 관리) — 고르면 월 보험료에 추가금이 붙고 견적서 '자차 한도' 칸이 바뀜
+const DEF_CAR_LIMITS=[{id:'c1000',label:'1,000만원',add:6000},{id:'full',label:'차량가액 전액',add:12000}];
+function carLims(){return (CFG&&Array.isArray(CFG.carLimits))?CFG.carLimits:DEF_CAR_LIMITS}
+// 포터 · 봉고 등 설정된 모델만 (승용은 기본 한도)
+function limAllowed(){const ks=String(CFG?CFG.carLimitModels??'':'포터,봉고').split(',').map(x=>x.trim()).filter(Boolean);return ks.some(k=>(S.v.model||'').includes(k))}
+function curLim(){return limAllowed()?(carLims().find(x=>x.id===S.carLim)||null):null}
+function buildCarLim(){
+  const ig=insGrade(), base=ig.car||'';
+  const ok=limAllowed(), list=ok?carLims():[];
+  if(S.carLim&&!list.some(x=>x.id===S.carLim)) S.carLim='';
+  $('carLim').innerHTML='<option value="">기본'+(S.v.model&&base?' '+esc(base):' (차종 기준)')+(!ok&&S.v.model?' — 포터 · 봉고만 변경 가능':'')+'</option>'+list.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+' (보험료 +'+won(x.add)+'원/월)</option>').join('');
+  $('carLim').value=S.carLim||''; $('carLim').disabled=!ok;
+}
 const MONEY=['extra','del1','del2','del3','otherAmt'];
 function syncInputs(){
+  if(S.carLim===undefined) S.carLim='';
+  buildCarLim();
   for(const k of BIND) $(k).value = MONEY.includes(k)? won(num(S[k])) : (S[k]??'');
   $('qdate').value=S.date;
 }
 ['mk','cat','model','line','trim'].forEach((k,i,arr)=>$(k).addEventListener('change',()=>{
   S.v[k]=$(k).value; for(const j of arr.slice(i+1)) S.v[j]=''; S.opts=[];
   if(k!=='trim'){S.ext='';S.int='';syncInputs();}
-  renderVehicleSelects(); update();
+  renderVehicleSelects(); buildCarLim(); update();
 }));
 $('opts').addEventListener('change',e=>{const n=e.target.dataset.opt; if(n===undefined) return; S.opts=e.target.checked?uniq([...S.opts,n]):S.opts.filter(x=>x!==n); update();});
 for(const k of BIND) $(k).addEventListener('input',()=>{S[k]=$(k).value; update();});

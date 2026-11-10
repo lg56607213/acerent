@@ -53,6 +53,9 @@ export const DEFAULT_QUOTE_CONFIG = {
   insGrades: [GRADE('mid', '소·중형', '400만원'), GRADE('large', '대형', '700만원')],
   insMap: DEFAULT_INS_MAP,
   insNote: '보험 보상 및 면책 조건의 세부 내용은 렌트 계약서 기준으로 적용됩니다.',
+  // 자차 한도 올리기: 기본은 차종 등급의 한도(소·중형 400만원 · 대형 700만원), 고르면 월 보험료에 add 원을 더함 (공급가 기준)
+  carLimits: [{ id: 'c1000', label: '1,000만원', add: 6000 }, { id: 'full', label: '차량가액 전액', add: 12000 }],
+  carLimitModels: '포터,봉고', // 자차 한도를 바꿀 수 있는 모델 (모델명에 들어간 글자, 쉼표 구분) — 승용은 기본 한도만
   maturity: '반납형',
   guide: '본 견적서는 견적일 기준 차량가격 및 금리로 산출되었으며, 차량 출고 시점의 가격·금리·심사 결과에 따라 변동될 수 있습니다. 월 렌트료에는 자동차세, 보험료가 포함되어 있습니다.',
 };
@@ -66,7 +69,8 @@ export async function loadQuoteConfig(db) {
   try { saved = row ? JSON.parse(row.value) : {}; } catch { saved = {}; }
   const d = DEFAULT_QUOTE_CONFIG;
   const insGrades = Array.isArray(saved.insGrades) && saved.insGrades.length ? saved.insGrades : d.insGrades;
-  return { ...d, ...saved, rv: { ...d.rv, ...(saved.rv || {}) }, insGrades, insMap: { ...d.insMap, ...(saved.insMap || {}) } };
+  const carLimits = Array.isArray(saved.carLimits) ? saved.carLimits : d.carLimits;
+  return { ...d, ...saved, rv: { ...d.rv, ...(saved.rv || {}) }, insGrades, carLimits, insMap: { ...d.insMap, ...(saved.insMap || {}) } };
 }
 
 // 차종의 보험 조건 (등급이 없거나 지워졌으면 첫 등급)
@@ -141,7 +145,7 @@ export function cleanInput(b) {
     del1: s(b.del1, 20), del2: s(b.del2, 20), del3: s(b.del3, 20),
     tint: b.tint === '에이스렌트카 시공' ? '에이스렌트카 시공' : '고객자체시공',
     bb: b.bb === '에이스렌트카 시공' ? '에이스렌트카 시공' : '고객자체시공',
-    otherName: s(b.otherName), otherAmt: s(b.otherAmt, 20),
+    otherName: s(b.otherName), otherAmt: s(b.otherAmt, 20), carLim: s(b.carLim, 20),
     ctype: s(b.ctype, 20), cname: s(b.cname, 60), mgr: s(b.mgr, 30), tel: s(b.tel, 30), date: s(b.date, 10),
     P: P.map((p) => ({
       on: !!p?.on,
@@ -172,7 +176,10 @@ export function computeQuote(input, cfg) {
   const yTax = annualTax(tr, cfg);
   const mTax = R(yTax / 12);
   const rate = rateOf(cfg.rate);
-  const ins = Math.max(0, num(cfg.insurance));
+  // 자차 한도 선택 (없거나 모르는 값이면 기본 한도)
+  const lim = carLimitAllowed(cfg, tr[2]) ? (cfg.carLimits || []).find((x) => x.id === input.carLim) || null : null;
+  const limAdd = lim ? Math.max(0, num(lim.add)) : 0;
+  const ins = Math.max(0, num(cfg.insurance)) + limAdd;
   const maint = Math.max(0, num(cfg.maint));
   const rvRow = cfg.rv[tr[9]] || cfg.rvDefault || [];
 
@@ -209,10 +216,20 @@ export function computeQuote(input, cfg) {
 
   return {
     ok: true,
-    vehicle: { mk: tr[0], cat: tr[1], model: tr[2], line: tr[3], trim: tr[4], base, cc: tr[6], tax: tr[7], optList, optSum, extra, price, ins: insuranceFor(cfg, tr[0], tr[1], tr[2]) },
-    internal: { rate, ins, maint, ag: cfg.ag, acqCost, acq, yTax, mTax, rvGroup: tr[9] },
+    vehicle: { mk: tr[0], cat: tr[1], model: tr[2], line: tr[3], trim: tr[4], base, cc: tr[6], tax: tr[7], optList, optSum, extra, price, ins: insWithLimit(cfg, tr, lim), carLim: lim ? lim.id : '' },
+    internal: { rate, ins, limAdd, maint, ag: cfg.ag, acqCost, acq, yTax, mTax, rvGroup: tr[9] },
     products,
   };
+}
+
+export function carLimitAllowed(cfg, model) {
+  const keys = String(cfg.carLimitModels ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  return keys.some((k) => String(model || '').includes(k));
+}
+
+function insWithLimit(cfg, tr, lim) {
+  const i = insuranceFor(cfg, tr[0], tr[1], tr[2]);
+  return { ...i, baseCar: i.car, car: lim ? lim.label : i.car };
 }
 
 // 사용자 화면용: 금리 · 보험료 · 원가 · 자동차세 · IRR 은 빼고 결과 금액만

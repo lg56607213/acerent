@@ -54,6 +54,13 @@ function cleanConfig(b) {
     out.insMap[m.key] = grades.some((g) => g.id === v) ? v : grades[0].id;
   }
   out.guide = cleanText(b.guide, 600) || d.guide;
+  // 자차 한도 선택지: 최대 6개 { id, label, add(월 보험료 추가, 원) }
+  const src = Array.isArray(b.carLimits) ? b.carLimits : d.carLimits;
+  out.carLimits = src.slice(0, 6).map((x, i) => ({
+    id: /^[a-z0-9]{1,12}$/.test(String(x?.id || '')) ? x.id : 'l' + (i + 1),
+    label: cleanText(x?.label, 20), add: n(x?.add, 0, 0, 10000000),
+  })).filter((x, i, a) => x.label && a.findIndex((y) => y.id === x.id) === i);
+  out.carLimitModels = typeof b.carLimitModels === 'string' ? cleanText(b.carLimitModels, 100) : d.carLimitModels;
   return out;
 }
 
@@ -141,6 +148,8 @@ export function registerQuote(r) {
     await requireQuoteUser(request, env.DB);
     const cfg = await loadQuoteConfig(env.DB);
     const pub = Object.fromEntries(PUBLIC_CONFIG_KEYS.map((k) => [k, cfg[k]]));
+    pub.carLimits = (cfg.carLimits || []).map(({ id, label }) => ({ id, label })); // 추가 보험료는 내려주지 않음
+    pub.carLimitModels = cfg.carLimitModels || '';
     return json({ ...vehicleData(), config: pub, terms: TERMS }, 200, { 'cache-control': 'private, no-store' });
   });
 

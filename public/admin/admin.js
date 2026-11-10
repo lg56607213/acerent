@@ -1100,6 +1100,12 @@ PAGES.quoteconfig = async () => {
 <div><button class="btn btn-sm" type="button" id="grAdd">+ 보험 등급 추가</button></div>
 <input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
 <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자차 한도 올리기 (화물차)</h2>
+<p class="hint" style="margin:0">견적서에서 자차 한도를 기본(차종 등급 한도) 대신 고를 수 있게 합니다. 고르면 월 보험료(공급가)에 추가금이 더해지고 견적서 '자차 한도' 칸이 바뀝니다. 회원에게는 한도 이름만 보이고 추가 보험료는 보이지 않습니다.</p>
+${f('carLimitModels', '변경 가능한 모델 (모델명에 들어간 글자, 쉼표 구분 — 비우면 아무 차종도 변경 불가)')}
+<table class="a-table" style="max-width:560px"><thead><tr><th>한도 이름 (견적서 표기)</th><th style="text-align:right">월 보험료 추가 (원)</th><th></th></tr></thead><tbody id="clBody">
+${(c.carLimits || []).map((x) => `<tr data-cl="${esc(x.id)}"><td><input class="input" data-cll value="${esc(x.label)}"></td><td><input class="input" style="text-align:right" data-cla value="${won(x.add)}"></td><td><button type="button" class="btn-link" data-clrm>삭제</button></td></tr>`).join('')}
+</tbody></table><div><button class="btn btn-sm" type="button" id="clAdd">+ 한도 추가</button></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자동차세</h2>
 <label class="field" style="max-width:260px">승용 자동차세 기준<select class="select" data-c="carTax">${opts([['영업용', '영업용'], ['비영업용', '비영업용']], c.carTax)}</select></label>
 <div class="split"><div class="l" style="overflow-x:auto"><table class="a-table" id="ccTbl"><thead><tr><th>승용 배기량</th><th style="text-align:right">영업용 (cc당)</th><th style="text-align:right">비영업용 (cc당)</th></tr></thead><tbody>
@@ -1152,6 +1158,9 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
     const q = $('#rvFind').value.trim();
     $$('#rvTbl tbody tr').forEach((tr) => (tr.hidden = !!q && tr.dataset.rv !== '__default' && !tr.dataset.rv.includes(q)));
   });
+  const bindCl = () => $$('[data-clrm]').forEach((x) => (x.onclick = () => x.closest('tr').remove()));
+  bindCl();
+  $('#clAdd').addEventListener('click', () => { $('#clBody').insertAdjacentHTML('beforeend', `<tr data-cl=""><td><input class="input" data-cll placeholder="예: 2,000만원"></td><td><input class="input" style="text-align:right" data-cla value="0"></td><td><button type="button" class="btn-link" data-clrm>삭제</button></td></tr>`); bindCl(); });
   const collect = () => {
     const b = {};
     $$('[data-c]').forEach((el) => (b[el.dataset.c] = el.value));
@@ -1167,6 +1176,7 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
     $$('[data-fx]').forEach((el) => (b.fixed[+el.dataset.fx][+el.dataset.j] = el.value));
     b.insGrades = grades;
     b.insMap = curMap;
+    b.carLimits = $$('#clBody tr').map((tr, i) => ({ id: tr.dataset.cl || 'l' + (i + 1) + Date.now().toString(36).slice(-3), label: $('[data-cll]', tr).value.trim(), add: +$('[data-cla]', tr).value.replace(/\D/g, '') || 0 })).filter((x) => x.label);
     return b;
   };
   const bad = () => {
