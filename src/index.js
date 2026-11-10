@@ -12,6 +12,7 @@ import { registerAdmin } from './routes/admin.js';
 import { registerQuote } from './routes/quote.js';
 import { registerCommunity } from './routes/community.js';
 import { serveImage } from './routes/upload.js';
+import { legacyRedirect, robotsTxt, sitemapXml } from './lib/legacy.js';
 
 const router = new Router();
 registerPublic(router);
@@ -26,6 +27,10 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === '/robots.txt') return robotsTxt(url);
+      if (url.pathname === '/sitemap.xml') return await sitemapXml(env, url);
+      const old = legacyRedirect(url);
+      if (old) return old;
       if (url.pathname.startsWith('/img/')) {
         return await serveImage(env, decodeURIComponent(url.pathname.slice(5)));
       }
