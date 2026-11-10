@@ -228,7 +228,7 @@ $('#applyBtn').addEventListener('click', async () => {
       body: {
         applicantType: st.type, vehicleId: v.id, term: Q.rows.length ? s.term : null, km: s.km, dep: s.dep, pre: s.pre, liab: s.liab, maint: s.maint, region: s.region,
         company: f.company.value, bizNo: f.bizNo.value, qty: f.qty.value, name: f.name.value, phone: f.phone.value,
-        wishDate: f.wishDate.value, request: f.request.value, website: f.website.value, agree: true,
+        wishDate: f.wishDate.value, request: f.request.value, website: f.website.value, agree: true, marketing: f.marketing.checked,
       },
     });
     root.innerHTML = `<div style="max-width:760px;margin:0 auto;width:100%;padding:24px 0">

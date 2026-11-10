@@ -16,7 +16,7 @@ const SIMPLE = {
   'short-models': { table: 'short_models', order: 'sort, id', fields: { erp_code: 's40', maker: 's20', name: 's60', class: 's20', fuel: 's20', seats: 'i', features: 's200', day_rate: 'i', rate_3_4: 'i', rate_5_6: 'i', rate_7: 'i', image_key: 'k', active: 'b', sort: 'i' } },
   'short-vehicles': { table: 'short_vehicles', order: 'model_id, id', fields: { model_id: 'i', plate: 's20', year: 'i', active: 'b' } },
   banners: { table: 'banners', order: 'sort, id', fields: { image_key: 'k', text: 's120', sub_text: 's120', link: 's200', visible: 'b', sort: 'i' } },
-  posts: { table: 'posts', order: "board, pinned DESC, sort, id DESC", fields: { board: 's10', title: 's150', body: 's20000', pinned: 'b', visible: 'b', sort: 'i', attachments: 'j' }, touch: true },
+  posts: { table: 'posts', order: "board, pinned DESC, sort, id DESC", fields: { board: 's10', title: 's150', body: 's20000', pinned: 'b', visible: 'b', sort: 'i', attachments: 'j', start_date: 's10', end_date: 's10', image_key: 's120', summary: 's200', cta_label: 's30', cta_link: 's200' }, touch: true },
 };
 
 function pick(body, fields) {
@@ -143,7 +143,7 @@ export function registerAdmin(r) {
     const ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
     const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const q = (sql, ...a) => env.DB.prepare(sql).bind(...a).first();
-    const [p, t, rv, iq, m1, m2, mf, qu] = await Promise.all([
+    const [p, t, rv, iq, m1, m2, mf, qu, rw] = await Promise.all([
       q(`SELECT COUNT(*) AS n FROM reservations WHERE status = 'pending'`),
       q(`SELECT COUNT(*) AS n FROM reservations WHERE status IN ('pending','confirmed') AND substr(pickup_at,1,10) = ?`, today),
       q(`SELECT COUNT(*) AS n FROM applications WHERE status = 'review'`),
@@ -152,8 +152,9 @@ export function registerAdmin(r) {
       q(`SELECT COUNT(*) AS n FROM applications WHERE substr(created_at,1,7) = ?`, ym),
       q(`SELECT COUNT(*) AS n FROM mail_log WHERE status = 'failed'`),
       q(`SELECT COUNT(*) AS n FROM quote_users WHERE status = 'pending'`),
+      q(`SELECT COUNT(*) AS n FROM reviews WHERE status = 'pending' OR (status = 'published' AND coupon = 'none')`),
     ]);
-    return json({ pendingShort: p.n, todayPickup: t.n, reviewLong: rv.n, waitInquiry: iq.n, monthTotal: m1.n + m2.n, mailFailed: mf.n, pendingQuoteUsers: qu.n });
+    return json({ pendingShort: p.n, todayPickup: t.n, reviewLong: rv.n, waitInquiry: iq.n, monthTotal: m1.n + m2.n, mailFailed: mf.n, pendingQuoteUsers: qu.n, reviewTodo: rw.n });
   });
 
   // ── 단기 예약 ────────────────────────────────────────
@@ -235,12 +236,17 @@ export function registerAdmin(r) {
     const args = [];
     if (q) { where.push('(c.name LIKE ? OR c.phone LIKE ? OR c.company LIKE ?)'); args.push(`%${q}%`, `%${q}%`, `%${q}%`); }
     if (kind) { where.push('c.kind = ?'); args.push(kind); }
+    const mk = url.searchParams.get('mk') || '';
+    if (mk === 'agree') where.push('c.marketing_agree = 1');
+    // 수신 동의 2년마다 다시 알림 (법정 의무) — 동의한 지 23개월이 지난 고객
+    if (mk === 'renew') where.push(`c.marketing_agree = 1 AND c.marketing_agreed_at <> '' AND c.marketing_agreed_at <= datetime('now', '-23 months')`);
     const { results } = await env.DB
       .prepare(
         `SELECT c.*,
            (SELECT COUNT(*) FROM reservations r WHERE r.customer_id = c.id) AS res_n,
            (SELECT COUNT(*) FROM applications a WHERE a.customer_id = c.id) AS app_n,
-           (SELECT COUNT(*) FROM inquiries i WHERE i.customer_id = c.id) AS inq_n
+           (SELECT COUNT(*) FROM inquiries i WHERE i.customer_id = c.id) AS inq_n,
+           (SELECT COUNT(*) FROM reviews v WHERE v.customer_id = c.id) AS rev_n
          FROM customers c ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY c.updated_at DESC LIMIT 300`
       )
       .bind(...args)
@@ -251,17 +257,23 @@ export function registerAdmin(r) {
     const id = int(params.id);
     const c = await env.DB.prepare('SELECT * FROM customers WHERE id = ?').bind(id).first();
     if (!c) throw new HttpError(404, '고객을 찾을 수 없습니다.');
-    const [res, apps, inqs] = await Promise.all([
+    const [res, apps, inqs, revs] = await Promise.all([
       env.DB.prepare('SELECT no, status, model_name, pickup_at, return_at, location_name, total_amt, created_at FROM reservations WHERE customer_id = ? ORDER BY id DESC').bind(id).all(),
       env.DB.prepare('SELECT no, status, applicant_type, vehicle_name, term, dep_pct, monthly, created_at FROM applications WHERE customer_id = ? ORDER BY id DESC').bind(id).all(),
       env.DB.prepare('SELECT no, type, title, status, created_at FROM inquiries WHERE customer_id = ? ORDER BY id DESC').bind(id).all(),
+      env.DB.prepare('SELECT no, rating, title, status, coupon, created_at FROM reviews WHERE customer_id = ? ORDER BY id DESC').bind(id).all(),
     ]);
-    return json({ customer: c, reservations: res.results, applications: apps.results, inquiries: inqs.results });
+    return json({ customer: c, reservations: res.results, applications: apps.results, inquiries: inqs.results, reviews: revs.results });
   });
   r.patch('/api/admin/customers/:id', async ({ env, params, request }) => {
     const b = await readJson(request);
     const row = pick(b, { name: 's30', kind: 's10', company: 's60', biz_no: 's20', email: 's80', memo: 's2000', erp_ref: 's40' });
     await updateRow(env.DB, 'customers', int(params.id), row, true);
+    // 마케팅 수신 동의 · 철회 (전화로 철회 요청을 받은 경우 등) — 바뀔 때만 시각 기록
+    if (b.marketing_agree !== undefined) {
+      const v = b.marketing_agree ? 1 : 0;
+      await env.DB.prepare(`UPDATE customers SET marketing_agreed_at = datetime('now'), marketing_agree = ? WHERE id = ? AND marketing_agree <> ?`).bind(v, int(params.id), v).run();
+    }
     return json({ ok: true });
   });
 
@@ -446,7 +458,7 @@ export function registerAdmin(r) {
   });
 
   // ── 설정 · 메일 ──────────────────────────────────────
-  const SETTING_KEYS = ['notify_email_1', 'notify_email_2', 'notify_kinds', 'site_phone', 'site_messenger', 'company_address', 'company_biz_no', 'company_ceo', 'short_min_age_note'];
+  const SETTING_KEYS = ['notify_email_1', 'notify_email_2', 'notify_kinds', 'site_phone', 'site_messenger', 'company_address', 'company_biz_no', 'company_ceo', 'short_min_age_note', 'review_notice', 'review_banned_words', 'review_approve_all'];
   r.get('/api/admin/settings', async ({ env }) => {
     const s = await getSettings(env.DB);
     return json({ settings: s, mailFrom: env.MAIL_FROM, erpEnabled: !!(env.ERP_API_BASE || '').trim() });
@@ -458,7 +470,7 @@ export function registerAdmin(r) {
       if (!(k in b)) continue;
       let v = b[k];
       if (k === 'notify_kinds') v = JSON.stringify(Array.isArray(v) ? v.map((x) => cleanText(x, 20)) : []);
-      else v = cleanText(v, 200);
+      else v = cleanText(v, k.startsWith('review_') ? 1000 : 200);
       if ((k === 'notify_email_1' || k === 'notify_email_2') && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw bad('이메일 주소 형식을 확인해 주세요.');
       stmts.push(env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(k, v));
     }
@@ -497,7 +509,7 @@ export function registerAdmin(r) {
     const defs = {
       reservations: ['SELECT no 신청번호, status 상태, name 고객, phone 연락처, model_name 차종, location_name 장소, pickup_at 대여, return_at 반납, days 일수, insurance_name 보험, total_amt 예상요금, vehicle_ref 배정차량, admin_memo 메모, created_at 접수일시 FROM reservations ORDER BY id DESC', '단기예약'],
       applications: ['SELECT no 신청번호, status 상태, applicant_type 구분, company 법인명, name 이름, phone 연락처, vehicle_name 차량, term 기간, dep_pct 보증금퍼센트, deposit_amt 보증금, monthly 월렌트료, km 약정거리, wish_date 희망출고일, admin_memo 메모, created_at 접수일시 FROM applications ORDER BY id DESC', '중장기신청'],
-      customers: ['SELECT name 이름, phone 연락처, kind 구분, company 법인명, biz_no 사업자번호, email 이메일, source 경로, memo 메모, created_at 등록일 FROM customers ORDER BY id DESC', '고객'],
+      customers: ["SELECT name 이름, phone 연락처, kind 구분, company 법인명, biz_no 사업자번호, email 이메일, source 경로, CASE WHEN marketing_agree = 1 THEN '동의' ELSE '' END 마케팅수신, marketing_agreed_at 마케팅동의일시_UTC, memo 메모, created_at 등록일 FROM customers ORDER BY id DESC", '고객'],
     };
     const d = defs[params.what];
     if (!d) throw new HttpError(404, '없는 항목입니다.');
@@ -520,6 +532,8 @@ export function registerAdmin(r) {
       env.DB.prepare('DELETE FROM applications'),
       env.DB.prepare('DELETE FROM inquiries'),
       env.DB.prepare('DELETE FROM mail_log'),
+      env.DB.prepare('DELETE FROM reviews'),
+      env.DB.prepare('DELETE FROM phone_codes'),
       env.DB.prepare('DELETE FROM customers'),
       env.DB.prepare(`UPDATE long_vehicles SET status = 'available' WHERE status = 'reserved'`),
     ]);

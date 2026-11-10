@@ -28,6 +28,7 @@
 <a href="/short.html">단기렌트</a>
 <a href="/long.html">중장기렌트</a>
 <a href="/long.html#corp">법인렌트</a>
+<a href="/event.html">이벤트</a>
 <a href="/support.html">고객센터</a>
 </nav>
 <a class="tel" href="tel:16448891" data-site="tel"><span>24시간 예약상담</span><strong data-site="phone">1644-8891</strong></a>
@@ -55,6 +56,17 @@
 .quick span { font-size: 13px; color: var(--gray); }
 .bottom3 { display: flex; flex-wrap: wrap; gap: 40px; padding: 40px 20px 24px; }
 .bottom3 > div { flex: 1 1 320px; min-width: 0; }
+.m-ev { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+.m-ev a { display: flex; flex-direction: column; gap: 8px; color: inherit; }
+.m-ev .img { aspect-ratio: 16 / 9; background: var(--bg-soft); border: 1px solid var(--line); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.m-ev .img img { width: 100%; height: 100%; object-fit: cover; }
+.m-ev .img span { font-size: 20px; font-weight: 700; color: var(--red); padding: 16px; text-align: center; }
+.m-ev a:hover strong { color: var(--red); }
+.m-rv { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.m-rv article { border: 1px solid var(--line); border-top: 2px solid var(--ink); padding: 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.m-rv p { margin: 0; font-size: 14px; line-height: 1.7; color: #444; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.stars { color: var(--red); letter-spacing: 1px; } .stars .off { color: #D5D5D5; }
+.rv-cta { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--red-soft); border: 1px solid #F1C9CF; padding: 16px 18px; margin-top: 16px; font-size: 14px; }
 .mini-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--ink); padding-bottom: 12px; }
 .mini-head h2 { font-size: 18px; }
 .mini-list { margin: 0; padding: 0; list-style: none; font-size: 14px; }
@@ -101,6 +113,17 @@
 <section class="wrap" style="padding-top:56px">
 <div class="sec-head"><h2>즉시 출고 가능한 중장기 차량</h2><a class="muted small" href="/long.html">전체보기 +</a></div>
 <div class="car-grid" id="mainCars"><p class="loading">차량을 불러오는 중…</p></div>
+</section>
+
+<section class="wrap" style="padding-top:56px" id="mainEvSec" hidden>
+<div class="sec-head"><h2>진행 중인 이벤트</h2><a class="muted small" href="/event.html">전체보기 +</a></div>
+<div class="m-ev" id="mainEvents"></div>
+</section>
+
+<section class="wrap" style="padding-top:56px">
+<div class="sec-head"><h2>고객 이용후기 <span class="small muted" id="rvAvg" style="font-weight:400"></span></h2><a class="muted small" href="/support.html?tab=review">전체보기 +</a></div>
+<div class="m-rv" id="mainReviews"><p class="muted small">불러오는 중…</p></div>
+<div class="rv-cta"><span id="rvCtaText">단기렌트 이용 후 후기를 남겨주시면 커피 쿠폰을 보내 드립니다.</span><a class="btn btn-red" href="/support.html?tab=review" style="height:42px">후기 쓰고 커피 받기</a></div>
 </section>
 
 <section class="wrap bottom3">

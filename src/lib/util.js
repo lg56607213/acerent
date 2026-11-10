@@ -146,3 +146,18 @@ export async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+// 고객 동의 기록: 개인정보(필수) 동의 시각 갱신, 마케팅(선택)은 새로 동의할 때만 켬
+// (체크하지 않았다고 기존 동의를 철회로 보지 않음 — 철회는 관리자 고객 화면 또는 수신거부로)
+export async function recordConsent(db, customerId, { marketing = false, verified = false } = {}) {
+  await db
+    .prepare(
+      `UPDATE customers SET privacy_agreed_at = datetime('now'),
+         marketing_agreed_at = CASE WHEN ? = 1 AND marketing_agree = 0 THEN datetime('now') ELSE marketing_agreed_at END,
+         marketing_agree = CASE WHEN ? = 1 THEN 1 ELSE marketing_agree END,
+         phone_verified_at = CASE WHEN ? = 1 THEN datetime('now') ELSE phone_verified_at END
+       WHERE id = ?`
+    )
+    .bind(marketing ? 1 : 0, marketing ? 1 : 0, verified ? 1 : 0, customerId)
+    .run();
+}

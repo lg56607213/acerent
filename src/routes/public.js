@@ -1,7 +1,7 @@
 // 고객용 API
 import {
   HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalDays, nextNo, int,
-  getSettings, upsertCustomer, maskName, won, randomHex, dayRateFor,
+  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, dayRateFor,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -116,6 +116,7 @@ export function registerPublic(r) {
     const total = rent + insAmt + (loc.fee || 0);
 
     const customerId = await upsertCustomer(env.DB, { name, phone, source: '홈페이지 단기 예약' });
+    await recordConsent(env.DB, customerId, { marketing: !!b.marketing });
     const no = await nextNo(env.DB, 'reservations', 'S');
     const row = {
       no, location_id: loc.id, location_name: loc.name, location_fee: loc.fee || 0, pickup_at: from, return_at: to, days,
@@ -223,6 +224,7 @@ export function registerPublic(r) {
       name: corp ? company : name, phone, kind: corp ? '법인' : '개인', company, biz_no: cleanText(b.bizNo, 20),
       source: corp ? '홈페이지 법인 견적' : '홈페이지 중장기 신청',
     });
+    await recordConsent(env.DB, customerId, { marketing: !!b.marketing });
     const no = await nextNo(env.DB, 'applications', 'L');
     const extra = q ? describe(q.p, s) : '';
     const row = {
@@ -307,6 +309,7 @@ export function registerPublic(r) {
 
     const { hash, salt } = await hashPassword(pw);
     const customerId = await upsertCustomer(env.DB, { name, phone, source: '홈페이지 1:1 문의' });
+    await recordConsent(env.DB, customerId, { marketing: form.get('marketing') === 'true' });
     const no = await nextNo(env.DB, 'inquiries', 'Q');
     const type = cleanText(form.get('type'), 30) || '기타';
     await env.DB

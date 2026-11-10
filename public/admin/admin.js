@@ -5,6 +5,7 @@ import { quote, rateAmount, DEFAULT_PRICING } from '/assets/longcalc.js';
 
 const main = $('#main');
 const RES_ST = { pending: ['확정 대기', 'st-wait'], confirmed: ['확정', 'st-ok'], done: ['반납 완료', 'st-off'], cancelled: ['취소', 'st-off'] };
+const REV_ST = { pending: '확인 대기', published: '게시 중', hidden: '숨김' };
 const APP_ST = { review: ['심사 대기', 'st-wait'], approved: ['승인', 'st-ok'], contracted: ['계약 완료', 'st-off'], rejected: ['부결', 'st-off'], cancelled: ['취소', 'st-off'] };
 const LONG_ST = { available: '출고 가능', soon: '출고 예정 (반납 대기)', reserved: '상담 진행 중', contracted: '계약 완료' };
 const badge = (map, s) => `<span class="st ${(map[s] || ['', 'st-off'])[1]}">${esc((map[s] || [s])[0])}</span>`;
@@ -133,6 +134,7 @@ async function refreshCounts() {
     $('#cntLong').textContent = d.reviewLong || '';
     $('#cntInq').textContent = d.waitInquiry || '';
     $('#cntMail').textContent = d.mailFailed || '';
+    if ($('#cntReview')) $('#cntReview').textContent = d.reviewTodo || '';
     if ($('#cntQuote')) $('#cntQuote').textContent = d.pendingQuoteUsers || '';
     return d;
   } catch {
@@ -255,20 +257,24 @@ ${x.company ? `<dt>법인명</dt><dd>${esc(x.company)}</dd><dt>사업자번호</
 PAGES.customers = async (arg) => {
   const q = sessionStorage.getItem('cusQ') || '';
   const kind = sessionStorage.getItem('cusKind') || '';
-  const r = await api(`/api/admin/customers?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(kind)}`);
+  const mk = sessionStorage.getItem('cusMk') || '';
+  const r = await api(`/api/admin/customers?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(kind)}&mk=${encodeURIComponent(mk)}`);
   main.innerHTML = `
 <div class="a-title"><div><h1>고객 관리</h1><p class="desc">예약 · 신청 · 문의를 남긴 고객이 연락처 기준으로 자동 등록됩니다.</p></div><a class="btn btn-sm" href="/api/admin/export/customers">엑셀(CSV) 다운로드</a></div>
 <div class="box"><div class="toolbar">
 <input class="input" id="fQ" type="search" placeholder="이름 · 연락처 · 법인명" value="${esc(q)}" aria-label="검색">
 <select class="select" id="fKind" aria-label="구분">${opts([['', '전체'], ['개인', '개인'], ['개인사업자', '개인사업자'], ['법인', '법인']], kind)}</select>
+<select class="select" id="fMk" aria-label="마케팅 수신">${opts([['', '마케팅 수신 전체'], ['agree', '수신 동의 고객'], ['renew', '2년 재안내 대상']], mk)}</select>
 <button class="btn btn-sm btn-black" id="fGo">검색</button></div>
-<div class="scroll-x"><table class="a-table" style="min-width:760px"><thead><tr><th>고객</th><th>구분</th><th>연락처</th><th class="num">단기 예약</th><th class="num">중장기 신청</th><th class="num">문의</th><th>최근 활동</th></tr></thead>
-<tbody>${r.customers.length ? r.customers.map((c) => `<tr class="click" data-id="${c.id}"><td><strong>${esc(c.company || c.name)}</strong>${c.company ? `<br><span class="hint">${esc(c.name)}</span>` : ''}</td><td>${esc(c.kind)}</td><td>${esc(c.phone)}</td><td class="num">${c.res_n}</td><td class="num">${c.app_n}</td><td class="num">${c.inq_n}</td><td class="hint">${kst(c.updated_at)}</td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">고객이 없습니다.</td></tr>'}</tbody></table></div></div>
+${mk === 'renew' ? '<p class="hint" style="margin:0;padding:10px 16px;border-bottom:1px solid var(--line)">수신 동의 후 2년이 되기 전에 "수신 동의 상태와 동의 일자" 를 문자로 안내해야 합니다 (정보통신망법). 안내 후 고객 화면에서 동의 상태를 다시 저장하면 날짜가 갱신됩니다.</p>' : ''}
+<div class="scroll-x"><table class="a-table" style="min-width:760px"><thead><tr><th>고객</th><th>구분</th><th>연락처</th><th class="num">단기 예약</th><th class="num">중장기 신청</th><th class="num">문의</th><th class="num">후기</th><th>마케팅</th><th>최근 활동</th></tr></thead>
+<tbody>${r.customers.length ? r.customers.map((c) => `<tr class="click" data-id="${c.id}"><td><strong>${esc(c.company || c.name)}</strong>${c.company ? `<br><span class="hint">${esc(c.name)}</span>` : ''}</td><td>${esc(c.kind)}</td><td>${esc(c.phone)}</td><td class="num">${c.res_n}</td><td class="num">${c.app_n}</td><td class="num">${c.inq_n}</td><td class="num">${c.rev_n}</td><td>${c.marketing_agree ? '<span class="st st-ok">동의</span>' : '<span class="hint">-</span>'}</td><td class="hint">${kst(c.updated_at)}</td></tr>`).join('') : '<tr><td colspan="9" class="muted" style="padding:40px;text-align:center">고객이 없습니다.</td></tr>'}</tbody></table></div></div>
 <div id="detail"></div>`;
-  const go = () => { sessionStorage.setItem('cusQ', $('#fQ').value); sessionStorage.setItem('cusKind', $('#fKind').value); route(); };
+  const go = () => { sessionStorage.setItem('cusQ', $('#fQ').value); sessionStorage.setItem('cusKind', $('#fKind').value); sessionStorage.setItem('cusMk', $('#fMk').value); route(); };
   $('#fGo').addEventListener('click', go);
   $('#fQ').addEventListener('keydown', (e) => e.key === 'Enter' && go());
   $('#fKind').addEventListener('change', go);
+  $('#fMk').addEventListener('change', go);
   const open = async (id) => {
     $$('tr[data-id]').forEach((t) => t.classList.toggle('sel', +t.dataset.id === id));
     const d = await run(() => api('/api/admin/customers/' + id));
@@ -277,6 +283,7 @@ PAGES.customers = async (arg) => {
       ...d.reservations.map((x) => [x.created_at, '단기 예약', `${x.no} · ${x.model_name} · ${dt(x.pickup_at)} ~ ${dt(x.return_at)} · ${x.location_name} · ${won(x.total_amt)}원`, RES_ST[x.status]?.[0]]),
       ...d.applications.map((x) => [x.created_at, x.applicant_type === 'corp' ? '법인 견적' : '중장기 신청', `${x.no} · ${x.vehicle_name || ''}${x.term ? ` · ${x.term}개월` : ''}${x.monthly ? ` · 월 ${won(x.monthly)}원` : ''}`, APP_ST[x.status]?.[0]]),
       ...d.inquiries.map((x) => [x.created_at, '1:1 문의', `${x.type} · ${x.title}`, x.status === 'done' ? '답변완료' : '답변대기']),
+      ...(d.reviews || []).map((x) => [x.created_at, '이용후기', `${'★'.repeat(x.rating)} ${x.title}`, x.coupon === 'sent' ? '쿠폰 발송' : REV_ST[x.status]]),
     ].sort((a, b) => b[0].localeCompare(a[0]));
     $('#detail').innerHTML = `<div class="split">
 <div class="l box box-pad" style="display:flex;flex-direction:column;gap:12px">
@@ -289,13 +296,14 @@ PAGES.customers = async (arg) => {
 <label class="field">이메일<input class="input" id="cEmail" value="${esc(c.email)}"></label>
 <label class="field">rentcarerp 고객번호<input class="input" id="cErp" value="${esc(c.erp_ref)}"></label>
 </div>
-<dl class="dl"><dt>연락처</dt><dd><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></dd><dt>처음 경로</dt><dd>${esc(c.source || '-')}</dd><dt>등록일</dt><dd>${kst(c.created_at)}</dd></dl>
+<dl class="dl"><dt>연락처</dt><dd><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>${c.phone_verified_at ? ' <span class="hint">(문자 인증 ' + kst(c.phone_verified_at).slice(0, 10) + ')</span>' : ''}</dd><dt>처음 경로</dt><dd>${esc(c.source || '-')}</dd><dt>등록일</dt><dd>${kst(c.created_at)}</dd><dt>개인정보 동의</dt><dd>${c.privacy_agreed_at ? kst(c.privacy_agreed_at) : '-'}</dd></dl>
+<label class="field">마케팅 정보 수신<select class="select" id="cMk">${opts([[1, '동의'], [0, '미동의 · 철회']], c.marketing_agree ? 1 : 0)}</select><span class="hint">${c.marketing_agreed_at ? '마지막 변경 ' + kst(c.marketing_agreed_at) : '기록 없음'} · 고객이 전화로 수신 거부하면 '철회'로 바꿔 저장하세요.</span></label>
 <label class="field">상담 메모 (직원만 보임)<textarea class="textarea" id="cMemo" rows="4">${esc(c.memo)}</textarea></label>
 <div style="display:flex;justify-content:flex-end"><button class="btn btn-black btn-sm" id="cSave">저장</button></div></div>
 <div class="r box box-pad"><h2 style="font-size:16px;margin-bottom:10px">이력</h2>
 <ol style="margin:0;padding:0;list-style:none;border-top:1px solid var(--ink)">${hist.length ? hist.map((h) => `<li style="display:flex;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line-soft);font-size:14px;flex-wrap:wrap"><span class="hint" style="flex:0 0 110px">${kst(h[0])}</span><strong style="flex:0 0 84px">${esc(h[1])}</strong><span style="flex:1 1 220px">${esc(h[2])}</span><span class="hint">${esc(h[3] || '')}</span></li>`).join('') : '<li class="muted" style="padding:16px 0">이력이 없습니다.</li>'}</ol></div></div>`;
     $('#cSave').addEventListener('click', () =>
-      run(() => api('/api/admin/customers/' + id, { method: 'PATCH', body: { name: $('#cName').value, kind: $('#cKind').value, company: $('#cCompany').value, biz_no: $('#cBiz').value, email: $('#cEmail').value, erp_ref: $('#cErp').value, memo: $('#cMemo').value } }), '저장했습니다.')
+      run(() => api('/api/admin/customers/' + id, { method: 'PATCH', body: { name: $('#cName').value, kind: $('#cKind').value, company: $('#cCompany').value, biz_no: $('#cBiz').value, email: $('#cEmail').value, erp_ref: $('#cErp').value, memo: $('#cMemo').value, marketing_agree: $('#cMk').value === '1' } }), '저장했습니다.')
     );
     $('#detail').scrollIntoView({ behavior: 'smooth' });
   };
@@ -336,29 +344,101 @@ ${q.attachments.length ? `<div class="photos">${q.attachments.map((a) => `<a hre
   draw();
 };
 
+
+// ── 이용후기 · 커피 쿠폰 ───────────────────────────
+PAGES.reviews = async () => {
+  const tab = sessionStorage.getItem('revTab') || 'todo';
+  const [{ items, counts }, { settings: s }] = await Promise.all([api('/api/admin/reviews'), api('/api/admin/settings')]);
+  const todo = (x) => x.status === 'pending' || (x.status === 'published' && x.coupon === 'none');
+  const TABS = [['todo', '처리할 후기'], ['pending', '확인 대기'], ['published', '게시 중'], ['hidden', '숨김'], ['all', '전체']];
+  const shown = items.filter((x) => (tab === 'all' ? true : tab === 'todo' ? todo(x) : x.status === tab));
+  const n = { todo: items.filter(todo).length, all: items.length, ...counts };
+  const COUPON = { none: '<span class="st st-wait">미발송</span>', sent: '<span class="st st-ok">발송 완료</span>', skip: '<span class="st st-off">대상 아님</span>' };
+  main.innerHTML = `<div class="a-title"><div><h1>이용후기 · 커피 쿠폰</h1><p class="desc">링크 · 연락처 · 금칙어가 들어간 글은 자동으로 '확인 대기'가 됩니다. 쿠폰을 보낸 뒤 '발송 완료'를 눌러 기록하세요 (같은 번호로 이전에 받은 쿠폰 수가 함께 보입니다).</p></div><a class="btn btn-sm" href="/support.html?tab=review" target="_blank" rel="noopener">홈페이지에서 보기</a></div>
+<div class="tabs-line" role="tablist">${TABS.map(([k, v]) => `<button role="tab" aria-selected="${k === tab}" class="${k === tab ? 'on' : ''}" data-t="${k}">${v} ${n[k] ? `<span class="hint">${n[k]}</span>` : ''}</button>`).join('')}</div>
+<div class="box scroll-x"><table class="a-table" style="min-width:980px"><thead><tr><th>접수</th><th>고객</th><th style="width:40%">후기</th><th>게시</th><th>커피 쿠폰</th><th></th></tr></thead><tbody>
+${shown.length ? shown.map((x) => `<tr data-id="${x.id}">
+<td><strong>${esc(x.no)}</strong><br><span class="hint">${kst(x.created_at)}</span></td>
+<td><strong>${esc(x.name)}</strong><br><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a><br><span class="hint">${x.phone_verified ? '문자 인증 ✓' : '인증 없음'} · 마케팅 ${x.marketing_agree ? '<strong class="red">동의</strong>' : '미동의'}</span>${x.res_n ? `<br><span class="hint">홈페이지 예약 ${x.res_n}건</span>` : ''}</td>
+<td><span style="color:var(--red)">${'★'.repeat(x.rating)}<span style="color:#ccc">${'★'.repeat(5 - x.rating)}</span></span> <strong>${esc(x.title)}</strong>${x.flag ? ` <span class="st st-wait">자동 차단: ${esc(x.flag)}</span>` : ''}<br><span class="hint">${[x.car_model, x.use_month].filter(Boolean).map(esc).join(' · ')}</span>
+<div style="white-space:pre-line;font-size:13px;line-height:1.7;margin-top:4px;max-height:120px;overflow:auto">${esc(x.body)}</div>
+${x.photos.length ? `<div style="display:flex;gap:4px;margin-top:6px">${x.photos.map((p) => `<a href="${esc(p)}" target="_blank" rel="noopener"><img src="${esc(p)}" alt="" style="width:64px;height:48px;object-fit:cover"></a>`).join('')}</div>` : ''}
+<input class="input" data-memo value="${esc(x.admin_memo)}" placeholder="직원 메모 (쿠폰 번호 등)" style="height:34px;margin-top:6px;font-size:13px"></td>
+<td><select class="select" data-st style="height:36px;min-width:110px">${opts(Object.entries(REV_ST), x.status)}</select></td>
+<td>${COUPON[x.coupon] || ''}${x.coupon_at ? `<br><span class="hint">${kst(x.coupon_at)}</span>` : ''}${x.prev_coupons ? `<br><strong class="red small">이 번호 이전 쿠폰 ${x.prev_coupons}회</strong>` : ''}
+<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${x.coupon !== 'sent' ? '<button class="btn btn-xs btn-red" data-cp="sent">발송 완료 처리</button>' : '<button class="btn btn-xs" data-cp="none">발송 취소</button>'}${x.coupon === 'none' ? '<button class="btn btn-xs" data-cp="skip">대상 아님</button>' : ''}</div></td>
+<td style="white-space:nowrap"><button class="btn btn-xs" data-save>메모 저장</button><br><button class="btn-link" data-del style="margin-top:6px">삭제</button></td></tr>`).join('') : '<tr><td colspan="6" class="muted" style="padding:40px;text-align:center">해당하는 후기가 없습니다.</td></tr>'}
+</tbody></table></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+<h2 style="font-size:16px">후기 이벤트 · 차단 설정</h2>
+<label class="field">후기 이벤트 안내 문구 (후기 목록 · 쓰기 화면 · 메인에 표시)<textarea class="textarea" id="rvNotice" rows="2">${esc(s.review_notice || '')}</textarea></label>
+<label class="field">금칙어 (쉼표로 구분 — 들어간 글은 '확인 대기')<textarea class="textarea" id="rvBan" rows="3">${esc(s.review_banned_words || '')}</textarea></label>
+<label class="check"><input type="checkbox" id="rvAll" ${s.review_approve_all === '1' ? 'checked' : ''}>모든 후기를 관리자 확인 후 게시 (평소에는 차단 규칙에 걸린 글만 확인 대기)</label>
+<p class="hint" style="margin:0">문자 인증 · 사람 확인(Turnstile) 은 Cloudflare 설정값을 넣으면 자동으로 켜집니다. 지금 상태: 문자 인증 <strong id="smsSt">확인 중</strong> · 사람 확인 <strong id="tsSt">확인 중</strong></p>
+<div style="display:flex;justify-content:flex-end"><button class="btn btn-red btn-sm" id="rvSave">설정 저장</button></div></div>`;
+  api('/api/community/config').then((c) => { $('#smsSt').textContent = c.sms ? '켜짐' : '꺼짐'; $('#tsSt').textContent = c.turnstileKey ? '켜짐' : '꺼짐'; }).catch(() => {});
+  $$('[data-t]').forEach((b) => b.addEventListener('click', () => { sessionStorage.setItem('revTab', b.dataset.t); route(); }));
+  const patch = async (tr, body, msg) => { await run(() => api('/api/admin/reviews/' + tr.dataset.id, { method: 'PATCH', body }), msg); route(); refreshCounts(); };
+  $$('tr[data-id]').forEach((tr) => {
+    $('[data-st]', tr)?.addEventListener('change', (e) => patch(tr, { status: e.target.value }, '게시 상태를 바꿨습니다.'));
+    $$('[data-cp]', tr).forEach((b) => b.addEventListener('click', () => patch(tr, { coupon: b.dataset.cp, admin_memo: $('[data-memo]', tr).value }, '쿠폰 상태를 저장했습니다.')));
+    $('[data-save]', tr)?.addEventListener('click', () => patch(tr, { admin_memo: $('[data-memo]', tr).value }, '메모를 저장했습니다.'));
+    $('[data-del]', tr)?.addEventListener('click', async () => {
+      if (!(await confirmBox('이 후기와 사진을 삭제할까요? 되돌릴 수 없습니다. (광고 글이 아니면 \'숨김\'을 권장합니다)', '삭제'))) return;
+      await run(() => api('/api/admin/reviews/' + tr.dataset.id, { method: 'DELETE' }), '삭제했습니다.');
+      route(); refreshCounts();
+    });
+  });
+  $('#rvSave').addEventListener('click', () =>
+    run(() => api('/api/admin/settings', { method: 'PUT', body: { review_notice: $('#rvNotice').value, review_banned_words: $('#rvBan').value, review_approve_all: $('#rvAll').checked ? '1' : '0' } }), '설정을 저장했습니다.')
+  );
+};
+
 // ── 공지 · 이벤트 · FAQ ─────────────────────────────
 PAGES.posts = async () => {
   const { items } = await api('/api/admin/posts');
   const board = sessionStorage.getItem('postBoard') || 'notice';
   const NAME = { notice: '공지사항', event: '이벤트', faq: '자주 묻는 질문' };
   const list = items.filter((p) => p.board === board);
-  main.innerHTML = `<div class="a-title"><div><h1>공지 · 이벤트 · FAQ</h1><p class="desc">고객센터와 메인 화면 공지 목록에 바로 반영됩니다.</p></div><button class="btn btn-black btn-sm" id="newPost">새 글 쓰기</button></div>
+  main.innerHTML = `<div class="a-title"><div><h1>공지 · 이벤트 · FAQ</h1><p class="desc">공지 · FAQ 는 고객센터에, 이벤트는 이벤트 페이지와 메인 화면에 바로 반영됩니다.</p></div><button class="btn btn-black btn-sm" id="newPost">새 글 쓰기</button></div>
 <div class="tabs-line" role="tablist">${Object.entries(NAME).map(([k, v]) => `<button role="tab" aria-selected="${k === board}" class="${k === board ? 'on' : ''}" data-b="${k}">${v}</button>`).join('')}</div>
 <div class="box"><table class="a-table"><thead><tr><th>${board === 'faq' ? '순서' : '구분'}</th><th>제목</th><th>노출</th><th>등록일</th><th></th></tr></thead>
-<tbody>${list.length ? list.map((p) => `<tr><td>${board === 'faq' ? p.sort : p.pinned ? '<strong class="red">고정</strong>' : NAME[p.board]}</td><td>${esc(p.title)}</td><td>${p.visible ? '노출' : '<span class="muted">숨김</span>'}</td><td class="hint">${kst(p.created_at).slice(0, 10)}</td><td style="text-align:right"><button class="btn btn-xs" data-edit="${p.id}">수정</button> <button class="btn-link" data-del="${p.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="5" class="muted" style="padding:30px;text-align:center">글이 없습니다.</td></tr>'}</tbody></table></div>
+<tbody>${list.length ? list.map((p) => `<tr><td>${board === 'faq' ? p.sort : p.pinned ? '<strong class="red">고정</strong>' : NAME[p.board]}</td><td>${esc(p.title)}${p.board === 'event' ? `<br><span class="hint">${p.start_date || p.end_date ? `${esc(p.start_date || '')} ~ ${esc(p.end_date || '상시')}` : '상시'}${!p.image_key ? ' · 대표 이미지 없음' : ''}</span>` : ''}</td><td>${p.visible ? '노출' : '<span class="muted">숨김</span>'}</td><td class="hint">${kst(p.created_at).slice(0, 10)}</td><td style="text-align:right"><button class="btn btn-xs" data-edit="${p.id}">수정</button> <button class="btn-link" data-del="${p.id}">삭제</button></td></tr>`).join('') : '<tr><td colspan="5" class="muted" style="padding:30px;text-align:center">글이 없습니다.</td></tr>'}</tbody></table></div>
 <div id="editor"></div>`;
   $$('[data-b]').forEach((b) => b.addEventListener('click', () => { sessionStorage.setItem('postBoard', b.dataset.b); route(); }));
   const edit = (p) => {
-    p = p || { board, title: '', body: '', pinned: 0, visible: 1, sort: list.length + 1, attachments: '[]' };
+    p = p || { board, title: '', body: '', pinned: 0, visible: 1, sort: list.length + 1, attachments: '[]', start_date: '', end_date: '', image_key: '', summary: '', cta_label: '', cta_link: '' };
+    let mainImg = p.image_key || '';
     let att = JSON.parse(p.attachments || '[]');
     const drawAtt = () => ($('#pAtt').innerHTML = att.map((k, i) => `<figure><div class="photo"><img src="/img/${esc(k)}" alt=""></div><div class="acts"><span></span><button type="button" class="btn-link" data-rm="${i}">삭제</button></div></figure>`).join(''));
     $('#editor').innerHTML = `<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">${p.id ? '글 수정' : '새 글 쓰기'}</h2>
 <div class="grid2"><label class="field">게시판<select class="select" id="pBoard">${opts(Object.entries(NAME), p.board)}</select></label><label class="field">${board === 'faq' ? '질문' : '제목'}<input class="input" id="pTitle" value="${esc(p.title)}"></label></div>
+<div id="evFields" style="display:flex;flex-direction:column;gap:12px" ${p.board === 'event' ? '' : 'hidden'}>
+<div class="grid2"><label class="field">시작일<input class="input" id="pStart" type="date" value="${esc(p.start_date || '')}"></label><label class="field">종료일 (비우면 상시)<input class="input" id="pEnd" type="date" value="${esc(p.end_date || '')}"></label></div>
+<label class="field">한 줄 소개 (목록 · 메인에 표시)<input class="input" id="pSummary" value="${esc(p.summary || '')}" maxlength="200" placeholder="예: 후기 남기면 스타벅스 아메리카노 쿠폰 증정"></label>
+<div class="field">대표 이미지 (목록 · 메인 · 상세 맨 위, 가로 16:9 권장)<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div id="pMainImg" style="width:200px;aspect-ratio:16/9;background:var(--bg-soft);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden" class="hint">없음</div><label class="btn btn-sm" style="cursor:pointer">이미지 선택<input type="file" id="pMainFile" accept="image/*" hidden></label><button type="button" class="btn-link" id="pMainDel">삭제</button></div></div>
+<div class="grid2"><label class="field">참여 버튼 문구<input class="input" id="pCtaL" value="${esc(p.cta_label || '')}" placeholder="예: 후기 쓰러 가기"></label><label class="field">참여 버튼 링크 (사이트 안 주소)<input class="input" id="pCtaH" value="${esc(p.cta_link || '')}" placeholder="/support.html?tab=review"></label></div>
+</div>
 <label class="field">${board === 'faq' ? '답변' : '내용'}<textarea class="textarea" id="pBody" rows="8">${esc(p.body)}</textarea></label>
 <div class="field">이미지 첨부<label class="drop" style="min-height:80px"><strong>+ 이미지 추가</strong><span class="hint">눌러서 선택</span><input type="file" id="pFile" accept="image/*" multiple></label><div class="photos" id="pAtt"></div></div>
 <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center"><label class="check"><input type="checkbox" id="pPin" ${p.pinned ? 'checked' : ''}>목록 맨 위에 고정</label><label class="check"><input type="checkbox" id="pVis" ${p.visible ? 'checked' : ''}>노출</label><label class="field" style="flex-direction:row;align-items:center">순서<input class="input" id="pSort" type="number" value="${p.sort}" style="width:80px;height:38px"></label></div>
 <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" id="pCancel">취소</button><button class="btn btn-red btn-sm" id="pSave">저장</button></div></div>`;
     drawAtt();
+    const drawMain = () => ($('#pMainImg').innerHTML = mainImg ? `<img src="/img/${esc(mainImg)}" alt="" style="width:100%;height:100%;object-fit:cover">` : '없음');
+    drawMain();
+    $('#pBoard').addEventListener('change', (e) => ($('#evFields').hidden = e.target.value !== 'event'));
+    $('#pMainDel').addEventListener('click', () => { mainImg = ''; drawMain(); });
+    $('#pMainFile').addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const fd = new FormData();
+      fd.append('folder', 'post');
+      fd.append('file', await shrink(f));
+      const r = await run(() => api('/api/admin/upload', { method: 'POST', body: fd }));
+      mainImg = r.key;
+      e.target.value = '';
+      drawMain();
+    });
     $('#pAtt').addEventListener('click', (e) => { if (e.target.dataset.rm) { att.splice(+e.target.dataset.rm, 1); drawAtt(); } });
     $('#pFile').addEventListener('change', async (e) => {
       for (const f of e.target.files) {
@@ -373,7 +453,10 @@ PAGES.posts = async () => {
     });
     $('#pCancel').addEventListener('click', () => ($('#editor').innerHTML = ''));
     $('#pSave').addEventListener('click', async () => {
-      const body = { board: $('#pBoard').value, title: $('#pTitle').value, body: $('#pBody').value, pinned: $('#pPin').checked, visible: $('#pVis').checked, sort: +$('#pSort').value, attachments: att };
+      const body = { board: $('#pBoard').value, title: $('#pTitle').value, body: $('#pBody').value, pinned: $('#pPin').checked, visible: $('#pVis').checked, sort: +$('#pSort').value, attachments: att,
+        start_date: $('#pStart').value, end_date: $('#pEnd').value, summary: $('#pSummary').value, image_key: mainImg, cta_label: $('#pCtaL').value, cta_link: $('#pCtaH').value.trim() };
+      if (body.cta_link && !/^\/[^/]/.test(body.cta_link)) return toast('참여 버튼 링크는 / 로 시작하는 사이트 안 주소로 넣어 주세요.', true);
+      if (body.start_date && body.end_date && body.end_date < body.start_date) return toast('종료일이 시작일보다 빠릅니다.', true);
       if (!body.title.trim()) return toast('제목을 입력해 주세요.', true);
       await run(() => api(p.id ? `/api/admin/posts/${p.id}` : '/api/admin/posts', { method: p.id ? 'PATCH' : 'POST', body }), '저장했습니다.');
       sessionStorage.setItem('postBoard', body.board);
@@ -784,7 +867,7 @@ PAGES.banners = async () => {
 PAGES.notify = async () => {
   const [{ settings: s, mailFrom }, { logs }] = await Promise.all([api('/api/admin/settings'), api('/api/admin/mail-log')]);
   const kinds = JSON.parse(s.notify_kinds || '[]');
-  const ALL = ['단기 예약', '중장기 신청', '법인 견적', '1:1 문의', '견적 회원가입'];
+  const ALL = ['단기 예약', '중장기 신청', '법인 견적', '1:1 문의', '이용후기', '견적 회원가입'];
   main.innerHTML = `<div class="a-title"><div><h1>메일 알림 · 발송 기록</h1><p class="desc">예약 · 신청 · 문의가 들어오면 아래 두 주소로 동시에 메일이 가고, 모든 발송이 아래 기록에 남습니다.</p></div></div>
 <div class="split"><div class="l box box-pad" style="display:flex;flex-direction:column;gap:14px">
 <h2 style="font-size:16px">수신 이메일</h2>

@@ -10,12 +10,14 @@ import { retryFailed } from './lib/mail.js';
 import { registerPublic } from './routes/public.js';
 import { registerAdmin } from './routes/admin.js';
 import { registerQuote } from './routes/quote.js';
+import { registerCommunity } from './routes/community.js';
 import { serveImage } from './routes/upload.js';
 
 const router = new Router();
 registerPublic(router);
 registerAdmin(router);
 registerQuote(router);
+registerCommunity(router);
 
 // /api/admin/file 은 폼 POST(페이지 이동)라 JSON 오류 대신 204 로 답하도록 안에서 직접 로그인 확인
 const OPEN_ADMIN = new Set(['/api/admin/me', '/api/admin/setup', '/api/admin/login', '/api/admin/logout', '/api/admin/file']);

@@ -1,9 +1,10 @@
 import { api, $, $$, esc, initLayout, setBusy } from './common.js';
 import { shrink } from './shrink.js';
+import { setupGuard, communityConfig, stars } from './guard.js';
 
 await initLayout();
 const body = $('#csBody');
-const NAMES = { notice: '공지사항', faq: '자주 묻는 질문', qna: '1:1 문의' };
+const NAMES = { notice: '공지사항', review: '이용후기', faq: '자주 묻는 질문', qna: '1:1 문의' };
 let tab = new URLSearchParams(location.search).get('tab') || 'qna';
 if (!NAMES[tab]) tab = 'qna';
 
@@ -18,7 +19,7 @@ function go(t, extra = '') {
     else b.removeAttribute('aria-current');
   });
   $('#crumbTab').textContent = NAMES[t];
-  ({ notice, faq, qna })[t]();
+  ({ notice, review, faq, qna })[t]();
 }
 
 const date = (s) => (s || '').slice(0, 10);
@@ -28,8 +29,8 @@ async function notice() {
   if (id) return noticeView(id);
   body.innerHTML = '<h2 style="font-size:20px">공지사항</h2><p class="loading">불러오는 중…</p>';
   try {
-    const [n, e] = await Promise.all([api('/api/posts?board=notice'), api('/api/posts?board=event')]);
-    const posts = [...n.posts.map((p) => ({ ...p, kind: '공지' })), ...e.posts.map((p) => ({ ...p, kind: '이벤트' }))].sort(
+    const n = await api('/api/posts?board=notice');
+    const posts = [...n.posts.map((p) => ({ ...p, kind: '공지' }))].sort(
       (a, b) => b.pinned - a.pinned || b.created_at.localeCompare(a.created_at)
     );
     body.innerHTML = `<h2 style="font-size:20px">공지사항</h2>
@@ -52,6 +53,97 @@ async function noticeView(id) {
   } catch (err) {
     body.innerHTML = `<p class="empty">${esc(err.message)}</p>`;
   }
+}
+
+
+// ── 이용후기 ──
+async function review(page = 1) {
+  const cfg = await communityConfig();
+  body.innerHTML = `<div class="rv-head"><h2 style="font-size:20px">이용후기</h2><button class="btn btn-red" id="rvWrite" style="height:42px">후기 쓰기</button></div>
+${cfg.reviewNotice ? `<div class="rv-notice"><strong class="red" style="white-space:nowrap">EVENT</strong><span>${esc(cfg.reviewNotice)}</span></div>` : ''}
+<p class="loading">불러오는 중…</p>`;
+  $('#rvWrite').addEventListener('click', writeReview);
+  try {
+    const r = await api(`/api/reviews?page=${page}&size=10`);
+    const pages = Math.max(1, Math.ceil(r.total / 10));
+    body.querySelector('.loading').outerHTML = `${r.total ? `<div class="rv-sum"><strong>${r.avg.toFixed(1)}</strong>${stars(Math.round(r.avg))}<span class="muted">후기 ${r.total}건</span></div>` : ''}
+<div class="rv-list">${
+      r.reviews.length
+        ? r.reviews
+            .map(
+              (v) => `<article class="rv"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">${stars(v.rating)}<span class="meta">${esc(v.name)} · ${date(v.created_at)}</span></div>
+<strong style="font-size:16px">${esc(v.title)}</strong>
+${v.car_model || v.use_month ? `<span class="meta">${[v.car_model ? '이용 차종 ' + esc(v.car_model) : '', v.use_month ? esc(v.use_month.replace('-', '년 ')) + '월 이용' : ''].filter(Boolean).join(' · ')}</span>` : ''}
+<div class="body clip">${esc(v.body)}</div>
+${v.photos.length ? `<div class="ph">${v.photos.map((p) => `<a href="${esc(p)}" target="_blank" rel="noopener"><img src="${esc(p)}" alt="후기 사진" loading="lazy"></a>`).join('')}</div>` : ''}</article>`
+            )
+            .join('')
+        : '<p class="empty">아직 등록된 후기가 없습니다. 첫 후기를 남겨 주세요.</p>'
+    }</div>
+${pages > 1 ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${Array.from({ length: pages }, (_, i) => `<button class="chip ${i + 1 === page ? 'on' : ''}" style="min-width:40px" data-page="${i + 1}">${i + 1}</button>`).join('')}</div>` : ''}`;
+    $$('.rv .body', body).forEach((el) => {
+      if (el.scrollHeight > el.clientHeight + 4) {
+        const b = document.createElement('button');
+        b.className = 'linkbtn small muted';
+        b.textContent = '더 보기';
+        b.addEventListener('click', () => { el.classList.toggle('clip'); b.textContent = el.classList.contains('clip') ? '더 보기' : '접기'; });
+        el.after(b);
+      }
+    });
+    $$('[data-page]', body).forEach((b) => b.addEventListener('click', () => { review(+b.dataset.page); body.scrollIntoView({ behavior: 'smooth' }); }));
+  } catch (err) {
+    body.querySelector('.loading').outerHTML = `<p class="empty">${esc(err.message)}</p>`;
+  }
+}
+
+async function writeReview() {
+  body.innerHTML = '';
+  body.append($('#reviewWriteTpl').content.cloneNode(true));
+  const f = $('#rvForm');
+  const cfg = await communityConfig();
+  if (cfg.reviewNotice) { $('#rwNotice').hidden = false; $('#rwNotice').innerHTML = `<strong class="red" style="white-space:nowrap">EVENT</strong><span>${esc(cfg.reviewNotice)}</span>`; }
+  // 별점
+  let rating = 5;
+  $('#rRate').innerHTML = [1, 2, 3, 4, 5].map((n) => `<label title="${n}점"><input type="radio" name="rating" value="${n}" ${n === 5 ? 'checked' : ''} aria-label="${n}점"><span>★</span></label>`).join('');
+  const paint = () => $$('#rRate label').forEach((l, i) => l.classList.toggle('on', i < rating));
+  $$('#rRate input').forEach((i) => i.addEventListener('change', () => { rating = +i.value; paint(); }));
+  paint();
+  $('#rBody').addEventListener('input', (e) => ($('#rCount').textContent = `${e.target.value.length} / 2000`));
+  $('#rCarList').innerHTML = (cfg.carModels || []).map((m) => `<option value="${esc(m)}">`).join('');
+  const guard = await setupGuard({ phoneInput: f.phone, slot: $('#rVerify'), tsSlot: $('#rTs') });
+  $('#rCancel').addEventListener('click', () => review());
+  $('#rSubmit').addEventListener('click', async () => {
+    const err = $('#rErr');
+    err.textContent = '';
+    if (!f.name.value.trim()) return (err.textContent = '이름을 입력해 주세요.'), f.name.focus();
+    if (f.phone.value.replace(/\D/g, '').length < 10) return (err.textContent = '휴대폰 번호를 확인해 주세요.'), f.phone.focus();
+    if (!f.title.value.trim()) return (err.textContent = '제목을 입력해 주세요.'), f.title.focus();
+    if (f.body.value.trim().length < 20) return (err.textContent = '후기 내용은 20자 이상 남겨 주세요.'), f.body.focus();
+    if (f.photos.files.length > 3) return (err.textContent = '사진은 3장까지 올릴 수 있습니다.');
+    if (!f.agreePrivacy.checked) return (err.textContent = '[필수] 개인정보 수집 · 이용에 동의해 주세요.');
+    const g = guard.check();
+    if (g) return (err.textContent = g);
+    const fd = new FormData();
+    ['name', 'phone', 'carModel', 'useMonth', 'title', 'body', 'website'].forEach((k) => fd.append(k, f[k].value));
+    fd.append('rating', String(rating));
+    fd.append('agreePrivacy', 'true');
+    fd.append('agreeMarketing', String(f.agreeMarketing.checked));
+    Object.entries(guard.fields()).forEach(([k, v]) => fd.append(k, v || ''));
+    for (const file of f.photos.files) fd.append('photos', await shrink(file));
+    const btn = $('#rSubmit');
+    setBusy(btn, true, '등록 중…');
+    try {
+      const r = await api('/api/reviews', { method: 'POST', body: fd });
+      body.innerHTML = `<div class="done-box"><h2>소중한 후기 감사합니다.</h2><p style="margin:0;color:#444;line-height:1.8">${
+        r.status === 'published' ? '후기가 등록되었습니다.' : '담당자 확인 후 게시됩니다.'
+      }<br>이벤트 대상 여부를 확인한 뒤 남겨주신 번호로 커피 쿠폰을 보내 드립니다.</p></div><div style="display:flex;justify-content:center"><button class="btn" id="toRv">후기 목록</button></div>`;
+      $('#toRv').addEventListener('click', () => review());
+    } catch (e) {
+      err.textContent = e.message;
+      guard.afterFail();
+      setBusy(btn, false);
+    }
+  });
 }
 
 async function faq() {
@@ -131,6 +223,7 @@ function write() {
     const fd = new FormData();
     ['type', 'name', 'phone', 'title', 'body', 'password', 'website'].forEach((k) => fd.append(k, f[k].value));
     fd.append('agree', 'true');
+    fd.append('marketing', String(f.marketing.checked));
     for (const file of f.files.files) fd.append('files', await shrink(file));
     const btn = $('#qSubmit');
     setBusy(btn, true, '등록 중…');

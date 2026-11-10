@@ -28,6 +28,7 @@
 <a href="/short.html">단기렌트</a>
 <a href="/long.html">중장기렌트</a>
 <a href="/long.html#corp">법인렌트</a>
+<a href="/event.html">이벤트</a>
 <a href="/support.html" class="on" aria-current="page">고객센터</a>
 </nav>
 <a class="tel" href="tel:16448891" data-site="tel"><span>24시간 예약상담</span><strong data-site="phone">1644-8891</strong></a>
@@ -46,6 +47,24 @@
 .post-view .b { padding: 24px 8px; white-space: pre-line; line-height: 1.8; border-bottom: 1px solid var(--line); }
 .linkbtn { border: 0; background: none; padding: 0; cursor: pointer; text-align: left; font-size: 14px; }
 .linkbtn:hover { color: var(--red); }
+.stars { color: var(--red); letter-spacing: 1px; } .stars .off { color: #D5D5D5; }
+.rv-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rv-sum { display: flex; align-items: baseline; gap: 10px; font-size: 14px; }
+.rv-sum strong { font-size: 30px; }
+.rv-notice { background: var(--red-soft); border: 1px solid #F1C9CF; padding: 14px 16px; font-size: 14px; line-height: 1.7; display: flex; gap: 10px; align-items: flex-start; }
+.rv-list { border-top: 2px solid var(--ink); }
+.rv { padding: 18px 6px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.rv .meta { font-size: 13px; color: var(--gray); }
+.rv .body { font-size: 14px; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; }
+.rv .body.clip { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.rv .ph { display: flex; gap: 6px; flex-wrap: wrap; }
+.rv .ph a { width: 96px; height: 72px; background: #EEE; display: block; }
+.rv .ph img { width: 100%; height: 100%; object-fit: cover; }
+.rate { display: flex; gap: 2px; }
+.rate label { cursor: pointer; font-size: 28px; color: #D5D5D5; line-height: 1; padding: 2px; }
+.rate input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rate label.on { color: var(--red); }
+.rate input:focus-visible + span { outline: 2px solid var(--ink); }
 .answer { background: var(--bg-soft); padding: 18px 20px; white-space: pre-line; line-height: 1.8; font-size: 14px; }
 @media (max-width: 640px) { .list-table .hide-m { display: none; } }
 </style>
@@ -53,6 +72,7 @@
 <div class="wrap cs">
 <nav class="cs-nav" aria-label="고객센터 메뉴">
 <button type="button" data-tab="notice">공지사항</button>
+<button type="button" data-tab="review">이용후기</button>
 <button type="button" data-tab="faq">자주 묻는 질문</button>
 <button type="button" data-tab="qna">1:1 문의 (Q&amp;A)</button>
 <div class="callbox" style="margin-top:20px;padding:20px">
@@ -64,6 +84,30 @@
 <section class="cs-body" id="csBody" aria-live="polite"><p class="loading">불러오는 중…</p></section>
 </div>
 
+<template id="reviewWriteTpl">
+<h2 style="font-size:20px">이용후기 쓰기</h2>
+<div class="rv-notice" id="rwNotice" hidden></div>
+<form id="rvForm" class="form-table" novalidate>
+<div class="form-row"><label class="th" for="rName">이름</label><div class="td"><input class="input" id="rName" name="name" autocomplete="name" maxlength="30"></div></div>
+<div class="form-row"><label class="th" for="rPhone">휴대폰 번호</label><div class="td" style="flex-direction:column;align-items:flex-start;gap:8px"><input class="input" id="rPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000" autocomplete="tel"><div id="rVerify" style="width:100%"></div><span class="small muted">커피 쿠폰은 이 번호로 보내 드립니다. 화면에는 이름 일부만 보입니다.</span></div></div>
+<div class="form-row"><label class="th" for="rCar">이용 차종</label><div class="td"><input class="input" id="rCar" name="carModel" list="rCarList" placeholder="예: K5, 카니발" maxlength="40"><datalist id="rCarList"></datalist></div></div>
+<div class="form-row"><label class="th" for="rMonth">이용 시기</label><div class="td"><input class="input" id="rMonth" name="useMonth" type="month" style="max-width:200px"></div></div>
+<div class="form-row"><div class="th" id="rRateLabel">만족도</div><div class="td"><div class="rate" role="radiogroup" aria-labelledby="rRateLabel" id="rRate"></div></div></div>
+<div class="form-row"><label class="th" for="rTitle">제목</label><div class="td"><input class="input" id="rTitle" name="title" maxlength="80" style="max-width:none"></div></div>
+<div class="form-row"><label class="th" for="rBody">후기</label><div class="td" style="flex-direction:column;align-items:stretch;gap:4px"><textarea class="textarea" id="rBody" name="body" rows="7" maxlength="2000" style="max-width:none" placeholder="차량 상태, 인수 · 반납, 직원 응대 등 이용하신 경험을 20자 이상 남겨 주세요."></textarea><span class="small muted" id="rCount" style="text-align:right">0 / 2000</span></div></div>
+<div class="form-row"><label class="th" for="rFiles">사진</label><div class="td" style="flex-direction:column;align-items:flex-start"><input type="file" id="rFiles" name="photos" accept="image/jpeg,image/png,image/webp" multiple><span class="small muted">최대 3장 (선택)</span></div></div>
+<input type="text" name="website" tabindex="-1" autocomplete="off" class="sr" aria-hidden="true">
+<div id="rTs" style="padding:12px 16px 0"></div>
+<div style="padding:12px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px">
+<label class="check"><input type="checkbox" name="agreePrivacy">[필수] 개인정보 수집 · 이용에 동의합니다</label>
+<p class="small muted" style="margin:0 0 4px 28px;line-height:1.7">항목: 이름, 휴대폰 번호, 후기 내용 · 목적: 이용 고객 확인, 후기 게시, 경품(커피 쿠폰) 발송 · 보유: <a href="/privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>에 따름</p>
+<label class="check"><input type="checkbox" name="agreeMarketing"><span>[선택] 할인 · 이벤트 · 신차 소식을 문자로 받겠습니다 (<a href="/privacy.html#marketing" target="_blank" rel="noopener" class="muted" style="text-decoration:underline">마케팅 정보 수신 동의</a>)</span></label>
+<p class="small muted" style="margin:0 0 0 28px">동의하지 않아도 후기 작성과 쿠폰 지급은 똑같이 진행됩니다.</p>
+</div>
+</form>
+<p class="error-msg" id="rErr" role="alert"></p>
+<div style="display:flex;justify-content:center;gap:10px"><button class="btn btn-lg" type="button" id="rCancel">취소</button><button class="btn btn-red btn-lg" type="button" id="rSubmit" style="padding:0 48px">후기 등록</button></div>
+</template>
 <template id="qnaWriteTpl">
 <h2 style="font-size:20px">1:1 문의 작성</h2>
 <form id="qnaForm" class="form-table" novalidate>
@@ -76,6 +120,7 @@
 <div class="form-row"><label class="th" for="qPw">비밀번호</label><div class="td"><input class="input" id="qPw" name="password" type="password" inputmode="numeric" maxlength="8" style="max-width:200px"><span class="small muted">글 확인용 숫자 4~8자리</span></div></div>
 <input type="text" name="website" tabindex="-1" autocomplete="off" class="sr" aria-hidden="true">
 <label class="check" style="padding:0 16px;border-bottom:1px solid var(--line);min-height:52px"><input type="checkbox" name="agree">[필수] 개인정보 수집·이용에 동의합니다</label>
+<label class="check" style="padding:0 16px;border-bottom:1px solid var(--line);min-height:52px"><input type="checkbox" name="marketing"><span>[선택] 할인 · 이벤트 · 신차 소식을 문자로 받겠습니다 (<a href="/privacy.html#marketing" target="_blank" rel="noopener" class="muted" style="text-decoration:underline">마케팅 정보 수신 동의</a>)</span></label>
 </form>
 <p class="error-msg" id="qErr" role="alert"></p>
 <div style="display:flex;justify-content:center;gap:10px"><button class="btn btn-lg" type="button" id="qCancel">취소</button><button class="btn btn-red btn-lg" type="button" id="qSubmit" style="padding:0 48px">문의 등록</button></div>

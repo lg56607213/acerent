@@ -172,7 +172,7 @@ $('#submitRes').addEventListener('click', async () => {
         locationId: +$('#loc').value, pickupAt: $('#from').value, returnAt: $('#to').value, modelId: st.modelId, vehicleId: st.vehicleId, insuranceId: st.insId,
         options: $$('input[name=opt]:checked').map((x) => x.value),
         name: f.name.value, phone: f.phone.value, birth: f.birth.value, license: f.license.value, flight: f.flight.value, request: f.request.value,
-        website: f.website.value, agree: true,
+        website: f.website.value, agree: true, marketing: $('#agree3').checked,
       },
     });
     $('#dNo').textContent = r.no;

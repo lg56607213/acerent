@@ -55,7 +55,7 @@ $('#corpForm').addEventListener('submit', async (e) => {
   try {
     const r = await api('/api/long/applications', {
       method: 'POST',
-      body: { applicantType: 'corp', company: f.company.value, bizNo: f.bizNo.value, name: f.name.value, phone: f.phone.value, vehicleWish: f.vehicleWish.value, qty: f.qty.value, request: f.request.value, website: f.website.value, agree: true },
+      body: { applicantType: 'corp', company: f.company.value, bizNo: f.bizNo.value, name: f.name.value, phone: f.phone.value, vehicleWish: f.vehicleWish.value, qty: f.qty.value, request: f.request.value, website: f.website.value, agree: true, marketing: f.marketing.checked },
     });
     f.reset();
     msg.style.color = 'var(--ink)';

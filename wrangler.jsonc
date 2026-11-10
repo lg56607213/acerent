@@ -52,10 +52,17 @@
     "MAIL_FROM": "noti@onlycartalk.com",
     "MAIL_FROM_NAME": "에이스렌터카 홈페이지",
     // rentcarerp 연동: 비워두면 관리자 화면의 '단기 차량(임시)' 목록으로 동작
-    "ERP_API_BASE": "https://rentcarerp.com"
+    "ERP_API_BASE": "https://rentcarerp.com",
+    // 게시판 광고 차단 — 비워두면 꺼진 채로 동작 (src/lib/guard.js)
+    //   Turnstile 사람 확인: 대시보드 Turnstile 에서 위젯을 만들고 사이트 키를 여기에, 비밀 키는 TURNSTILE_SECRET 비밀값으로
+    "TURNSTILE_SITE_KEY": "",
+    //   문자 인증: 솔라피 가입 후 'solapi', 등록한 발신번호 (API 키 · 시크릿은 SMS_API_KEY · SMS_API_SECRET 비밀값으로)
+    "SMS_PROVIDER": "",
+    "SMS_FROM": ""
   },
   // 비밀값(대시보드 또는 wrangler secret put 으로 등록):
   //   ERP_API_KEY   — rentcarerp 연동 키
+  //   TURNSTILE_SECRET · SMS_API_KEY · SMS_API_SECRET — 위 광고 차단 설정용
   //   SESSION_SECRET — 관리자 로그인 서명용 임의 문자열 (32자 이상)
 
   "observability": { "enabled": true }
