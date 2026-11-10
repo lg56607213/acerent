@@ -1,5 +1,5 @@
 // 에이스렌터카 홈페이지 — Cloudflare Workers 설정
-// 테스트: onlycartalk.com  →  최종: acerentcar.co.kr (vars 와 routes 만 바꾸면 됨)
+// 운영: acerentcar.co.kr (2026-11-10 전환, 테스트는 onlycartalk.com 에서 했음)
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "acerentcar",
@@ -47,8 +47,8 @@
 
   "vars": {
     "SITE_NAME": "에이스렌터카",
-    "SITE_URL": "https://onlycartalk.com",
-    // 보내는 주소: Email Routing 을 켠 도메인의 주소여야 함
+    "SITE_URL": "https://acerentcar.co.kr",
+    // 보내는 주소: Email Routing 을 켠 도메인의 주소여야 함 — acerentcar.co.kr 은 다우오피스 메일(MX)이 있어 Email Routing 을 켜지 않고 onlycartalk.com 주소로 보냄
     "MAIL_FROM": "noti@onlycartalk.com",
     "MAIL_FROM_NAME": "에이스렌터카 홈페이지",
     // rentcarerp 연동: 비워두면 관리자 화면의 '단기 차량(임시)' 목록으로 동작

@@ -2,7 +2,8 @@
 
 Cloudflare 무료 플랜(Workers · D1 · R2 · Email Routing)으로 돌아가는 에이스렌터카 홈페이지입니다.
 
-- **테스트**: onlycartalk.com → **최종**: acerentcar.co.kr
+- **운영**: https://acerentcar.co.kr (2026-11-10 전환 · 테스트는 onlycartalk.com)
+- 알림 메일은 `noti@onlycartalk.com` 에서 발송 (acerentcar.co.kr 은 다우오피스 메일이라 Email Routing 을 켜지 않음)
 - 고객 화면: 메인, 단기렌트 실시간 예약, 중장기 차량 목록 · 상세 · 신청, 법인 견적, 고객센터(공지 · FAQ · 1:1 문의)
 - 관리자(`/admin/`): 단기 예약, 중장기 신청, 고객, 1:1 문의 답변, 게시판, 중장기 차량 · 실차 사진 · 가격표, 단기 차종 · 요금 · 보험, 예약 장소, 메인 배너, 메일 알림 · 발송 기록, 회사 정보 · 관리자 계정
 - 견적 사용자(`/quote`): 관리자가 '견적 사용자 계정' 메뉴에서 발급하거나, 사용자가 `/quote` 에서 회원가입 신청 → 관리자가 승인하면 로그인. 관리자 계정과 테이블 · 쿠키가 따로라 관리자 화면 · `/admin/quote` 에는 들어갈 수 없음
