@@ -1,6 +1,9 @@
 import { api, $, esc, won, nl, defaultPeriod, initLayout, classImage } from './common.js';
 import { quote } from './longcalc.js';
 
+// 필요한 데이터를 한꺼번에 요청 (하나씩 기다리면 화면이 늦게 채워짐)
+const pre = (u) => { const p = api(u); p.catch(() => {}); return p; };
+const P_LONG = pre('/api/long'), P_NOTICE = pre('/api/posts?board=notice'), P_EVENTS = pre('/api/events'), P_REVIEWS = pre('/api/reviews?size=3'), P_CFG = pre('/api/community/config');
 const site = await initLayout();
 
 // 배너
@@ -35,7 +38,7 @@ tabs.forEach((tab, i) =>
 
 // 중장기 차량 4대
 try {
-  const { vehicles } = await api('/api/long');
+  const { vehicles } = await P_LONG;
   const box = $('#mainCars');
   const list = vehicles
     .map((v) => {
@@ -61,7 +64,7 @@ try {
 
 // 공지 3건
 try {
-  const { posts } = await api('/api/posts?board=notice');
+  const { posts } = await P_NOTICE;
   if (posts.length)
     $('#mainNotice').innerHTML = posts
       .slice(0, 3)
@@ -71,7 +74,7 @@ try {
 
 // 진행 중인 이벤트 (최대 3건)
 try {
-  const { events } = await api('/api/events');
+  const { events } = await P_EVENTS;
   const on = events.filter((e) => e.state === 'ongoing').slice(0, 3);
   if (on.length) {
     $('#mainEvSec').hidden = false;
@@ -83,7 +86,7 @@ try {
 
 // 최근 이용후기 3건
 try {
-  const [r, cfg] = await Promise.all([api('/api/reviews?size=3'), api('/api/community/config').catch(() => ({}))]);
+  const [r, cfg] = await Promise.all([P_REVIEWS, P_CFG.catch(() => ({}))]);
   const star = (n) => `<span class="stars" aria-label="별점 ${n}점">${'★'.repeat(n)}<span class="off">${'★'.repeat(5 - n)}</span></span>`;
   if (cfg.reviewNotice) $('#rvCtaText').textContent = cfg.reviewNotice;
   if (r.total) $('#rvAvg').textContent = `★ ${r.avg.toFixed(1)} · ${r.total}건`;

@@ -2,7 +2,7 @@ import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.
 import { quote, rateAmount, describe } from './longcalc.js';
 import { OPTION_GROUPS, termRows } from './longopts.js';
 
-await initLayout();
+initLayout(); // 회사 정보(전화번호 등)는 기다리지 않고 따로 채움 — 본문 데이터를 바로 불러오도록
 const qs = new URLSearchParams(location.search);
 const root = $('#carRoot');
 const id = qs.get('id');

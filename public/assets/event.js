@@ -1,6 +1,6 @@
 import { api, $, $$, esc, initLayout } from './common.js';
 
-await initLayout();
+initLayout(); // 회사 정보(전화번호 등)는 기다리지 않고 따로 채움 — 본문 데이터를 바로 불러오도록
 const root = $('#evRoot');
 const ST = { ongoing: '진행 중', upcoming: '진행 예정', ended: '종료' };
 const d = (s) => (s ? s.replace(/-/g, '.') : '');

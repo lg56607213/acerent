@@ -2,7 +2,7 @@ import { api, $, $$, esc, initLayout, setBusy } from './common.js';
 import { shrink } from './shrink.js';
 import { setupGuard, communityConfig, stars } from './guard.js';
 
-await initLayout();
+initLayout(); // 회사 정보(전화번호 등)는 기다리지 않고 따로 채움 — 본문 데이터를 바로 불러오도록
 const body = $('#csBody');
 const NAMES = { notice: '공지사항', review: '이용후기', faq: '자주 묻는 질문', qna: '1:1 문의' };
 let tab = new URLSearchParams(location.search).get('tab') || 'qna';

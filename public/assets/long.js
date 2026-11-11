@@ -1,7 +1,7 @@
 import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.js';
 import { quote } from './longcalc.js';
 
-await initLayout();
+initLayout(); // 회사 정보(전화번호 등)는 기다리지 않고 따로 채움 — 본문 데이터를 바로 불러오도록
 const st = { sort: 'low', list: [] };
 $('#sort').addEventListener('change', (e) => { st.sort = e.target.value; draw(); });
 
