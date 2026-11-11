@@ -1,5 +1,6 @@
 import { api, $, $$, esc, won, initLayout, setBusy, classImage } from './common.js';
 import { quote, rateAmount, describe } from './longcalc.js';
+import { OPTION_GROUPS, termRows } from './longopts.js';
 
 await initLayout();
 const qs = new URLSearchParams(location.search);
@@ -16,6 +17,9 @@ try {
 const v = data.vehicle;
 const bases = data.bases;
 const P = v.pricing;
+// 관리자가 '이용금액' 줄을 넣은 차량은 그 줄 중에서 고르는 방식 (없으면 기존 자동 계산 방식)
+const plans = data.plans || [];
+const PLAN = plans.length > 0;
 const cv = v.car_value || 0;
 root.innerHTML = '';
 root.append($('#carTpl').content.cloneNode(true));
@@ -149,6 +153,38 @@ if (P.maintAddFee > 0) {
   $('#maintChk').addEventListener('change', (e) => { st.maint = e.target.checked; update(); });
 }
 
+// ── 이용금액 줄 고르기 (PLAN) ──
+const man = (n) => (n >= 10000 ? won(Math.round(n / 10000)) + '만원' : n ? W(n) : '없음');
+const planLabel = (p) => `${p.term}개월 · 보증금 ${p.deposit ? man(p.deposit) : '없음'}${p.km_year ? ' · 연 ' + (p.km_year / 10000) + '만km' : ''}`;
+const curPlan = () => plans.find((p) => p.id === st.planId) || plans.find((p) => p.is_main) || plans[0];
+function drawPlans() {
+  const cp = curPlan();
+  $('#planRows').innerHTML = plans
+    .map((p) => `<tr class="${p.id === cp.id ? 'on' : ''} ${p.is_main ? 'main' : ''}" data-p="${p.id}"><td><input type="radio" name="plan" ${p.id === cp.id ? 'checked' : ''} aria-label="${esc(planLabel(p))}"></td><td>${p.term}개월</td><td>${p.deposit ? man(p.deposit) : '없음'}</td><td>${p.km_year ? '연 ' + won(p.km_year) + 'km' : '-'}</td><td style="text-align:right;font-weight:700">${W(p.monthly)}</td><td style="text-align:right">${p.buyout ? man(p.buyout) : '-'}</td></tr>`)
+    .join('');
+  $$('#planRows tr').forEach((tr) => tr.addEventListener('click', () => { st.planId = +tr.dataset.p; update(); }));
+  $('#terms').innerHTML = plans
+    .map((p) => `<li><button type="button" class="${p.id === cp.id ? 'on' : ''}" aria-pressed="${p.id === cp.id}" data-pp="${p.id}"><span style="text-align:left;font-size:14px">${p.term}개월<br><span class="small muted">보증금 ${p.deposit ? man(p.deposit) : '없음'}</span></span><strong>${won(p.monthly)}원</strong></button></li>`)
+    .join('');
+  $$('#terms button').forEach((b) => b.addEventListener('click', () => { st.planId = +b.dataset.pp; update(); }));
+}
+function calcPlan() {
+  const p = curPlan();
+  st.planId = p.id;
+  $('#sKm').textContent = p.km_year ? '연 ' + km(p.km_year) : '-';
+  $('#sDep').textContent = p.deposit ? man(p.deposit) : '없음';
+  $('#sPre').previousElementSibling.textContent = '만기 인수가';
+  $('#sPre').textContent = p.buyout ? man(p.buyout) : '-';
+  $('#sExtraRow').hidden = true;
+  $('#sTerm').textContent = `${p.term}개월 월 렌트료`;
+  $('#sMonthly').textContent = W(p.monthly);
+  $('#mTerm').textContent = `${p.term}개월 · 부가세 포함`;
+  $('#mMonthly').textContent = W(p.monthly);
+  $('#applyCond').textContent = planLabel(p) + (p.buyout ? ` · 만기 인수가 ${man(p.buyout)}` : '');
+  $('#applyMonthly').textContent = W(p.monthly) + ' (부가세 포함)';
+  $('#applyBtn').textContent = `${p.term}개월 · 월 ${won(p.monthly)}원 신청`;
+}
+
 function drawTerms() {
   if (!Q.rows.length) {
     $('#terms').innerHTML = '<li class="muted small" style="padding:18px">월 대여료는 상담으로 안내해 드립니다.</li>';
@@ -179,12 +215,31 @@ function calc() {
 }
 
 function update() {
+  if (PLAN) { calcPlan(); drawPlans(); return; }
   calc();
   // 직접입력 칸 값이 범위를 벗어났으면 맞춘 값으로 보여 줌
   for (const k of ['km', 'dep', 'pre']) if (document.activeElement !== $('#' + k + 'In')) $('#' + k + 'In').value = won(Q.sel[k]);
   st.term = Q.sel.term;
   drawOptions();
   drawTerms();
+}
+if (PLAN) {
+  $$('.sec.fx').forEach((x) => (x.hidden = true));
+  $$('.sec.pl').forEach((x) => (x.hidden = false));
+  if (!v.added_options.length) $('#secOpts').hidden = true; // 가격 붙은 추가 옵션이 없으면 숨김 (옵션은 '차량 옵션'에 표시)
+  const tr = termRows(v.terms || {});
+  const dl = (rows) => rows.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('');
+  $('#termsKv').innerHTML = dl(tr.contract);
+  $('#insKv').innerHTML = dl(tr.insurance);
+}
+// 차량 옵션 (체크한 옵션만 그룹별로)
+{
+  const have = new Set(v.option_list || []);
+  const groups = OPTION_GROUPS.map(([g, list]) => [g, list.filter((o) => have.has(o))]).filter(([, l]) => l.length);
+  if (groups.length) {
+    $('#secVopts').hidden = false;
+    $('#vopts').innerHTML = groups.map(([g, l]) => `<div class="vog"><strong>${esc(g)}</strong><ul>${l.map((o) => `<li>${esc(o)}</li>`).join('')}</ul></div>`).join('');
+  }
 }
 update();
 
@@ -226,7 +281,7 @@ $('#applyBtn').addEventListener('click', async () => {
     const r = await api('/api/long/applications', {
       method: 'POST',
       body: {
-        applicantType: st.type, vehicleId: v.id, term: Q.rows.length ? s.term : null, km: s.km, dep: s.dep, pre: s.pre, liab: s.liab, maint: s.maint, region: s.region,
+        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: !PLAN && Q.rows.length ? s.term : null, km: s.km, dep: s.dep, pre: s.pre, liab: s.liab, maint: s.maint, region: s.region,
         company: f.company.value, bizNo: f.bizNo.value, qty: f.qty.value, name: f.name.value, phone: f.phone.value,
         wishDate: f.wishDate.value, request: f.request.value, website: f.website.value, agree: true, marketing: f.marketing.checked,
       },

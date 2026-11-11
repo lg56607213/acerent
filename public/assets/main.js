@@ -40,6 +40,7 @@ try {
   const list = vehicles
     .map((v) => {
       // 가장 긴 계약 기간 · 무보증 · 기본 약정거리 기준 (가장 낮은 월 대여료)
+      if (v.mainPlan && v.mainPlan.monthly) return { ...v, min: v.mainPlan.monthly };
       const q = v.bases.length ? quote(v, v.pricing, v.bases, { term: Math.max(...v.bases.map((b) => b.term)) }) : null;
       return { ...v, min: q ? q.monthly : 0 };
     })

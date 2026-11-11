@@ -7,11 +7,13 @@ $('#sort').addEventListener('change', (e) => { st.sort = e.target.value; draw();
 
 // 가장 긴 계약 기간 · 무보증 · 기본 약정거리 기준 (그 차의 가장 낮은 월 대여료)
 function priceOf(v) {
+  // 관리자가 넣은 대표 이용금액이 있으면 그 값
+  if (v.mainPlan && v.mainPlan.monthly) return { term: v.mainPlan.term, monthly: v.mainPlan.monthly, deposit: v.mainPlan.deposit, km: v.mainPlan.km_year };
   if (!v.bases.length) return null;
   const term = Math.max(...v.bases.map((b) => b.term));
   return { term, monthly: quote(v, v.pricing, v.bases, { term }).monthly };
 }
-const ST = (v) => (v.status === 'reserved' ? '상담 진행 중' : v.status === 'soon' ? '출고 예정' + (v.avail_note ? ' · ' + v.avail_note : '') : v.badge);
+const ST = (v) => (v.status === 'reserved' ? '계약 진행 중' : v.status === 'soon' ? '출고 예정' + (v.avail_note ? ' · ' + v.avail_note : '') : v.badge);
 
 function draw() {
   const list = st.list.map((v) => ({ ...v, p: priceOf(v) }));
@@ -28,7 +30,7 @@ function draw() {
 <span class="badge">${esc(ST(v))}</span>
 <strong class="name">${esc(v.name)}</strong>
 <span class="meta">${v.year ? v.year + '년식 | ' : ''}${won(v.km)}km | ${esc(v.fuel)}</span></div>
-<dl><dt>현재 차량가격</dt><dd>${v.car_value ? won(v.car_value) + '원' : '-'}</dd>
+<dl>${v.p && v.p.deposit !== undefined ? `<dt>보증금</dt><dd>${v.p.deposit ? won(Math.round(v.p.deposit / 10000)) + '만원' : '없음'}${v.p.km ? ` · 연 ${v.p.km / 10000}만km` : ''}</dd>` : `<dt>현재 차량가격</dt><dd>${v.car_value ? won(v.car_value) + '원' : '-'}</dd>`}
 <dt>월 렌트료${v.p ? ` (${v.p.term}개월)` : ''}</dt><dd>${v.p ? `<strong class="price">${won(v.p.monthly)}</strong>원~` : '<span class="muted">상담</span>'}</dd></dl></a>`
         )
         .join('')

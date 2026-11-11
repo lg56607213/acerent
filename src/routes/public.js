@@ -8,6 +8,7 @@ import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { saveUpload } from './upload.js';
 import { pricingOf, quote, describe } from '../../public/assets/longcalc.js';
+import { PUBLIC_STATUS } from '../../public/assets/longopts.js';
 
 const jsonList = (s) => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 
@@ -155,14 +156,16 @@ export function registerPublic(r) {
   // 중장기: 노출 중인 차량 목록 (기간별 기준 월 렌트료 + 가격 조건)
   r.get('/api/long', async ({ env }) => {
     const { results: vs } = await env.DB
-      .prepare(`SELECT * FROM long_vehicles WHERE visible = 1 AND status <> 'contracted' ORDER BY sort, id DESC`)
+      .prepare(`SELECT * FROM long_vehicles WHERE visible = 1 AND status IN (${PUBLIC_STATUS.map(() => '?').join(',')}) ORDER BY sort, id DESC`)
+      .bind(...PUBLIC_STATUS)
       .all();
     if (!vs.length) return json({ vehicles: [] });
     const ids = vs.map((v) => v.id);
     const q = ids.map(() => '?').join(',');
-    const [prices, photos] = await Promise.all([
+    const [prices, photos, plans] = await Promise.all([
       env.DB.prepare(`SELECT vehicle_id, term, monthly FROM long_prices WHERE dep_pct = 0 AND vehicle_id IN (${q})`).bind(...ids).all(),
       env.DB.prepare(`SELECT vehicle_id, image_key FROM long_photos WHERE vehicle_id IN (${q}) ORDER BY sort, id`).bind(...ids).all(),
+      env.DB.prepare(`SELECT vehicle_id, deposit, term, monthly, km_year, is_main FROM long_plans WHERE vehicle_id IN (${q}) ORDER BY is_main DESC, sort, id`).bind(...ids).all(),
     ]);
     const firstPhoto = new Map();
     for (const p of photos.results) if (!firstPhoto.has(p.vehicle_id)) firstPhoto.set(p.vehicle_id, p.image_key);
@@ -171,6 +174,8 @@ export function registerPublic(r) {
         id: v.id, name: v.name, class: v.class, year: v.year, km: v.km, fuel: v.fuel, badge: v.badge, car_value: v.car_value,
         status: v.status, avail_note: v.avail_note, photo: img(firstPhoto.get(v.id)), pricing: pricingOf(v.pricing),
         bases: prices.results.filter((p) => p.vehicle_id === v.id).map((p) => ({ term: p.term, monthly: p.monthly })),
+        mainPlan: (({ vehicle_id, is_main, ...x }) => x)(plans.results.find((p) => p.vehicle_id === v.id) || {}),
+        maker: v.maker, model_group: v.model_group,
       })),
     });
   });
@@ -179,9 +184,10 @@ export function registerPublic(r) {
   r.get('/api/long/:id', async ({ env, params }) => {
     const v = await env.DB.prepare(`SELECT * FROM long_vehicles WHERE id = ? AND visible = 1`).bind(int(params.id)).first();
     if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
-    const [prices, photos] = await Promise.all([
+    const [prices, photos, plans] = await Promise.all([
       env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0 ORDER BY term DESC').bind(v.id).all(),
       env.DB.prepare('SELECT image_key FROM long_photos WHERE vehicle_id = ? ORDER BY sort, id').bind(v.id).all(),
+      env.DB.prepare('SELECT id, deposit, term, monthly, km_year, buyout, is_main FROM long_plans WHERE vehicle_id = ? ORDER BY sort, id').bind(v.id).all(),
     ]);
     const { plate, erp_ref, sort, created_at, ...pub } = v;
     return json({
@@ -189,8 +195,10 @@ export function registerPublic(r) {
         ...pub, plate: v.show_plate ? plate : '', pricing: pricingOf(v.pricing),
         added_options: jsonList(v.added_options), usage_history: jsonList(v.usage_history), repair_history: jsonList(v.repair_history),
         photos: photos.results.map((p) => img(p.image_key)),
+        option_list: jsonList(v.option_list), terms: (() => { try { return JSON.parse(v.terms || '{}'); } catch { return {}; } })(),
       },
       bases: prices.results,
+      plans: plans.results,
     });
   });
 
@@ -207,18 +215,25 @@ export function registerPublic(r) {
     const company = cleanText(b.company, 60);
     if (corp && !company) throw bad('법인명을 입력해 주세요.');
 
-    let vehicle = null, q = null;
+    let vehicle = null, q = null, plan = null;
     if (b.vehicleId) {
       vehicle = await env.DB.prepare('SELECT * FROM long_vehicles WHERE id = ? AND visible = 1').bind(int(b.vehicleId)).first();
       if (!vehicle) throw bad('차량 정보를 다시 확인해 주세요.');
+      if (b.planId) {
+        plan = await env.DB.prepare('SELECT * FROM long_plans WHERE id = ? AND vehicle_id = ?').bind(int(b.planId), vehicle.id).first();
+        if (!plan) throw bad('선택하신 이용 조건이 바뀌었습니다. 새로고침 후 다시 선택해 주세요.');
+      }
+    }
+    if (vehicle && !plan) {
       const { results: bases } = await env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0').bind(vehicle.id).all();
       if (bases.length) {
         if (!bases.some((x) => x.term === int(b.term))) throw bad('선택하신 계약 기간이 없습니다. 다시 선택해 주세요.');
         q = quote(vehicle, vehicle.pricing, bases, { term: int(b.term), km: int(b.km), dep: int(b.dep), pre: int(b.pre), liab: int(b.liab), maint: !!b.maint, region: cleanText(b.region, 40) });
       }
     }
-    const s = q ? q.sel : null;
-    const monthly = q ? q.monthly : 0;
+    // 이용금액 줄을 고른 경우: 그 줄의 보증금 · 개월 · 월렌트료 · 주행거리를 그대로 사용
+    const s = plan ? { term: plan.term, km: plan.km_year, dep: plan.deposit, pre: 0 } : q ? q.sel : null;
+    const monthly = plan ? plan.monthly : q ? q.monthly : 0;
     const depositAmt = s ? s.dep : 0;
     const prepayAmt = s ? s.pre : 0;
     const depPct = s && vehicle.car_value ? Math.round((s.dep / vehicle.car_value) * 1000) / 10 : 0;
@@ -230,11 +245,13 @@ export function registerPublic(r) {
     });
     await recordConsent(env.DB, customerId, { marketing: !!b.marketing });
     const no = await nextNo(env.DB, 'applications', 'L');
-    const extra = q ? describe(q.p, s) : '';
+    const extra = plan
+      ? [plan.km_year ? `연 ${plan.km_year.toLocaleString('ko-KR')}km` : '', plan.buyout ? `만기 인수가 ${won(plan.buyout)}` : ''].filter(Boolean).join(' · ')
+      : q ? describe(q.p, s) : '';
     const row = {
       no, applicant_type: corp ? 'corp' : 'person', vehicle_id: vehicle ? vehicle.id : null, vehicle_name: vehicle ? vehicle.name : cleanText(b.vehicleWish, 100),
       term: s ? s.term : null, dep_pct: s ? Math.round(depPct) : null, deposit_amt: depositAmt, prepay_amt: prepayAmt, monthly,
-      km: s ? `연 ${s.km.toLocaleString('ko-KR')}km` : '', extra,
+      km: s && s.km ? `연 ${s.km.toLocaleString('ko-KR')}km` : '', extra, plan_id: plan ? plan.id : null,
       company, biz_no: cleanText(b.bizNo, 20), qty: cleanText(b.qty, 20), name, phone, wish_date: cleanText(b.wishDate, 20),
       request: cleanText(b.request, 1000), customer_id: customerId,
     };

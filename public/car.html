@@ -97,6 +97,19 @@
 .htable th { background: var(--bg-soft); padding: 11px 10px; text-align: left; font-weight: 700; border-bottom: 1px solid var(--line); }
 .htable td { padding: 11px 10px; border-bottom: 1px solid var(--line); }
 .mbar { display: none; }
+.scroll-x { overflow-x: auto; max-width: 100%; }
+.ptable td, .ptable th { white-space: nowrap; }
+.ptable tr.on td { background: var(--red-soft); }
+.ptable tr { cursor: pointer; }
+.ptable input { accent-color: var(--red); width: 18px; height: 18px; }
+.ptable tr.main td:nth-child(2)::after { content: '대표'; margin-left: 6px; font-size: 11px; color: var(--red); border: 1px solid var(--red); padding: 0 4px; border-radius: 2px; }
+.tkv div { align-items: flex-start; }
+.tkv dd { white-space: pre-line; max-width: 70%; }
+.vog { display: flex; flex-direction: column; gap: 6px; }
+.vog strong { font-size: 14px; }
+.vog ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.vog li { font-size: 13px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 2px; background: #fff; }
+.vog li::before { content: '✓ '; color: var(--red); font-weight: 700; }
 @media (max-width: 960px) {
   .c-layout { grid-template-columns: minmax(0, 1fr); }
   .aside { position: static; }
@@ -137,17 +150,21 @@
 <div class="gallery"><div class="photo" id="mainPhoto">실차 사진 준비 중</div><div class="thumbs" id="thumbs"></div></div>
 <div style="display:flex;flex-direction:column"><dl class="kv" id="kvMain"></dl><dl class="kv" id="kvMore" hidden></dl><button type="button" class="more-btn" id="moreBtn">더 보기</button></div>
 </div></div></section>
+<section class="sec pl" id="secPlans" hidden><h2>이용 조건 선택</h2><div class="sec-body"><div class="scroll-x"><table class="htable ptable"><thead><tr><th scope="col" style="width:44px"></th><th scope="col">계약 기간</th><th scope="col">보증금</th><th scope="col">연간 주행거리</th><th scope="col" style="text-align:right">월 렌트료</th><th scope="col" style="text-align:right">만기 인수가</th></tr></thead><tbody id="planRows"></tbody></table></div><p class="small muted" style="margin:0">월 렌트료는 부가세 포함입니다. 심사 결과에 따라 보증금 조건이 달라질 수 있습니다.</p></div></section>
+<section class="sec" id="secVopts" hidden><h2>차량 옵션</h2><div class="sec-body" id="vopts"></div></section>
 <section class="sec" id="secOpts"><h2>추가 옵션</h2><div class="sec-body"><ul class="list" id="addOpts"></ul></div></section>
-<section class="sec"><h2>정비 서비스</h2><div class="sec-body"><strong style="font-size:14px">기본 제공 서비스</strong><ul class="dots" id="maintItems"></ul><div id="maintAdd"></div></div></section>
-<section class="sec"><h2>매입 옵션</h2><div class="sec-body"><span class="fixed-val" id="buyout"></span><ul class="note" id="buyoutNote"></ul></div></section>
-<section class="sec"><h2>연간 약정운행거리</h2><div class="sec-body"><div class="opts" id="kmOpts"></div><div class="custom" id="kmCustom" hidden><input class="input" id="kmIn" inputmode="numeric" aria-label="약정운행거리 직접 입력 (km)"><span>km</span></div><ul class="note" id="kmNote"></ul></div></section>
-<section class="sec"><h2>보증금</h2><div class="sec-body"><div class="opts" id="depOpts"></div><div class="custom" id="depCustom" hidden><input class="input" id="depIn" inputmode="numeric" aria-label="보증금 직접 입력 (원)"><span>원</span></div><ul class="note" id="depNote"></ul></div></section>
-<section class="sec"><h2>선납금</h2><div class="sec-body"><div class="opts" id="preOpts"></div><div class="custom" id="preCustom" hidden><input class="input" id="preIn" inputmode="numeric" aria-label="선납금 직접 입력 (원)"><span>원</span></div><ul class="note" id="preNote"></ul></div></section>
-<section class="sec"><h2>운전자 연령</h2><div class="sec-body"><span class="fixed-val" id="driverAge"></span></div></section>
-<section class="sec" id="secLiab"><h2>대물배상</h2><div class="sec-body"><div class="opts" id="liabOpts"></div></div></section>
-<section class="sec"><h2>자차 면책금</h2><div class="sec-body"><span class="fixed-val" id="deductible"></span></div></section>
+<section class="sec fx"><h2>정비 서비스</h2><div class="sec-body"><strong style="font-size:14px">기본 제공 서비스</strong><ul class="dots" id="maintItems"></ul><div id="maintAdd"></div></div></section>
+<section class="sec fx"><h2>매입 옵션</h2><div class="sec-body"><span class="fixed-val" id="buyout"></span><ul class="note" id="buyoutNote"></ul></div></section>
+<section class="sec fx"><h2>연간 약정운행거리</h2><div class="sec-body"><div class="opts" id="kmOpts"></div><div class="custom" id="kmCustom" hidden><input class="input" id="kmIn" inputmode="numeric" aria-label="약정운행거리 직접 입력 (km)"><span>km</span></div><ul class="note" id="kmNote"></ul></div></section>
+<section class="sec fx"><h2>보증금</h2><div class="sec-body"><div class="opts" id="depOpts"></div><div class="custom" id="depCustom" hidden><input class="input" id="depIn" inputmode="numeric" aria-label="보증금 직접 입력 (원)"><span>원</span></div><ul class="note" id="depNote"></ul></div></section>
+<section class="sec fx"><h2>선납금</h2><div class="sec-body"><div class="opts" id="preOpts"></div><div class="custom" id="preCustom" hidden><input class="input" id="preIn" inputmode="numeric" aria-label="선납금 직접 입력 (원)"><span>원</span></div><ul class="note" id="preNote"></ul></div></section>
+<section class="sec fx"><h2>운전자 연령</h2><div class="sec-body"><span class="fixed-val" id="driverAge"></span></div></section>
+<section class="sec fx" id="secLiab"><h2>대물배상</h2><div class="sec-body"><div class="opts" id="liabOpts"></div></div></section>
+<section class="sec fx"><h2>자차 면책금</h2><div class="sec-body"><span class="fixed-val" id="deductible"></span></div></section>
+<section class="sec pl" id="secTerms" hidden><h2>계약 조건</h2><div class="sec-body"><dl class="kv tkv" id="termsKv"></dl></div></section>
+<section class="sec pl" id="secIns" hidden><h2>보험 조건</h2><div class="sec-body"><dl class="kv tkv" id="insKv"></dl></div></section>
 <section class="sec" id="secLoc"><h2>차량 현 위치</h2><div class="sec-body"><span class="fixed-val" id="location"></span></div></section>
-<section class="sec" id="secRegion"><h2>차량 인도지역</h2><div class="sec-body"><div class="opts" id="regionOpts"></div><p class="small muted" style="margin:0" id="regionNote"></p></div></section>
+<section class="sec fx" id="secRegion"><h2>차량 인도지역</h2><div class="sec-body"><div class="opts" id="regionOpts"></div><p class="small muted" style="margin:0" id="regionNote"></p></div></section>
 </div>
 <div data-pane="spec" hidden><section class="sec"><h2>사양정보</h2><div class="sec-body" id="specBody"></div></section></div>
 <div data-pane="usage" hidden><section class="sec"><h2>이용이력</h2><div class="sec-body" id="usageBody"></div></section></div>

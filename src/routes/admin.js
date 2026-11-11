@@ -5,6 +5,7 @@ import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
 import { pricingOf } from '../../public/assets/longcalc.js';
+import { ALL_OPTIONS, STATUS as LONG_STATUS, MAKERS, MAINT, AGE } from '../../public/assets/longopts.js';
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
 const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
@@ -354,12 +355,28 @@ export function registerAdmin(r) {
     new_price: 'i', tax_cut: 'i', displacement: 'i', int_color: 's40', show_plate: 'b', location: 's40', avail_note: 's100', spec_text: 's6000',
     added_options: rows({ name: 60, price: 'i' }), usage_history: rows({ kind: 30, period: 40, user: 40 }), repair_history: rows({ date: 20, detail: 200, cost: 'i' }),
     pricing: pricingField,
+    maker: 's20', model_group: 's40',
+    option_list: (v) => JSON.stringify((Array.isArray(v) ? v : []).filter((x) => ALL_OPTIONS.includes(x))),
+    terms: (v) => {
+      const t = v && typeof v === 'object' ? v : {};
+      const c = (k, n = 60) => cleanText(t[k], n);
+      return JSON.stringify({
+        minAge: t.minAge in AGE ? t.minAge : '26', career: c('career', 4), credit: c('credit', 4), penalty: c('penalty', 6), overKm: c('overKm', 10),
+        buyout: t.buyout === false || t.buyout === 'no' ? 'no' : 'yes', maint: t.maint in MAINT ? t.maint : 'none', maintDesc: c('maintDesc', 500),
+        liabPerson: c('liabPerson', 20), liabProperty: c('liabProperty', 20), liabSelf: c('liabSelf', 20),
+        dedCar: c('dedCar', 20), dedProperty: c('dedProperty', 20), dedPerson: c('dedPerson', 20), dedSelf: c('dedSelf', 20), dedNote: c('dedNote', 200),
+        driverPerson: c('driverPerson', 200), driverCorp: c('driverCorp', 200),
+      });
+    },
   };
+  const normPlate = (v) => String(v || '').replace(/\s+/g, '');
   r.get('/api/admin/long', async ({ env }) => {
     const { results } = await env.DB
       .prepare(
         `SELECT v.*, (SELECT COUNT(*) FROM long_photos p WHERE p.vehicle_id = v.id) AS photo_n,
                 (SELECT COUNT(*) FROM long_prices p WHERE p.vehicle_id = v.id AND p.dep_pct = 0) AS price_n,
+                (SELECT COUNT(*) FROM long_plans p WHERE p.vehicle_id = v.id) AS plan_n,
+                (SELECT monthly FROM long_plans p WHERE p.vehicle_id = v.id ORDER BY is_main DESC, sort, id LIMIT 1) AS main_monthly,
                 (SELECT image_key FROM long_photos p WHERE p.vehicle_id = v.id ORDER BY sort, id LIMIT 1) AS photo_key
          FROM long_vehicles v ORDER BY v.sort, v.id DESC`
       )
@@ -370,18 +387,54 @@ export function registerAdmin(r) {
     const id = int(params.id);
     const v = await env.DB.prepare('SELECT * FROM long_vehicles WHERE id = ?').bind(id).first();
     if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
-    const [prices, photos] = await Promise.all([
+    const [prices, photos, plans] = await Promise.all([
       env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0 ORDER BY term DESC').bind(id).all(),
       env.DB.prepare('SELECT id, image_key, sort FROM long_photos WHERE vehicle_id = ? ORDER BY sort, id').bind(id).all(),
+      env.DB.prepare('SELECT * FROM long_plans WHERE vehicle_id = ? ORDER BY sort, id').bind(id).all(),
     ]);
-    const pj = (k) => { try { return JSON.parse(v[k] || '[]'); } catch { return []; } };
-    const vehicle = { ...v, added_options: pj('added_options'), usage_history: pj('usage_history'), repair_history: pj('repair_history'), pricing: pricingOf(v.pricing) };
-    return json({ vehicle, prices: prices.results, photos: photos.results.map((p) => ({ ...p, url: img(p.image_key) })) });
+    const pj = (k, d = '[]') => { try { return JSON.parse(v[k] || d); } catch { return JSON.parse(d); } };
+    const vehicle = { ...v, added_options: pj('added_options'), usage_history: pj('usage_history'), repair_history: pj('repair_history'), pricing: pricingOf(v.pricing), option_list: pj('option_list'), terms: pj('terms', '{}') };
+    return json({ vehicle, prices: prices.results, plans: plans.results, photos: photos.results.map((p) => ({ ...p, url: img(p.image_key) })) });
+  });
+  // 차량번호로 등록 시작: 이미 있으면 그 차량, 없으면 (ERP 연동 시 ERP 정보로) 새 차량을 숨김 상태로 만들고 id 반환
+  r.post('/api/admin/long/by-plate', async ({ env, request }) => {
+    const b = await readJson(request);
+    const plate = normPlate(cleanText(b.plate, 20));
+    if (!/^\d{2,3}[가-힣]\d{4}$/.test(plate)) throw bad('차량번호를 확인해 주세요. (예: 109허7586)');
+    const found = await env.DB.prepare(`SELECT id FROM long_vehicles WHERE REPLACE(plate, ' ', '') = ?`).bind(plate).first();
+    if (found) return json({ ok: true, id: found.id, existed: true });
+    let erp = null;
+    try {
+      const r = await searchErpVehicles(env, plate);
+      erp = (r.vehicles || []).find((x) => normPlate(x.plate) === plate) || null;
+    } catch {}
+    const row = {
+      plate, name: erp?.name || plate, class: erp?.class || '', year: int(erp?.year) || 0, first_reg: erp?.first_reg || '', km: int(erp?.km) || 0,
+      fuel: erp?.fuel || '', color: erp?.color || '', seats: int(erp?.seats) || 0, new_price: int(erp?.new_price) || 0, displacement: int(erp?.displacement) || 0,
+      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고',
+    };
+    return json({ ok: true, id: await insertRow(env.DB, 'long_vehicles', row), existed: false, fromErp: !!erp });
   });
   r.post('/api/admin/long', async ({ env, request }) => {
     const row = pick(await readJson(request), LONG_FIELDS);
     if (!row.name) throw bad('차명을 입력해 주세요.');
     return json({ ok: true, id: await insertRow(env.DB, 'long_vehicles', row) });
+  });
+  // 이용금액 통째로 저장: { plans: [{deposit, term, monthly, km_year, buyout, is_main}] }
+  r.put('/api/admin/long/:id/plans', async ({ env, params, request }) => {
+    const id = int(params.id);
+    const b = await readJson(request);
+    const list = (Array.isArray(b.plans) ? b.plans : []).slice(0, 12)
+      .map((p) => ({ deposit: Math.max(0, int(p.deposit)), term: int(p.term), monthly: int(p.monthly), km_year: Math.max(0, int(p.km_year)), buyout: Math.max(0, int(p.buyout)), is_main: p.is_main ? 1 : 0 }))
+      .filter((p) => p.term > 0 && p.term <= 120 && p.monthly > 0);
+    if (list.length && !list.some((p) => p.is_main)) list[0].is_main = 1;
+    let mainSeen = false;
+    for (const p of list) { if (p.is_main && mainSeen) p.is_main = 0; if (p.is_main) mainSeen = true; }
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM long_plans WHERE vehicle_id = ?').bind(id),
+      ...list.map((p, i) => env.DB.prepare('INSERT INTO long_plans (vehicle_id, deposit, term, monthly, km_year, buyout, is_main, sort) VALUES (?,?,?,?,?,?,?,?)').bind(id, p.deposit, p.term, p.monthly, p.km_year, p.buyout, p.is_main, i + 1)),
+    ]);
+    return json({ ok: true, count: list.length });
   });
   r.patch('/api/admin/long/:id', async ({ env, params, request }) => {
     await updateRow(env.DB, 'long_vehicles', int(params.id), pick(await readJson(request), LONG_FIELDS), true);
@@ -393,6 +446,8 @@ export function registerAdmin(r) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM long_photos WHERE vehicle_id = ?').bind(id),
       env.DB.prepare('DELETE FROM long_prices WHERE vehicle_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM long_plans WHERE vehicle_id = ?').bind(id),
+      env.DB.prepare('UPDATE applications SET vehicle_id = NULL WHERE vehicle_id = ?').bind(id),
       env.DB.prepare('DELETE FROM long_vehicles WHERE id = ?').bind(id),
     ]);
     if (results.length) await env.IMAGES.delete(results.map((p) => p.image_key));

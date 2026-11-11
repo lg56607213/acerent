@@ -2,12 +2,14 @@
 import { api, $, $$, esc, won, classImage } from '/assets/common.js';
 import { shrink } from '/assets/shrink.js';
 import { quote, rateAmount, DEFAULT_PRICING } from '/assets/longcalc.js';
+import { OPTION_GROUPS, MAKERS, STATUS as LONG_STATUS_ALL, MAINT as MAINT_MAP, MAINT_DEFAULT as MAINT_DEF, AGE as AGE_MAP, DRIVER_DEFAULT as DRIVER_DEF } from '/assets/longopts.js';
 
 const main = $('#main');
 const RES_ST = { pending: ['확정 대기', 'st-wait'], confirmed: ['확정', 'st-ok'], done: ['반납 완료', 'st-off'], cancelled: ['취소', 'st-off'] };
 const REV_ST = { pending: '확인 대기', published: '게시 중', hidden: '숨김' };
 const APP_ST = { review: ['심사 대기', 'st-wait'], approved: ['승인', 'st-ok'], contracted: ['계약 완료', 'st-off'], rejected: ['부결', 'st-off'], cancelled: ['취소', 'st-off'] };
-const LONG_ST = { available: '출고 가능', soon: '출고 예정 (반납 대기)', reserved: '상담 진행 중', contracted: '계약 완료' };
+const LONG_ST = LONG_STATUS_ALL;
+const LONG_STATUS = LONG_STATUS_ALL;
 const badge = (map, s) => `<span class="st ${(map[s] || ['', 'st-off'])[1]}">${esc((map[s] || [s])[0])}</span>`;
 const dt = (s) => (s || '').replace('T', ' ').slice(0, 16);
 const kst = (s) => {
@@ -478,14 +480,50 @@ PAGES.posts = async () => {
 // ── 중장기 차량 ────────────────────────────────────
 PAGES.long = async (arg) => {
   const { items } = await api('/api/admin/long');
-  main.innerHTML = `<div class="a-title"><div><h1>중장기 차량 · 사진 · 가격표</h1><p class="desc">차량을 등록하고 실차 사진과 가격표를 넣은 뒤 '홈페이지 노출'을 켜면 중장기 목록에 나옵니다.</p></div><button class="btn btn-black btn-sm" id="newCar">+ 차량 등록</button></div>
-<div class="box scroll-x"><table class="a-table" style="min-width:820px"><thead><tr><th>사진</th><th>차량</th><th>차량번호</th><th class="num">사진</th><th class="num">월 대여료</th><th>상태</th><th>노출</th></tr></thead>
-<tbody>${items.length ? items.map((v) => `<tr class="click ${+arg === v.id ? 'sel' : ''}" data-id="${v.id}"><td>${v.photo ? `<img class="thumb" src="${esc(v.photo)}" alt="">` : '<span class="thumb empty">사진 없음</span>'}</td><td><strong>${esc(v.name)}</strong><br><span class="hint">${esc(v.class)} · ${v.year || ''}년식 · ${won(v.km)}km</span></td><td>${esc(v.plate || '-')}</td><td class="num">${v.photo_n}장</td><td class="num">${v.price_n ? v.price_n + "개 기간" : "<span class='red'>미입력</span>"}</td><td>${esc(LONG_ST[v.status] || v.status)}</td><td>${v.visible ? '<span class="st st-ok">노출</span>' : '<span class="st st-off">숨김</span>'}</td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">등록된 차량이 없습니다. 오른쪽 위 \'차량 등록\'을 눌러 시작하세요.</td></tr>'}</tbody></table></div>
+  main.innerHTML = `<div class="a-title"><div><h1>중장기 차량</h1><p class="desc">'차량 등록'을 누르고 차량번호를 넣으면 차량이 만들어집니다. 사진 · 이용금액 · 옵션을 넣고 '홈페이지 노출'을 켜면 중장기 목록에 나옵니다.</p></div><button class="btn btn-red btn-sm" id="newCar">+ 차량 등록</button></div>
+<div class="box scroll-x"><table class="a-table" style="min-width:860px"><thead><tr><th>사진</th><th>차량</th><th>차량번호</th><th class="num">사진</th><th class="num">대표 월 렌트료</th><th>출고여부</th><th>노출</th></tr></thead>
+<tbody>${items.length ? items.map((v) => `<tr class="click ${+arg === v.id ? 'sel' : ''}" data-id="${v.id}"><td>${v.photo ? `<img class="thumb" src="${esc(v.photo)}" alt="">` : '<span class="thumb empty">사진 없음</span>'}</td>
+<td><strong>${esc(v.name)}</strong><br><span class="hint">${[v.maker, v.model_group, v.year ? v.year + '년식' : '', v.km ? won(v.km) + 'km' : ''].filter(Boolean).map(esc).join(' · ')}</span></td>
+<td>${esc(v.plate || '-')}</td><td class="num">${v.photo_n}</td><td class="num">${v.main_monthly ? won(v.main_monthly) + '원' : v.plan_n ? '-' : '<span class="red">미입력</span>'}</td>
+<td>${esc(LONG_STATUS[v.status] || v.status)}</td><td>${v.visible ? '<span class="st st-ok">노출</span>' : '<span class="st st-off">숨김</span>'}</td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">등록된 차량이 없습니다. \'+ 차량 등록\'을 눌러 시작하세요.</td></tr>'}</tbody></table></div>
 <div id="detail"></div>`;
-  $('#newCar').addEventListener('click', () => carEditor());
+  $('#newCar').addEventListener('click', registerByPlate);
   $$('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => (location.hash = '#long/' + tr.dataset.id)));
   if (arg) carEditor(+arg);
 };
+
+// 차량번호로 등록 시작
+function registerByPlate() {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-back';
+  wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="rpT" style="max-width:420px">
+<h2 id="rpT" style="font-size:17px">차량 등록</h2>
+<label class="field">차량번호<input class="input" id="rpPlate" placeholder="예: 109허7586" autocomplete="off" style="font-size:18px;height:48px"></label>
+<p class="hint" style="margin:0">이미 등록된 번호면 그 차량이 열립니다. rentcarerp 연동 중이면 차량 정보를 불러와 채웁니다.</p>
+<p class="error-msg" id="rpErr" style="margin:0"></p>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" type="button" id="rpCancel">취소</button><button class="btn btn-red btn-sm" type="button" id="rpGo">등록</button></div></div>`;
+  document.body.append(wrap);
+  const close = () => wrap.remove();
+  $('#rpPlate', wrap).focus();
+  $('#rpCancel', wrap).addEventListener('click', close);
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  const go = async () => {
+    const plate = $('#rpPlate', wrap).value.replace(/\s+/g, '');
+    if (!/^\d{2,3}[가-힣]\d{4}$/.test(plate)) return ($('#rpErr', wrap).textContent = '차량번호를 확인해 주세요. (예: 109허7586)');
+    try {
+      const r = await api('/api/admin/long/by-plate', { method: 'POST', body: { plate } });
+      close();
+      toast(r.existed ? '이미 등록된 차량입니다. 차량 정보를 엽니다.' : r.fromErp ? 'rentcarerp 정보로 차량을 만들었습니다. 나머지를 채워 주세요.' : '차량을 만들었습니다. 차량 정보를 채워 주세요.');
+      const target = '#long/' + r.id;
+      if (location.hash === target) route();
+      else location.hash = target; // hashchange 가 화면을 다시 그림
+    } catch (e) {
+      $('#rpErr', wrap).textContent = e.message;
+    }
+  };
+  $('#rpGo', wrap).addEventListener('click', go);
+  $('#rpPlate', wrap).addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); if (e.key === 'Escape') close(); });
+}
 
 // 표 형식 입력칸 (추가 옵션 · 이용이력 · 사고수리 · 대물 · 기준 월 대여료)
 function rowsEditor(el, cols, data, addLabel = '+ 줄 추가') {
@@ -508,201 +546,156 @@ const kmList = (s) => String(s).split(/[,\s]+/).map((x) => x.replace(/[^\d.]/g, 
 
 async function carEditor(id) {
   const box = $('#detail');
-  let v = { name: '', class: 'SUV', year: new Date().getFullYear(), km: 0, fuel: '가솔린', seats: 5, badge: '즉시출고', status: 'available', visible: 0, car_value: 0,
-    added_options: [], usage_history: [], repair_history: [], pricing: { ...DEFAULT_PRICING } };
-  let prices = [], photos = [];
-  if (id) {
-    const d = await api('/api/admin/long/' + id);
-    v = d.vehicle;
-    prices = d.prices;
-    photos = d.photos;
-  }
-  const P = v.pricing;
-  const f = (k, label, extra = '') => `<label class="field">${label}<input class="input" id="v_${k}" value="${esc(v[k] ?? '')}" ${extra}></label>`;
-  const n = (k, label) => `<label class="field">${label}<input class="input money" id="v_${k}" inputmode="numeric" value="${v[k] ? won(v[k]) : ''}"></label>`;
-  const pf = (k, label, val, extra = '') => `<label class="field">${label}<input class="input" id="p_${k}" value="${esc(val ?? '')}" ${extra}></label>`;
-  const pn = (k, label) => `<label class="field">${label}<input class="input money" id="p_${k}" inputmode="numeric" value="${P[k] ? won(P[k]) : '0'}"></label>`;
-  const H = (t, d = '') => `<div style="border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:4px"><h3 style="font-size:16px">${t}</h3>${d ? `<p class="hint" style="margin:0">${d}</p>` : ''}</div>`;
-  box.innerHTML = `<div class="box box-pad" style="display:flex;flex-direction:column;gap:16px">
-<div class="a-title"><h2 style="font-size:17px">${id ? esc(v.name) : '새 중장기 차량 등록'}</h2>${id ? `<a class="btn btn-sm" href="/car.html?id=${id}" target="_blank" rel="noopener">홈페이지에서 보기</a>` : ''}</div>
-<div class="toolbar" style="padding:0;border:0"><input class="input" id="erpQ" placeholder="rentcarerp 차량 검색 (차량번호 · 차명)" style="max-width:320px"><button class="btn btn-sm" id="erpGo">ERP에서 불러오기</button><span class="hint" id="erpMsg"></span></div>
-<div id="erpList"></div>
+  const d = await api('/api/admin/long/' + id);
+  const v = d.vehicle, photos = d.photos, t = v.terms || {};
+  const opts2 = new Set(v.option_list || []);
+  const [ry, rm] = String(v.first_reg || '').split('-');
+  const nowY = new Date().getFullYear();
+  const radios = (name, map, cur) => Object.entries(map).map(([k, l]) => `<label class="rd"><input type="radio" name="${name}" value="${esc(k)}" ${String(k) === String(cur) ? 'checked' : ''}>${esc(l)}</label>`).join('');
+  const inp = (id2, val, ph = '', extra = '') => `<input class="input" id="${id2}" value="${esc(val ?? '')}" placeholder="${esc(ph)}" ${extra}>`;
+  const man = (n) => (n ? String(Math.round(n / 10000)) : ''); // 원 → 만원
+  const plans = d.plans.length ? d.plans : [12, 24, 36, 48, 60].map((term, i) => ({ term, deposit: 0, monthly: 0, km_year: 30000, buyout: 0, is_main: i === 2 ? 1 : 0 }));
+  const planRow = (p = {}, i = 0) => `<tr><td style="text-align:center"><input type="radio" name="pMain" ${p.is_main ? 'checked' : ''} aria-label="메인 가격"></td>
+<td><div class="u"><input class="input" data-k="deposit" inputmode="numeric" value="${man(p.deposit)}" placeholder="250"><span>만원</span></div></td>
+<td><div class="u"><input class="input" data-k="term" inputmode="numeric" value="${p.term || ''}" placeholder="36"><span>개월</span></div></td>
+<td><div class="u"><input class="input" data-k="monthly" inputmode="numeric" value="${p.monthly ? won(p.monthly) : ''}" placeholder="800,000"><span>원</span></div></td>
+<td><div class="u"><input class="input" data-k="km_year" inputmode="decimal" value="${p.km_year ? p.km_year / 10000 : ''}" placeholder="3"><span>만km</span></div></td>
+<td><div class="u"><input class="input" data-k="buyout" inputmode="numeric" value="${man(p.buyout)}" placeholder="만기 인수가"><span>만원</span></div></td>
+<td><button type="button" class="btn-link" data-prm>삭제</button></td></tr>`;
+  box.innerHTML = `<div class="box reg" style="margin-top:16px">
+<div class="a-title" style="padding:16px 18px;margin:0;border-bottom:2px solid var(--ink)"><h2 style="font-size:17px">${esc(v.plate || '')}${v.name && v.name !== v.plate ? ' · ' + esc(v.name) : ' · 새 차량'}</h2><a class="btn btn-sm" href="/car.html?id=${id}" target="_blank" rel="noopener">홈페이지에서 보기</a></div>
 
-${H('차량 정보', '고객 화면 \'차량정보\' 탭에 나오는 내용입니다.')}
-<div class="grid2">
-${f('name', '차명 · 트림 (필수)')}
-<label class="field">차종<select class="select" id="v_class">${opts(['경차', '준중형', '중형', '대형', 'SUV', '승합', '화물'].map((x) => [x, x]), v.class)}</select></label>
-${f('plate', '차량번호')}
-<label class="field">차량번호 공개<select class="select" id="v_show_plate">${opts([[0, '고객에게 숨김'], [1, '고객에게 보여 줌']], v.show_plate ? 1 : 0)}</select></label>
-${f('year', '모델 연도', 'inputmode="numeric"')}
-${f('first_reg', '신차등록일 (예: 2024-02-21)')}
-${n('km', '주행거리 (km)')}
-${n('displacement', '배기량 (cc)')}
-<label class="field">연료<select class="select" id="v_fuel">${opts(['가솔린', '디젤', 'LPG', '하이브리드', '전기'].map((x) => [x, x]), v.fuel)}</select></label>
-${f('seats', '승차 인원', 'inputmode="numeric"')}
-${f('color', '외장 색상')}
-${f('int_color', '내장 색상')}
-${f('accident', '사고 이력 요약 (예: 무사고, 단순교환 1회)')}
-${f('pickup', '인수 (예: 본점 · 탁송 가능)')}
-${f('location', '차량 현 위치 (예: 수도권)')}
-${f('erp_ref', 'rentcarerp 차량 ID')}
+<h3>차량정보</h3>
+<table class="regt"><tbody>
+<tr><th>분류</th><td><div style="display:flex;gap:6px;flex-wrap:wrap"><select class="select" id="v_maker" style="max-width:160px"><option value="">제조사</option>${opts(MAKERS.map((x) => [x, x]), v.maker)}</select>${inp('v_model_group', v.model_group, '모델 (예: 레이)', 'style="max-width:200px"')}
+<select class="select" id="v_class" style="max-width:140px">${opts([['', '차종'], ...['경차', '준중형', '중형', '대형', 'SUV', '승합', '화물'].map((x) => [x, x])], v.class)}</select></div></td>
+<th>출고여부</th><td>${radios('v_status', LONG_STATUS, v.status || 'available')}</td></tr>
+<tr><th>차량명 / 등급</th><td colspan="3">${inp('v_name', v.name, '예: 더 뉴 기아 레이 프레스티지')}</td></tr>
+<tr><th>추가옵션</th><td colspan="3">${inp('v_options', v.options, '예: 드라이브와이즈, 내비게이션')}</td></tr>
+</tbody></table>
+
+<h3>주요정보</h3>
+<table class="regt"><tbody>
+<tr><th>차량연식 / 월</th><td><div style="display:flex;gap:6px"><select class="select" id="v_y" style="max-width:110px">${opts([['', '연식'], ...Array.from({ length: 12 }, (_, i) => [nowY + 1 - i, nowY + 1 - i + '년'])], ry || v.year || '')}</select><select class="select" id="v_m" style="max-width:90px">${opts([['', '월'], ...Array.from({ length: 12 }, (_, i) => [String(i + 1).padStart(2, '0'), i + 1 + '월'])], rm || '')}</select></div></td>
+<th>색상</th><td>${inp('v_color', v.color, '예: 흰색')}</td></tr>
+<tr><th>주행거리</th><td><div class="u">${inp('v_km', v.km ? won(v.km) : '', '예: 8,000', 'inputmode="numeric"')}<span>km</span></div></td>
+<th>차량번호</th><td>${inp('v_plate', v.plate, '109허7586')}</td></tr>
+<tr><th>연료</th><td>${radios('v_fuel', { LPG: 'LPG', 휘발유: '휘발유', 경유: '경유', 전기: '전기', 하이브리드: '하이브리드' }, { 가솔린: '휘발유', 디젤: '경유' }[v.fuel] || v.fuel)}</td>
+<th>승차 인원</th><td><div class="u">${inp('v_seats', v.seats || '', '5', 'inputmode="numeric"')}<span>인승</span></div></td></tr>
+</tbody></table>
+
+<h3>이용금액 <span class="hint" style="font-weight:400">메인 가격으로 고른 줄이 목록에 대표 가격으로 나옵니다. 월 렌트료는 부가세 포함.</span></h3>
+<div class="scroll-x" style="padding:0 18px"><table class="a-table plans" style="min-width:860px"><thead><tr><th style="width:60px">메인</th><th>보증금</th><th>계약 기간</th><th>월 렌트료</th><th>연간 주행거리</th><th>만기 인수가 (선택)</th><th></th></tr></thead><tbody id="planBody">${plans.map(planRow).join('')}</tbody></table>
+<button type="button" class="btn btn-xs" id="planAdd" style="margin:8px 0 0">+ 줄 추가</button></div>
+
+<h3>차량옵션</h3>
+<table class="regt"><tbody>${OPTION_GROUPS.map(([g, list]) => `<tr><th>${esc(g)}</th><td colspan="3"><div class="optgrid">${list.map((o) => `<label class="ck"><input type="checkbox" data-opt="${esc(o)}" ${opts2.has(o) ? 'checked' : ''}>${esc(o)}</label>`).join('')}</div></td></tr>`).join('')}</tbody></table>
+
+<h3>계약조건</h3>
+<table class="regt"><tbody>
+<tr><th>최소 운전연령</th><td colspan="3">${radios('t_minAge', AGE_MAP, t.minAge || '26')}</td></tr>
+<tr><th>운전경력</th><td><div class="u">${inp('t_career', t.career, '예: 1', 'inputmode="numeric"')}<span>년 이상</span></div><span class="hint">비우면 경력 무관</span></td>
+<th>신용등급</th><td><div class="u">${inp('t_credit', t.credit, '예: 6', 'inputmode="numeric"')}<span>등급 이상</span></div><span class="hint">비우면 신용등급 무관</span></td></tr>
+<tr><th>위약금</th><td><div class="u">${inp('t_penalty', t.penalty, '예: 30', 'inputmode="numeric"')}<span>%</span></div><span class="hint">비우면 위약금 없음</span></td>
+<th>주행거리 초과 위약금</th><td><div class="u"><span>km당</span>${inp('t_overKm', t.overKm, '100', 'inputmode="numeric"')}<span>원</span></div><span class="hint">비우면 km당 100원</span></td></tr>
+<tr><th>만기 인수</th><td colspan="3">${radios('t_buyout', { yes: '가능', no: '불가능' }, t.buyout === 'no' ? 'no' : 'yes')}</td></tr>
+<tr><th>정비 서비스</th><td colspan="3">${radios('t_maint', MAINT_MAP, t.maint || 'none')}<textarea class="textarea" id="t_maintDesc" rows="2" style="margin-top:6px" placeholder="비우면 기본 문구">${esc(t.maintDesc || '')}</textarea></td></tr>
+</tbody></table>
+
+<h3>보험조건</h3>
+<table class="regt"><tbody>
+<tr><th>책임한도</th><td colspan="3"><div class="tri"><label>대인 ${inp('t_liabPerson', t.liabPerson, '무한')}</label><label>대물 ${inp('t_liabProperty', t.liabProperty, '1억원')}</label><label>자손 ${inp('t_liabSelf', t.liabSelf, '1,500만원')}</label></div></td></tr>
+<tr><th>면책금</th><td colspan="3"><div class="tri"><label>자차 ${inp('t_dedCar', t.dedCar, '50만원')}</label><label>대물 ${inp('t_dedProperty', t.dedProperty, '30만원')}</label><label>대인 ${inp('t_dedPerson', t.dedPerson, '30만원')}</label><label>자손 ${inp('t_dedSelf', t.dedSelf, '30만원')}</label></div>
+${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차량 자차 100만원', 'style="margin-top:6px"')}</td></tr>
+</tbody></table>
+
+<h3>추가운전자 범위</h3>
+<table class="regt"><tbody>
+<tr><th>개인 계약자</th><td colspan="3">${inp('t_driverPerson', t.driverPerson, DRIVER_DEF.person)}<span class="hint">비우면 위 예시 문구로 표시</span></td></tr>
+<tr><th>법인 계약자</th><td colspan="3">${inp('t_driverCorp', t.driverCorp, DRIVER_DEF.corp)}<span class="hint">비우면 위 예시 문구로 표시</span></td></tr>
+</tbody></table>
+
+<details class="more" style="margin:16px 18px 0"><summary>추가 정보 (선택) — 차량가격 · 사고이력 · 이용이력 · 사양 설명</summary>
+<div class="grid2" style="margin-top:12px">
+<label class="field">현재 차량가격 (원)<input class="input money" id="v_car_value" inputmode="numeric" value="${v.car_value ? won(v.car_value) : ''}"></label>
+<label class="field">신차가격 (원)<input class="input money" id="v_new_price" inputmode="numeric" value="${v.new_price ? won(v.new_price) : ''}"></label>
+<label class="field">사고 이력 요약${inp('v_accident', v.accident, '무사고')}</label>
+<label class="field">차량 현 위치 · 인수${inp('v_pickup', v.pickup, '본점 · 탁송 가능')}</label>
+<label class="field">출고 안내${inp('v_avail_note', v.avail_note, '예: 11월 중순 반납 예정')}</label>
+<label class="field">차량번호 고객 공개<select class="select" id="v_show_plate">${opts([[0, '숨김'], [1, '공개']], v.show_plate ? 1 : 0)}</select></label>
 </div>
+<label class="field" style="margin-top:10px">사양 설명<textarea class="textarea" id="v_spec_text" rows="3">${esc(v.spec_text || '')}</textarea></label>
+<div style="margin-top:10px"><strong style="font-size:14px">이용이력</strong><div id="rUsage" style="margin-top:6px"></div></div>
+<div style="margin-top:10px"><strong style="font-size:14px">사고수리내역</strong><div id="rRepair" style="margin-top:6px"></div></div>
+</details>
 
-${H('출고 상태')}
-<div class="grid2">
-<label class="field">상태<select class="select" id="v_status">${opts(Object.entries(LONG_ST), v.status)}</select></label>
-${f('badge', '출고 가능일 때 표시 문구 (예: 즉시출고)')}
-${f('avail_note', '출고 안내 (예: 11월 중순 반납 예정)')}
-</div>
+<h3>사진 (${photos.length}/20) <span class="hint" style="font-weight:400">첫 번째 사진이 대표 사진입니다. 휴대폰 사진은 자동으로 줄여서 올라갑니다.</span></h3>
+<div style="padding:0 18px">
+<label class="drop" id="drop"><strong>사진을 끌어다 놓거나 눌러서 올리세요</strong><span class="hint">여러 장 가능 · 휴대폰에서는 바로 촬영 가능</span><input type="file" id="photoIn" accept="image/*" multiple></label>
+<div class="photos" style="margin-top:10px">${photos.map((p, i) => `<figure><div class="photo"><img src="${esc(p.url)}" alt="실차 사진 ${i + 1}" loading="lazy">${i === 0 ? '<span class="main-tag">대표</span>' : ''}</div><div class="acts"><span class="order-btns"><button type="button" data-mv="${i}" data-dir="-1" aria-label="앞으로">◀</button> <button type="button" data-mv="${i}" data-dir="1" aria-label="뒤로">▶</button></span>${i ? `<button type="button" class="btn-link" data-main="${i}" style="color:var(--ink)">대표로</button>` : ''}<button type="button" class="btn-link" data-delp="${p.id}">삭제</button></div></figure>`).join('')}</div></div>
 
-${H('차량 가격', '신차가격 - 개소세 감면 - 감가상각 = 현재 차량가격. 보증금 · 선납금은 현재 차량가격 × % 로 계산합니다.')}
-<div class="grid2">
-${n('new_price', '신차가격 (원)')}
-${n('tax_cut', '신차 개소세 감면 (원)')}
-${n('car_value', '현재 차량가격 (원)')}
-<div class="field">감가상각 (자동)<div class="input" id="depAuto" style="display:flex;align-items:center;background:var(--bg-soft)">-</div></div>
-</div>
-
-${H('추가 옵션', '차량에 실제로 들어간 선택 옵션과 가격 (외장 · 내장 색상은 위에서 입력한 값이 같이 나옵니다)')}
-<div id="rOpts"></div>
-
-${H('사양정보', '고객 화면 \'사양정보\' 탭. 기본사양 · 선택사양 설명을 자유롭게 적어 주세요.')}
-<label class="field">사양 설명<textarea class="textarea" id="v_spec_text" rows="5">${esc(v.spec_text || '')}</textarea></label>
-<label class="field">주요 옵션 (한 줄 요약)<textarea class="textarea" id="v_options" rows="2">${esc(v.options || '')}</textarea></label>
-
-${H('이용이력', '이전 이용 내역 (예: 장기렌트 · 2024-02-21 ~ 2026-07-01 · 법인)')}
-<div id="rUsage"></div>
-${H('사고수리내역', '없으면 비워 두세요. 고객 화면에 \'등록된 사고 수리 내역이 없습니다\'로 나옵니다.')}
-<div id="rRepair"></div>
-
-${H('월 대여료 조건', '아래 기준 월 대여료에 약정거리 · 보증금 · 선납금 · 대물 · 정비 선택을 반영해 고객 화면에서 자동 계산합니다.')}
-<div class="grid2">
-${pf('kmBase', '기준 약정거리 (km/년)', won(P.kmBase), 'inputmode="numeric"')}
-${pn('kmFee', '1만km 당 월 증감액 (원)')}
-${pf('kmMin', '최소 약정거리 (km)', won(P.kmMin), 'inputmode="numeric"')}
-${pf('kmMax', '최대 약정거리 (km)', won(P.kmMax), 'inputmode="numeric"')}
-${pf('kmPresets', '약정거리 선택지 (만km, 쉼표)', P.kmPresets.map((x) => x / 10000).join(', '))}
-${pf('depRates', '보증금 선택지 (%, 쉼표)', P.depRates.join(', '))}
-${pn('depDiscount', '보증금 100만원 당 월 인하액 (원)')}
-${pf('depMaxPct', '보증금 최대 (%)', P.depMaxPct, 'inputmode="numeric"')}
-${pf('preRates', '선납금 선택지 (%, 쉼표)', P.preRates.join(', '))}
-${pf('preMaxPct', '선납금 최대 (%)', P.preMaxPct, 'inputmode="numeric"')}
-${pf('driverAge', '운전자 연령', P.driverAge)}
-${pf('deductible', '자차 면책금', P.deductible)}
-<label class="field">매입 옵션<select class="select" id="p_buyout">${opts([['있음', '있음'], ['없음', '없음']], P.buyout)}</select></label>
-${pf('buyoutNote', '매입 옵션 안내', P.buyoutNote)}
-${pn('maintAddFee', '정비 서비스 추가 월 요금 (0 = 상품 없음)')}
-${pf('maintAddNote', '정비 서비스 추가 설명', P.maintAddNote)}
-${pf('regions', '차량 인도지역 (쉼표)', P.regions.join(', '))}
-${pf('regionNote', '인도지역 안내', P.regionNote)}
-</div>
-<label class="field">정비 서비스 — 기본 제공 (한 줄에 하나)<textarea class="textarea" id="p_maintItems" rows="4">${esc(P.maintItems.join('\n'))}</textarea></label>
-<div><strong style="font-size:14px">대물배상 한도별 월 추가금</strong> <span class="hint">첫 줄이 기본 선택입니다. 한 줄만 있으면 선택 없이 고정으로 보여 줍니다.</span><div id="rLiab" style="margin-top:6px"></div></div>
-
-<label class="check"><input type="checkbox" id="v_visible" ${v.visible ? 'checked' : ''}>홈페이지 중장기 목록에 노출</label>
-<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">${id ? '<button class="btn-link" id="vDel">차량 삭제</button>' : '<span></span>'}<button class="btn btn-red btn-sm" id="vSave">${id ? '차량 정보 · 조건 저장' : '등록하고 사진 · 월 대여료 입력하기'}</button></div>
-${id ? `
-${H('기준 월 대여료 (부가세 포함)', '계약 기간마다 \'기준 약정거리 · 보증금 0 · 선납금 0\' 일 때의 월 대여료를 넣으세요. 넣은 기간만 고객 화면에 나옵니다.')}
-<div id="rBase"></div>
-<div id="preview"></div>
-<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" id="pCalc">미리 계산</button><button class="btn btn-red btn-sm" id="pSave">기준 월 대여료 저장</button></div>
-<div style="border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:10px">
-<div class="a-title"><h3 style="font-size:16px">실차 사진 (${photos.length}/20)</h3><span class="hint">첫 번째 사진이 목록 대표 사진입니다. 휴대폰 사진은 자동으로 줄여서 올라갑니다.</span></div>
-<label class="drop" id="drop"><strong>실차 사진 올리기</strong><span class="hint">여러 장을 끌어다 놓거나 눌러서 선택 · 휴대폰에서는 바로 촬영 가능</span><input type="file" id="photoIn" accept="image/*" multiple></label>
-<div class="photos">${photos.map((p, i) => `<figure><div class="photo"><img src="${esc(p.url)}" alt="실차 사진 ${i + 1}" loading="lazy">${i === 0 ? '<span class="main-tag">대표</span>' : ''}</div><div class="acts"><span class="order-btns"><button type="button" data-mv="${i}" data-dir="-1" aria-label="앞으로">◀</button> <button type="button" data-mv="${i}" data-dir="1" aria-label="뒤로">▶</button></span>${i ? `<button type="button" class="btn-link" data-main="${i}" style="color:var(--ink)">대표로</button>` : ''}<button type="button" class="btn-link" data-delp="${p.id}">삭제</button></div></figure>`).join('')}</div></div>` : ''}
+<div class="savebar"><label class="check" style="margin:0"><input type="checkbox" id="v_visible" ${v.visible ? 'checked' : ''}>홈페이지 중장기 목록에 노출</label>
+<div style="display:flex;gap:8px;align-items:center"><button class="btn-link" id="vDel">차량 삭제</button><button class="btn btn-red" id="vSave" style="min-width:160px">저장하기</button></div></div>
 </div>`;
 
-  const getOpts = rowsEditor($('#rOpts'), [{ key: 'name', label: '옵션명', w: 220, ph: '파노라마 선루프' }, { key: 'price', label: '가격 (원)', num: true }], v.added_options, '+ 옵션 추가');
-  const getUsage = rowsEditor($('#rUsage'), [{ key: 'kind', label: '구분', ph: '장기렌트' }, { key: 'period', label: '기간', w: 200, ph: '2024-02-21 ~ 2026-07-01' }, { key: 'user', label: '이용자', ph: '법인' }], v.usage_history);
-  const getRepair = rowsEditor($('#rRepair'), [{ key: 'date', label: '일자', ph: '2025-05-10' }, { key: 'detail', label: '수리 내용', w: 260, ph: '앞범퍼 교환' }, { key: 'cost', label: '수리비 (원)', num: true }], v.repair_history);
-  const getLiab = rowsEditor($('#rLiab'), [{ key: 'label', label: '대물 한도', ph: '1억 원' }, { key: 'fee', label: '월 추가금 (원)', num: true }], P.liability);
-  $$('.money', box).forEach((i) => i.addEventListener('blur', () => { const x = +i.value.replace(/\D/g, ''); i.value = x ? won(x) : ''; }));
-  const money = (k) => +($('#v_' + k).value || '').replace(/\D/g, '');
-  const showDep = () => { const d = money('new_price') - money('tax_cut') - money('car_value'); $('#depAuto').textContent = money('new_price') && money('car_value') ? '-' + won(d) + '원' : '-'; };
-  ['new_price', 'tax_cut', 'car_value'].forEach((k) => $('#v_' + k).addEventListener('input', showDep));
-  showDep();
-
-  const pricing = () => {
-    const pv = (k) => $('#p_' + k).value;
-    const pm = (k) => +pv(k).replace(/\D/g, '') || 0;
-    return {
-      kmBase: pm('kmBase'), kmFee: pm('kmFee'), kmMin: pm('kmMin'), kmMax: pm('kmMax'), kmPresets: kmList(pv('kmPresets')),
-      depRates: numList(pv('depRates')), depDiscount: pm('depDiscount'), depMaxPct: pm('depMaxPct'), preRates: numList(pv('preRates')), preMaxPct: pm('preMaxPct'),
-      driverAge: pv('driverAge'), deductible: pv('deductible'), buyout: pv('buyout'), buyoutNote: pv('buyoutNote'),
-      maintAddFee: pm('maintAddFee'), maintAddNote: pv('maintAddNote'), maintItems: pv('maintItems').split('\n').map((x) => x.trim()).filter(Boolean),
-      regions: pv('regions').split(',').map((x) => x.trim()).filter(Boolean), regionNote: pv('regionNote'),
-      liability: getLiab().filter((x) => x.label),
-    };
+  const getUsage = rowsEditor($('#rUsage'), [{ key: 'kind', label: '구분', ph: '장기렌트' }, { key: 'period', label: '기간', w: 200, ph: '2024-02-21 ~ 2026-07-01' }, { key: 'user', label: '이용자', ph: '법인' }], v.usage_history || []);
+  const getRepair = rowsEditor($('#rRepair'), [{ key: 'date', label: '일자', ph: '2025-05-10' }, { key: 'detail', label: '수리 내용', w: 260, ph: '앞범퍼 교환' }, { key: 'cost', label: '수리비 (원)', num: true }], v.repair_history || []);
+  const bindPlans = () => {
+    $$('[data-prm]', box).forEach((b) => (b.onclick = () => b.closest('tr').remove()));
+    $$('#planBody input[data-k="monthly"]', box).forEach((i) => (i.onblur = () => { const n = +i.value.replace(/\D/g, ''); i.value = n ? won(n) : ''; }));
   };
+  $('#planAdd').addEventListener('click', () => { $('#planBody').insertAdjacentHTML('beforeend', planRow({ km_year: 30000 })); bindPlans(); });
+  bindPlans();
+  $$('.money', box).forEach((i) => i.addEventListener('blur', () => { const x = +i.value.replace(/\D/g, ''); i.value = x ? won(x) : ''; }));
+  $('#v_km').addEventListener('blur', (e) => { const x = +e.target.value.replace(/\D/g, ''); e.target.value = x ? won(x) : ''; });
+  const radio = (n) => ($(`input[name="${n}"]:checked`, box) || {}).value || '';
+  const num = (sel) => +($(sel, box).value || '').replace(/\D/g, '') || 0;
+  $$('input[name="t_maint"]', box).forEach((r) => r.addEventListener('change', () => ($('#t_maintDesc').placeholder = '비우면: ' + MAINT_DEF[r.value])));
+  $('#t_maintDesc').placeholder = '비우면: ' + MAINT_DEF[radio('t_maint') || 'none'];
 
-  // ERP 불러오기
-  $('#erpGo').addEventListener('click', async () => {
-    const r = await run(() => api('/api/admin/erp/vehicles?q=' + encodeURIComponent($('#erpQ').value)));
-    if (!r.enabled) return ($('#erpMsg').textContent = 'rentcarerp 연동 전입니다. 직접 입력해 주세요.');
-    if (r.error) return ($('#erpMsg').textContent = r.error);
-    $('#erpMsg').textContent = `${r.vehicles.length}대 찾음`;
-    $('#erpList').innerHTML = r.vehicles.map((x, i) => `<button type="button" class="btn btn-sm" data-erp="${i}" style="margin:0 6px 6px 0">${esc(x.plate)} · ${esc(x.name)}</button>`).join('');
-    $$('[data-erp]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const x = r.vehicles[+b.dataset.erp];
-        const set = (k, val, m) => { if (val !== undefined && val !== null && val !== '' && $('#v_' + k)) $('#v_' + k).value = m ? won(val) : val; };
-        set('erp_ref', x.id); set('plate', x.plate); set('name', x.name); set('year', x.year); set('km', x.km, 1); set('fuel', x.fuel);
-        set('color', x.color); set('seats', x.seats); set('first_reg', x.first_reg); set('class', x.class); set('options', x.options);
-        set('new_price', x.new_price, 1); set('displacement', x.displacement, 1);
-        showDep();
-        toast('ERP 차량 정보를 채웠습니다. 확인 후 저장하세요.');
+  const collectPlans = () =>
+    $$('#planBody tr', box)
+      .map((tr) => {
+        const g = (k) => ($(`[data-k="${k}"]`, tr).value || '').replace(/,/g, '').trim();
+        return { deposit: Math.round(+g('deposit') * 10000) || 0, term: +g('term') || 0, monthly: +g('monthly') || 0, km_year: Math.round(+g('km_year') * 10000) || 0, buyout: Math.round(+g('buyout') * 10000) || 0, is_main: $('input[name="pMain"]', tr).checked };
       })
-    );
-  });
+      .filter((p) => p.term || p.monthly);
 
   $('#vSave').addEventListener('click', async () => {
-    const keys = ['name', 'class', 'plate', 'year', 'first_reg', 'fuel', 'color', 'int_color', 'seats', 'accident', 'pickup', 'location', 'badge', 'avail_note', 'erp_ref', 'status', 'options', 'spec_text'];
-    const body = Object.fromEntries(keys.map((k) => [k, $('#v_' + k).value]));
-    for (const k of ['km', 'displacement', 'new_price', 'tax_cut', 'car_value']) body[k] = money(k);
-    body.show_plate = $('#v_show_plate').value === '1';
-    body.visible = $('#v_visible').checked;
-    body.added_options = getOpts();
-    body.usage_history = getUsage();
-    body.repair_history = getRepair();
-    body.pricing = pricing();
-    if (!body.name.trim()) return toast('차명을 입력해 주세요.', true);
-    if (body.visible && !body.car_value) return toast('홈페이지에 노출하려면 현재 차량가격을 입력해 주세요.', true);
-    const r = await run(() => api(id ? '/api/admin/long/' + id : '/api/admin/long', { method: id ? 'PATCH' : 'POST', body }), '저장했습니다.');
-    location.hash = '#long/' + (id || r.id);
-    if (id) route();
+    const plansNow = collectPlans();
+    const badRow = plansNow.find((p) => !p.term || !p.monthly);
+    if (badRow) return toast('이용금액 줄마다 계약 기간과 월 렌트료를 넣어 주세요. (빈 줄은 삭제)', true);
+    const name = $('#v_name').value.trim();
+    if (!name) return toast('차량명 / 등급을 입력해 주세요.', true);
+    const visible = $('#v_visible').checked;
+    if (visible && !plansNow.length) return toast('홈페이지에 노출하려면 이용금액을 한 줄 이상 넣어 주세요.', true);
+    const y = $('#v_y').value, m = $('#v_m').value;
+    const body = {
+      maker: $('#v_maker').value, model_group: $('#v_model_group').value, class: $('#v_class').value, status: radio('v_status') || 'available',
+      name, options: $('#v_options').value, year: +y || 0, first_reg: y && m ? `${y}-${m}` : y || '', color: $('#v_color').value, km: num('#v_km'),
+      plate: $('#v_plate').value.replace(/\s+/g, ''), fuel: radio('v_fuel'), seats: num('#v_seats'),
+      option_list: $$('[data-opt]', box).filter((c) => c.checked).map((c) => c.dataset.opt),
+      terms: {
+        minAge: radio('t_minAge'), career: $('#t_career').value, credit: $('#t_credit').value, penalty: $('#t_penalty').value, overKm: $('#t_overKm').value,
+        buyout: radio('t_buyout'), maint: radio('t_maint'), maintDesc: $('#t_maintDesc').value,
+        liabPerson: $('#t_liabPerson').value, liabProperty: $('#t_liabProperty').value, liabSelf: $('#t_liabSelf').value,
+        dedCar: $('#t_dedCar').value, dedProperty: $('#t_dedProperty').value, dedPerson: $('#t_dedPerson').value, dedSelf: $('#t_dedSelf').value, dedNote: $('#t_dedNote').value,
+        driverPerson: $('#t_driverPerson').value, driverCorp: $('#t_driverCorp').value,
+      },
+      car_value: num('#v_car_value'), new_price: num('#v_new_price'), accident: $('#v_accident').value, pickup: $('#v_pickup').value, avail_note: $('#v_avail_note').value,
+      show_plate: $('#v_show_plate').value === '1', spec_text: $('#v_spec_text').value, usage_history: getUsage(), repair_history: getRepair(),
+      visible, badge: v.badge || '즉시출고',
+    };
+    await run(async () => {
+      await api('/api/admin/long/' + id, { method: 'PATCH', body });
+      await api(`/api/admin/long/${id}/plans`, { method: 'PUT', body: { plans: plansNow } });
+    }, '저장했습니다.');
+    route();
   });
-  if (!id) return;
   $('#vDel').addEventListener('click', async () => {
-    if (!(await confirmBox('이 차량과 사진 · 월 대여료를 모두 삭제할까요?', '삭제'))) return;
+    if (!(await confirmBox('이 차량과 사진 · 이용금액을 모두 삭제할까요? 되돌릴 수 없습니다.', '삭제'))) return;
     await run(() => api('/api/admin/long/' + id, { method: 'DELETE' }), '삭제했습니다.');
     location.hash = '#long';
-  });
-
-  // 기준 월 대여료 + 미리 계산
-  const baseRows = prices.length ? prices : [48, 36, 24, 12].map((t) => ({ term: t, monthly: 0 }));
-  const getBase = rowsEditor($('#rBase'), [{ key: 'term', label: '계약 기간 (개월)', num: true }, { key: 'monthly', label: '기준 월 대여료 (원)', num: true, w: 160 }], baseRows, '+ 기간 추가');
-  const preview = () => {
-    const bases = getBase().filter((b) => b.term > 0 && b.monthly > 0);
-    const P2 = pricing();
-    const cv = money('car_value');
-    if (!bases.length) return ($('#preview').innerHTML = '');
-    const deps = [0, 10, 20, 30];
-    const kmb = +P2.kmBase || 20000;
-    const kms = [kmb, kmb + 10000];
-    const veh = { car_value: cv };
-    const head = kms.map((k) => deps.map((d) => `<th class="num">연 ${won(k)}km<br>보증금 ${d}%</th>`).join('')).join('');
-    const body = bases
-      .sort((a, b) => b.term - a.term)
-      .map((b) => `<tr><th>${b.term}개월</th>${kms.map((k) => deps.map((d) => `<td class="num">${won(quote(veh, P2, bases, { term: b.term, km: k, dep: rateAmount(cv, d) }).monthly)}</td>`).join('')).join('')}</tr>`)
-      .join('');
-    $('#preview').innerHTML = `<p class="hint" style="margin:6px 0">미리 계산 (저장 전 입력값 기준, 선납금 없음 · 대물 기본)</p><div class="scroll-x"><table class="a-table" style="min-width:${180 + kms.length * deps.length * 92}px"><thead><tr><th>기간</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
-  };
-  $('#pCalc').addEventListener('click', preview);
-  if (prices.length) preview();
-  $('#pSave').addEventListener('click', async () => {
-    const list = getBase().filter((b) => b.term > 0 && b.monthly > 0);
-    await run(() => api(`/api/admin/long/${id}/prices`, { method: 'PUT', body: { prices: list } }), `기준 월 대여료 ${list.length}개 기간을 저장했습니다.`);
-    preview();
   });
 
   // 사진

@@ -79,3 +79,28 @@ body.admin { background: var(--bg-soft); }
 .a-table .thumb, .a-table td > div > span { flex: none; }
 .a-table td select.select { min-width: 100px; }
 .a-table td .order-btns, .a-table td.order-btns { white-space: nowrap; }
+
+/* 중장기 차량 등록 (표 형식) */
+.modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal { background: #fff; border-top: 3px solid var(--red); padding: 22px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.reg h3 { font-size: 15px; margin: 0; padding: 22px 18px 10px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.regt { width: calc(100% - 36px); margin: 0 18px; border-collapse: collapse; border-top: 2px solid var(--ink); font-size: 14px; }
+.regt th { width: 140px; background: var(--bg-soft, #f6f6f6); text-align: center; font-weight: 700; padding: 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.regt td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.regt td .hint { display: block; margin-top: 2px; }
+.regt .input, .regt .select { height: 40px; }
+.rd { display: inline-flex; align-items: center; gap: 4px; margin: 4px 14px 4px 0; cursor: pointer; white-space: nowrap; }
+.rd input, .ck input { accent-color: var(--red); width: 16px; height: 16px; }
+.u { display: flex; align-items: center; gap: 6px; }
+.u .input { max-width: 150px; text-align: right; }
+.u span { white-space: nowrap; color: var(--gray); font-size: 13px; }
+.optgrid { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.ck { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+.tri { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.tri label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tri .input { max-width: 140px; }
+.plans td { padding: 6px 8px; }
+.plans .u .input { max-width: 120px; }
+details.more summary { cursor: pointer; font-weight: 700; font-size: 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.savebar { position: sticky; bottom: 0; background: #fff; border-top: 2px solid var(--ink); margin-top: 22px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; z-index: 5; }
+@media (max-width: 760px) { .regt th { width: 96px; white-space: normal; } .regt, .regt tbody, .regt tr { display: block; } .regt tr { display: grid; grid-template-columns: 96px 1fr; } .regt td[colspan] { grid-column: 2; } }
