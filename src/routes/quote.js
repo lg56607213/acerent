@@ -61,6 +61,8 @@ function cleanConfig(b) {
     label: cleanText(x?.label, 20), add: n(x?.add, 0, 0, 10000000),
   })).filter((x, i, a) => x.label && a.findIndex((y) => y.id === x.id) === i);
   out.usedSelfIns = n(b.usedSelfIns ?? d.usedSelfIns, 0, 0, 1000000);
+  out.usedRvKm = [10000, 20000, 30000].includes(+b.usedRvKm) ? +b.usedRvKm : d.usedRvKm;
+  out.usedRvAdj = n(b.usedRvAdj ?? d.usedRvAdj, d.usedRvAdj, 0, 20);
   out.carLimitModels = typeof b.carLimitModels === 'string' ? cleanText(b.carLimitModels, 100) : d.carLimitModels;
   return out;
 }

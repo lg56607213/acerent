@@ -154,10 +154,11 @@
 <section class="sec pl" id="secPlans" hidden><h2>이용 조건 선택</h2><div class="sec-body"><div class="scroll-x"><table class="htable ptable"><thead><tr><th scope="col" style="width:44px"></th><th scope="col">계약 기간</th><th scope="col">보증금</th><th scope="col">연간 주행거리</th><th scope="col" style="text-align:right">월 렌트료</th><th scope="col" style="text-align:right">만기 인수가</th></tr></thead><tbody id="planRows"></tbody></table></div><p class="small muted" style="margin:0">월 렌트료는 부가세 포함입니다. 심사 결과에 따라 보증금 조건이 달라질 수 있습니다.</p></div></section>
 <section class="sec uq" id="secUsed" hidden><h2>내 견적 만들기</h2><div class="sec-body" style="gap:18px">
 <div><strong class="uqh">계약기간</strong><div class="opts" id="uTerm"></div></div>
-<div><strong class="uqh">보증금</strong><div class="opts" id="uDep"></div><div class="custom" id="uDepC" hidden><input class="input" id="uDepIn" inputmode="numeric" aria-label="보증금 직접 입력 (원)"><span>원</span></div></div>
-<div><strong class="uqh">선납금</strong><div class="opts" id="uPre"></div><div class="custom" id="uPreC" hidden><input class="input" id="uPreIn" inputmode="numeric" aria-label="선납금 직접 입력 (원)"><span>원</span></div></div>
+<div><strong class="uqh">약정거리</strong><div class="opts" id="uKm"></div></div>
+<div><strong class="uqh">보증금 <small class="muted" style="font-weight:400">신차가격 기준 %</small></strong><div class="opts" id="uDep"></div><div class="custom" id="uDepC" hidden><input class="input" id="uDepIn" inputmode="numeric" aria-label="보증금 직접 입력 (원)"><span>원</span></div></div>
+<div><strong class="uqh">선납금 <small class="muted" style="font-weight:400">신차가격 기준 %</small></strong><div class="opts" id="uPre"></div><div class="custom" id="uPreC" hidden><input class="input" id="uPreIn" inputmode="numeric" aria-label="선납금 직접 입력 (원)"><span>원</span></div></div>
 <div><strong class="uqh">자차 보험</strong><div class="opts" id="uSelf"></div></div>
-<ul class="note"><li>보증금은 계약이 끝나면 돌려드리고, 선납금은 계약 기간 동안 매월 나눠 차감됩니다.</li><li>월 렌트료는 부가세 포함이며 자동차세 · 보험료가 포함되어 있습니다. 심사 결과에 따라 최소 보증금 · 선납금 조건이 있을 수 있습니다.</li></ul>
+<ul class="note"><li>보증금은 계약이 끝나면 돌려드리고, 선납금은 계약 기간 동안 매월 나눠 차감됩니다.</li><li>약정거리는 1년 동안 주행할 거리입니다. 짧을수록 월 렌트료가 낮아지고, 만기 때 초과한 거리는 정산될 수 있습니다.</li><li>월 렌트료는 부가세 포함이며 자동차세 · 보험료가 포함되어 있습니다. 심사 결과에 따라 최소 보증금 · 선납금 조건이 있을 수 있습니다.</li></ul>
 <p class="error-msg" id="uErr" style="margin:0"></p>
 </div></section>
 <section class="sec" id="secVopts" hidden><h2>차량 옵션</h2><div class="sec-body" id="vopts"></div></section>

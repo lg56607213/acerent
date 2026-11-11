@@ -217,7 +217,7 @@ function calc() {
 }
 
 // ── 견적형 ──
-const U = { term: 0, dep: 0, pre: 0, depC: false, preC: false, self: false, res: data.used ? { dep: 0, pre: 0, upfront: 0, self: false, ...data.used } : null, seq: 0 };
+const U = { term: 0, km: data.used?.km || 20000, dep: 0, pre: 0, depC: false, preC: false, self: false, res: data.used ? { dep: 0, pre: 0, upfront: 0, self: false, ...data.used } : null, seq: 0 };
 const pctAmt = (p) => Math.round(((data.used?.base || 0) * p) / 100 / 1000) * 1000;
 function usedChips(boxSel, items, isOn, onPick) {
   $(boxSel).innerHTML = items.map((it, i) => `<button type="button" class="opt ${isOn(it) ? 'on' : ''}" aria-pressed="${isOn(it)}" data-i="${i}">${it.html}</button>`).join('');
@@ -229,7 +229,7 @@ function usedFetch() {
   uTimer = setTimeout(async () => {
     const my = ++U.seq;
     try {
-      const r = await api('/api/long/used-quote', { method: 'POST', body: { vehicleId: v.id, dep: U.dep, pre: U.pre, self: U.self } });
+      const r = await api('/api/long/used-quote', { method: 'POST', body: { vehicleId: v.id, km: U.km, dep: U.dep, pre: U.pre, self: U.self } });
       if (my !== U.seq) return;
       U.res = r; $('#uErr').textContent = ''; usedDraw();
     } catch (e) { if (my === U.seq) $('#uErr').textContent = e.message; }
@@ -241,6 +241,7 @@ function usedDraw() {
   const row = r.rows.find((x) => x.term === U.term) || r.rows[0];
   const pcts = [0, 10, 20, 30];
   usedChips('#uTerm', r.terms.map((t) => ({ t, html: `${t}개월` })), (it) => it.t === U.term, (it) => { U.term = it.t; usedDraw(); });
+  usedChips('#uKm', (data.used.kms || [10000, 20000, 30000]).map((k) => ({ k, html: `연 ${k / 10000}만km` })), (it) => it.k === U.km, (it) => { U.km = it.k; usedDraw(); usedFetch(); });
   const amtChips = (key) => [...pcts.map((p) => ({ a: pctAmt(p), html: `${p ? W(pctAmt(p)) : '없음'}<small>${p}%</small>` })), { custom: true, html: '직접입력' }];
   for (const [key, boxSel, cBox, cIn] of [['dep', '#uDep', '#uDepC', '#uDepIn'], ['pre', '#uPre', '#uPreC', '#uPreIn']]) {
     const ck = key + 'C';
@@ -259,12 +260,13 @@ function usedDraw() {
 <div><span class="muted">· 보증금 / 선납금</span><span>${W(r.dep)} / ${W(r.pre)}</span></div>
 <div><span class="muted">표준 렌트료</span><span>${W(row.std)}</span></div>
 ${row.preDeduct ? `<div><span class="muted">월 선납금 차감</span><span>-${W(row.preDeduct)}</span></div>` : ''}
+<div><span class="muted">약정거리</span><span>연 ${won(U.km)}km</span></div>
 <div><span class="muted">자차 보험</span><span>${r.self ? '포함' : '불포함'}</span></div>
 <div><span class="muted">만기 인수가</span><span>${W(row.buyout)}</span></div>
 <div class="big"><span>${row.term}개월 최종 렌트료</span><strong>${W(row.month)}</strong></div>`;
   $('#mTerm').textContent = `${row.term}개월 · 부가세 포함`;
   $('#mMonthly').textContent = W(row.month);
-  $('#applyCond').textContent = `${row.term}개월 · 보증금 ${r.dep ? W(r.dep) : '없음'} · 선납금 ${r.pre ? W(r.pre) : '없음'} · 자차 ${r.self ? '포함' : '불포함'} · 만기 인수가 ${W(row.buyout)}`;
+  $('#applyCond').textContent = `${row.term}개월 · 연 ${won(U.km)}km · 보증금 ${r.dep ? W(r.dep) : '없음'} · 선납금 ${r.pre ? W(r.pre) : '없음'} · 자차 ${r.self ? '포함' : '불포함'} · 만기 인수가 ${W(row.buyout)}`;
   $('#applyMonthly').textContent = W(row.month) + ' (부가세 포함)';
   $('#applyBtn').textContent = `${row.term}개월 · 월 ${won(row.month)}원 신청`;
 }
@@ -344,7 +346,7 @@ $('#applyBtn').addEventListener('click', async () => {
     const r = await api('/api/long/applications', {
       method: 'POST',
       body: {
-        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: USED ? U.term : !PLAN && Q.rows.length ? s.term : null, km: s.km, dep: USED ? U.dep : s.dep, pre: USED ? U.pre : s.pre, self: USED ? U.self : undefined, liab: s.liab, maint: s.maint, region: s.region,
+        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: USED ? U.term : !PLAN && Q.rows.length ? s.term : null, km: USED ? U.km : s.km, dep: USED ? U.dep : s.dep, pre: USED ? U.pre : s.pre, self: USED ? U.self : undefined, liab: s.liab, maint: s.maint, region: s.region,
         company: f.company.value, bizNo: f.bizNo.value, qty: f.qty.value, name: f.name.value, phone: f.phone.value,
         wishDate: f.wishDate.value, request: f.request.value, website: f.website.value, agree: true, marketing: f.marketing.checked,
       },

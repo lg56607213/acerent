@@ -589,13 +589,17 @@ async function carEditor(id) {
 <h3>가격 방식</h3>
 <div style="padding:0 18px">${radios('v_price_mode', { quote: '견적형 — 취득원가 · 잔가로 고객이 직접 견적 (내 견적 만들기)', table: '고정 가격표 — 이용금액 줄을 직접 입력' }, v.price_mode === 'table' ? 'table' : 'quote')}</div>
 
-<div id="qBlock">
-<h3>견적 조건 <span class="hint" style="font-weight:400">고객이 계약기간 · 보증금/선납금(0·10·20·30% 또는 직접입력) · 자차 포함 여부를 골라 월 렌트료를 봅니다. 금리 · 보험료 · 정비료 · 자차 추가금은 '견적 설정' 값을 씁니다.</span></h3>
-<table class="regt"><tbody>
-<tr><th>취득원가</th><td colspan="3"><div class="u">${inp('v_acq_cost', v.acq_cost ? won(v.acq_cost) : '', '예: 15,000,000', 'inputmode="numeric" style="max-width:200px"')}<span>원</span></div><span class="hint">보증금 · 선납금 % 와 잔가 금액의 기준입니다.</span></td></tr>
-<tr><th>기간별 잔가율</th><td colspan="3"><div class="tri">${[12, 24, 36, 48, 60].map((n) => `<label>${n}개월 <span class="u"><input class="input" data-rv="${n}" inputmode="decimal" value="${v.rv_rates && v.rv_rates[n] ? Math.round(v.rv_rates[n] * 1000) / 10 : ''}" placeholder="%" style="max-width:80px"><span>%</span></span></label>`).join('')}</div><span class="hint">비워 둔 기간은 고객 화면에 나오지 않습니다. 잔가 금액 = 취득원가 × 잔가율 (만기 인수가는 부가세 포함으로 표시)</span></td></tr>
+<table class="regt" style="margin-top:10px"><tbody>
+<tr><th>신차가격</th><td colspan="3"><div class="u">${inp('v_new_price', v.new_price ? won(v.new_price) : '', '예: 32,000,000', 'inputmode="numeric" style="max-width:200px"')}<span>원</span></div><span class="hint">고객 화면에 '신차가격'으로 표시됩니다. 견적형은 필수 — 보증금 · 선납금 % 는 신차가격 × % 입니다.</span></td></tr>
 </tbody></table>
-<div style="padding:8px 18px 0"><button type="button" class="btn btn-sm" id="qPrev">미리 계산</button> <span class="hint">보증금 0 · 선납금 0 기준</span><div id="qPrevOut" style="margin-top:8px"></div></div>
+
+<div id="qBlock">
+<h3>견적 조건 <span class="hint" style="font-weight:400">고객이 계약기간 · 약정거리(연 1만 · 2만 · 3만km) · 보증금/선납금(신차가격의 0·10·20·30% 또는 직접입력) · 자차 포함 여부를 골라 월 렌트료를 봅니다. 금리 · 보험료 · 정비료 · 자차 추가금 · 거리별 잔가 조정은 '견적 설정' 값을 씁니다.</span></h3>
+<table class="regt"><tbody>
+<tr><th>취득원가 <span class="red">(비공개)</span></th><td colspan="3"><div class="u">${inp('v_acq_cost', v.acq_cost ? won(v.acq_cost) : '', '예: 15,000,000', 'inputmode="numeric" style="max-width:200px"')}<span>원</span></div><span class="hint">고객에게는 보이지 않습니다. 월 렌트료 계산과 잔가 금액(취득원가 × 잔가율)의 기준입니다.</span></td></tr>
+<tr><th>기간별 잔가율</th><td colspan="3"><div class="tri">${[12, 24, 36, 48, 60].map((n) => `<label>${n}개월 <span class="u"><input class="input" data-rv="${n}" inputmode="decimal" value="${v.rv_rates && v.rv_rates[n] ? Math.round(v.rv_rates[n] * 1000) / 10 : ''}" placeholder="%" style="max-width:80px"><span>%</span></span></label>`).join('')}</div><span class="hint">견적 설정의 '기준 약정거리'(기본 연 2만km) 기준 잔가율입니다. 약정거리가 짧으면 잔가가 올라가고(월 렌트료 ↓) 길면 내려갑니다. 비워 둔 기간은 고객 화면에 나오지 않습니다. (비공개)</span></td></tr>
+</tbody></table>
+<div style="padding:8px 18px 0"><button type="button" class="btn btn-sm" id="qPrev">미리 계산</button> <span class="hint">보증금 0 · 선납금 0 · 자차 불포함 기준, 약정거리별</span><div id="qPrevOut" style="margin-top:8px"></div></div>
 </div>
 
 <div id="pBlock">
@@ -634,7 +638,6 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
 <details class="more" style="margin:16px 18px 0"><summary>추가 정보 (선택) — 차량가격 · 사고이력 · 이용이력 · 사양 설명</summary>
 <div class="grid2" style="margin-top:12px">
 <label class="field">현재 차량가격 (원)<input class="input money" id="v_car_value" inputmode="numeric" value="${v.car_value ? won(v.car_value) : ''}"></label>
-<label class="field">신차가격 (원)<input class="input money" id="v_new_price" inputmode="numeric" value="${v.new_price ? won(v.new_price) : ''}"></label>
 <label class="field">사고 이력 요약${inp('v_accident', v.accident, '무사고')}</label>
 <label class="field">차량 현 위치 · 인수${inp('v_pickup', v.pickup, '본점 · 탁송 가능')}</label>
 <label class="field">출고 안내${inp('v_avail_note', v.avail_note, '예: 11월 중순 반납 예정')}</label>
@@ -663,11 +666,15 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
   const modeSync = () => { const q = radio('v_price_mode') !== 'table'; $('#qBlock').hidden = !q; $('#pBlock').hidden = q; };
   $$('input[name="v_price_mode"]', box).forEach((r) => r.addEventListener('change', modeSync));
   const rvRates = () => Object.fromEntries($$('[data-rv]', box).map((i) => [i.dataset.rv, (+i.value.replace(/[^\d.]/g, '') || 0) / 100]).filter(([, r]) => r > 0 && r < 1));
-  $('#v_acq_cost').addEventListener('blur', (e) => { const x = +e.target.value.replace(/\D/g, ''); e.target.value = x ? won(x) : ''; });
+  ['#v_acq_cost', '#v_new_price'].forEach((sel) => $(sel).addEventListener('blur', (e) => { const x = +e.target.value.replace(/\D/g, ''); e.target.value = x ? won(x) : ''; }));
   $('#qPrev').addEventListener('click', async () => {
-    const r = await run(() => api('/api/admin/long/used-preview', { method: 'POST', body: { acq_cost: num('#v_acq_cost'), rv_rates: rvRates(), displacement: v.displacement, fuel: radio('v_fuel'), class: $('#v_class').value } }));
-    if (!r.zero.ok) return ($('#qPrevOut').innerHTML = `<p class="red small" style="margin:0">${esc(r.zero.error)}</p>`);
-    $('#qPrevOut').innerHTML = `<table class="a-table" style="max-width:640px"><thead><tr><th>기간</th><th class="num">만기 인수가</th><th class="num">월 렌트료 (자차 불포함)</th><th class="num">자차 포함 (+${won(r.selfIns)}원)</th></tr></thead><tbody>${r.zero.rows.map((x, i) => `<tr><td>${x.term}개월</td><td class="num">${won(x.buyout)}</td><td class="num"><strong>${won(x.month)}</strong></td><td class="num">${won(r.self.rows[i].month)}</td></tr>`).join('')}</tbody></table><p class="hint" style="margin:4px 0 0">금리 ${r.rate}% · 견적 설정 기준</p>`;
+    const r = await run(() => api('/api/admin/long/used-preview', { method: 'POST', body: { acq_cost: num('#v_acq_cost'), new_price: num('#v_new_price'), rv_rates: rvRates(), displacement: v.displacement, fuel: radio('v_fuel'), class: $('#v_class').value } }));
+    const first = r.byKm.find((x) => x.q.ok);
+    if (!first) return ($('#qPrevOut').innerHTML = `<p class="red small" style="margin:0">${esc(num('#v_new_price') ? r.byKm[0].q.error : '신차가격을 넣어 주세요.')}</p>`);
+    const kmL = (k) => `연 ${k / 10000}만km${k === r.baseKm ? ' (기준)' : ''}`;
+    const terms = first.q.rows.map((x) => x.term);
+    const cell = (q, t) => { const x = q.ok && q.rows.find((y) => y.term === t); return x ? `<strong>${won(x.month)}</strong><br><span class="hint">인수가 ${won(x.buyout)}</span>` : '-'; };
+    $('#qPrevOut').innerHTML = `<div class="scroll-x"><table class="a-table" style="max-width:720px"><thead><tr><th>기간</th>${r.byKm.map((x) => `<th class="num">${kmL(x.km)}</th>`).join('')}</tr></thead><tbody>${terms.map((t) => `<tr><td>${t}개월</td>${r.byKm.map((x) => `<td class="num">${cell(x.q, t)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="hint" style="margin:4px 0 0">월 렌트료(부가세 포함) · 자차 포함 시 +${won(r.selfIns)}원 · 금리 ${r.rate}% · 견적 설정 기준</p>`;
   });
   $('#planAdd').addEventListener('click', () => { $('#planBody').insertAdjacentHTML('beforeend', planRow({ km_year: 30000 })); bindPlans(); });
   bindPlans();
@@ -694,7 +701,7 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
     if (!name) return toast('차량명 / 등급을 입력해 주세요.', true);
     const visible = $('#v_visible').checked;
     const quoteMode = radio('v_price_mode') !== 'table';
-    if (visible && quoteMode && (!num('#v_acq_cost') || !Object.keys(rvRates()).length)) return toast('견적형으로 노출하려면 취득원가와 잔가율(한 기간 이상)을 넣어 주세요.', true);
+    if (visible && quoteMode && (!num('#v_acq_cost') || !num('#v_new_price') || !Object.keys(rvRates()).length)) return toast('견적형으로 노출하려면 신차가격 · 취득원가 · 잔가율(한 기간 이상)을 넣어 주세요.', true);
     if (visible && !quoteMode && !plansNow.length) return toast('홈페이지에 노출하려면 이용금액을 한 줄 이상 넣어 주세요.', true);
     const y = $('#v_y').value, m = $('#v_m').value;
     const body = {
@@ -1122,7 +1129,9 @@ PAGES.quoteconfig = async () => {
 <input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
 <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">중장기 견적형 (중고차 내 견적 만들기)</h2><p class="hint" style="margin:0">금리 · 월 보험료 · 정비료는 위 견적 설정 값을 같이 씁니다. 차량별 취득원가 · 잔가율은 '중장기 차량'에서 넣습니다.</p>
-${f('usedSelfIns', '자차 포함 시 월 렌트료 추가금 (원, 부가세 포함 최종 금액 기준)')}</div>
+${f('usedSelfIns', '자차 포함 시 월 렌트료 추가금 (원, 부가세 포함 최종 금액 기준)')}
+<div class="grid2"><label class="field">차량 잔가율의 기준 약정거리<select class="select" data-c="usedRvKm">${opts([['10000', '연 1만km'], ['20000', '연 2만km'], ['30000', '연 3만km']], String(c.usedRvKm || 20000))}</select></label>${f('usedRvAdj', '5천km당 잔가 조정 (%p) — 짧으면 +, 길면 −')}</div>
+<p class="hint" style="margin:0">고객은 연 1만 · 2만 · 3만km 중 고릅니다. 예) 기준 2만km · 조정 1.4%p → 1만km 는 잔가 +2.8%p, 3만km 는 −2.8%p.</p></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자차 한도 올리기 (화물차)</h2>
 <p class="hint" style="margin:0">견적서에서 자차 한도를 기본(차종 등급 한도) 대신 고를 수 있게 합니다. 고르면 월 보험료(공급가)에 추가금이 더해지고 견적서 '자차 한도' 칸이 바뀝니다. 회원에게는 한도 이름만 보이고 추가 보험료는 보이지 않습니다.</p>
 ${f('carLimitModels', '변경 가능한 모델 (모델명에 들어간 글자, 쉼표 구분 — 비우면 아무 차종도 변경 불가)')}

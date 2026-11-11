@@ -5,7 +5,7 @@ import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
 import { pricingOf } from '../../public/assets/longcalc.js';
-import { usedRates, computeUsed, loadQuoteConfig } from '../lib/rentcalc.js';
+import { usedRates, computeUsed, loadQuoteConfig, USED_KMS, usedBaseKm } from '../lib/rentcalc.js';
 import { ALL_OPTIONS, STATUS as LONG_STATUS, MAKERS, MAINT, AGE } from '../../public/assets/longopts.js';
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
@@ -427,8 +427,8 @@ export function registerAdmin(r) {
   r.post('/api/admin/long/used-preview', async ({ env, request }) => {
     const b = await readJson(request);
     const cfg = await loadQuoteConfig(env.DB);
-    const veh = { acq_cost: int(b.acq_cost), rv_rates: b.rv_rates || {}, displacement: int(b.displacement), fuel: cleanText(b.fuel, 20), class: cleanText(b.class, 20) };
-    return json({ zero: computeUsed(veh, { dep: 0, pre: 0 }, cfg), self: computeUsed(veh, { dep: 0, pre: 0, self: true }, cfg), selfIns: cfg.usedSelfIns, rate: cfg.rate });
+    const veh = { acq_cost: int(b.acq_cost), new_price: int(b.new_price), rv_rates: b.rv_rates || {}, displacement: int(b.displacement), fuel: cleanText(b.fuel, 20), class: cleanText(b.class, 20) };
+    return json({ byKm: USED_KMS.map((km) => ({ km, q: computeUsed(veh, { dep: 0, pre: 0, km }, cfg) })), baseKm: usedBaseKm(cfg), selfIns: cfg.usedSelfIns, rate: cfg.rate });
   });
   // 이용금액 통째로 저장: { plans: [{deposit, term, monthly, km_year, buyout, is_main}] }
   r.put('/api/admin/long/:id/plans', async ({ env, params, request }) => {

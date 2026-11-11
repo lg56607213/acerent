@@ -174,7 +174,7 @@ export function registerPublic(r) {
       const q = computeUsed(v, {}, cfg);
       if (!q.ok) return {};
       const r = q.rows[q.rows.length - 1];
-      return { term: r.term, monthly: r.month, deposit: 0, km_year: 0 };
+      return { term: r.term, monthly: r.month, deposit: 0, km_year: q.km };
     };
     const firstPhoto = new Map();
     for (const p of photos.results) if (!firstPhoto.has(p.vehicle_id)) firstPhoto.set(p.vehicle_id, p.image_key);
@@ -204,7 +204,7 @@ export function registerPublic(r) {
     if (v.price_mode === 'quote') {
       const cfg = await loadQuoteConfig(env.DB);
       const q = computeUsed(v, {}, cfg);
-      used = q.ok ? { terms: q.terms, base: q.base, selfIns: cfg.usedSelfIns, rows: q.rows } : { terms: [], error: q.error };
+      used = q.ok ? { terms: q.terms, base: q.base, selfIns: cfg.usedSelfIns, rows: q.rows, km: q.km, kms: q.kms }  : { terms: [], error: q.error };
     }
     return json({
       vehicle: {
@@ -224,7 +224,7 @@ export function registerPublic(r) {
     const b = await readJson(request);
     const v = await env.DB.prepare(`SELECT * FROM long_vehicles WHERE id = ? AND visible = 1 AND price_mode = 'quote'`).bind(int(b.vehicleId)).first();
     if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
-    const q = computeUsed(v, { dep: int(b.dep), pre: int(b.pre), self: !!b.self }, await loadQuoteConfig(env.DB));
+    const q = computeUsed(v, { dep: int(b.dep), pre: int(b.pre), self: !!b.self, km: int(b.km) }, await loadQuoteConfig(env.DB));
     if (!q.ok) throw bad(q.error);
     return json(q);
   });
@@ -253,7 +253,7 @@ export function registerPublic(r) {
     }
     let usedQ = null;
     if (vehicle && vehicle.price_mode === 'quote' && !plan) {
-      const uq = computeUsed(vehicle, { dep: int(b.dep), pre: int(b.pre), self: !!b.self }, await loadQuoteConfig(env.DB));
+      const uq = computeUsed(vehicle, { dep: int(b.dep), pre: int(b.pre), self: !!b.self, km: int(b.km) }, await loadQuoteConfig(env.DB));
       if (!uq.ok) throw bad(uq.error);
       const row = uq.rows.find((x) => x.term === int(b.term));
       if (!row) throw bad('선택하신 계약 기간이 없습니다. 다시 선택해 주세요.');
@@ -267,11 +267,11 @@ export function registerPublic(r) {
       }
     }
     // 이용금액 줄을 고른 경우: 그 줄의 보증금 · 개월 · 월렌트료 · 주행거리를 그대로 사용
-    const s = plan ? { term: plan.term, km: plan.km_year, dep: plan.deposit, pre: 0 } : usedQ ? { term: usedQ.row.term, km: 0, dep: usedQ.dep, pre: usedQ.pre } : q ? q.sel : null;
+    const s = plan ? { term: plan.term, km: plan.km_year, dep: plan.deposit, pre: 0 } : usedQ ? { term: usedQ.row.term, km: usedQ.km, dep: usedQ.dep, pre: usedQ.pre } : q ? q.sel : null;
     const monthly = plan ? plan.monthly : usedQ ? usedQ.row.month : q ? q.monthly : 0;
     const depositAmt = s ? s.dep : 0;
     const prepayAmt = s ? s.pre : 0;
-    const baseVal = vehicle ? (vehicle.price_mode === 'quote' ? vehicle.acq_cost : vehicle.car_value) : 0;
+    const baseVal = vehicle ? (vehicle.price_mode === 'quote' ? vehicle.new_price : vehicle.car_value) : 0;
     const depPct = s && baseVal ? Math.round((s.dep / baseVal) * 1000) / 10 : 0;
     const kind = corp ? '법인 견적' : '중장기 신청';
 
@@ -290,7 +290,7 @@ export function registerPublic(r) {
       no, applicant_type: corp ? 'corp' : 'person', vehicle_id: vehicle ? vehicle.id : null, vehicle_name: vehicle ? vehicle.name : cleanText(b.vehicleWish, 100),
       term: s ? s.term : null, dep_pct: s ? Math.round(depPct) : null, deposit_amt: depositAmt, prepay_amt: prepayAmt, monthly,
       km: s && s.km ? `연 ${s.km.toLocaleString('ko-KR')}km` : '', extra, plan_id: plan ? plan.id : null,
-      quote_json: usedQ ? JSON.stringify({ term: usedQ.row.term, dep: usedQ.dep, pre: usedQ.pre, self: usedQ.self, month: usedQ.row.month, std: usedQ.row.std, buyout: usedQ.row.buyout }) : '',
+      quote_json: usedQ ? JSON.stringify({ term: usedQ.row.term, km: usedQ.km, dep: usedQ.dep, pre: usedQ.pre, self: usedQ.self, month: usedQ.row.month, std: usedQ.row.std, buyout: usedQ.row.buyout }) : '',
       company, biz_no: cleanText(b.bizNo, 20), qty: cleanText(b.qty, 20), name, phone, wish_date: cleanText(b.wishDate, 20),
       request: cleanText(b.request, 1000), customer_id: customerId,
     };
@@ -300,7 +300,7 @@ export function registerPublic(r) {
       await env.DB.prepare(`UPDATE long_vehicles SET status = 'reserved', updated_at = datetime('now') WHERE id = ?`).bind(vehicle.id).run();
     }
 
-    const cond = s ? `${s.term}개월 · ${extra}` : '';
+    const cond = s ? [`${s.term}개월`, usedQ ? row.km : '', extra].filter(Boolean).join(' · ') : '';
     const html = buildMailHtml({
       title: `[${kind}] ${no}`,
       intro: corp ? '홈페이지로 법인 장기렌트 견적 요청이 접수되었습니다.' : '홈페이지로 중장기렌트 신청이 접수되었습니다. 심사 후 고객에게 연락해 주세요.',
