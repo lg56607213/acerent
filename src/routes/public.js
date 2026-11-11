@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { saveUpload } from './upload.js';
 import { pricingOf, quote, describe } from '../../public/assets/longcalc.js';
 import { PUBLIC_STATUS } from '../../public/assets/longopts.js';
+import { computeUsed, loadQuoteConfig } from '../lib/rentcalc.js';
 
 const jsonList = (s) => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 
@@ -167,6 +168,14 @@ export function registerPublic(r) {
       env.DB.prepare(`SELECT vehicle_id, image_key FROM long_photos WHERE vehicle_id IN (${q}) ORDER BY sort, id`).bind(...ids).all(),
       env.DB.prepare(`SELECT vehicle_id, deposit, term, monthly, km_year, is_main FROM long_plans WHERE vehicle_id IN (${q}) ORDER BY is_main DESC, sort, id`).bind(...ids).all(),
     ]);
+    const cfg = vs.some((v) => v.price_mode === 'quote') ? await loadQuoteConfig(env.DB) : null;
+    // 견적형: 가장 긴 기간 · 보증금 0 · 선납금 0 · 자차 불포함 금액을 대표 가격으로
+    const usedMain = (v) => {
+      const q = computeUsed(v, {}, cfg);
+      if (!q.ok) return {};
+      const r = q.rows[q.rows.length - 1];
+      return { term: r.term, monthly: r.month, deposit: 0, km_year: 0 };
+    };
     const firstPhoto = new Map();
     for (const p of photos.results) if (!firstPhoto.has(p.vehicle_id)) firstPhoto.set(p.vehicle_id, p.image_key);
     return json({
@@ -174,7 +183,8 @@ export function registerPublic(r) {
         id: v.id, name: v.name, class: v.class, year: v.year, km: v.km, fuel: v.fuel, badge: v.badge, car_value: v.car_value,
         status: v.status, avail_note: v.avail_note, photo: img(firstPhoto.get(v.id)), pricing: pricingOf(v.pricing),
         bases: prices.results.filter((p) => p.vehicle_id === v.id).map((p) => ({ term: p.term, monthly: p.monthly })),
-        mainPlan: (({ vehicle_id, is_main, ...x }) => x)(plans.results.find((p) => p.vehicle_id === v.id) || {}),
+        mainPlan: v.price_mode === 'quote' ? usedMain(v) : (({ vehicle_id, is_main, ...x }) => x)(plans.results.find((p) => p.vehicle_id === v.id) || {}),
+        price_mode: v.price_mode,
         maker: v.maker, model_group: v.model_group,
       })),
     });
@@ -189,7 +199,13 @@ export function registerPublic(r) {
       env.DB.prepare('SELECT image_key FROM long_photos WHERE vehicle_id = ? ORDER BY sort, id').bind(v.id).all(),
       env.DB.prepare('SELECT id, deposit, term, monthly, km_year, buyout, is_main FROM long_plans WHERE vehicle_id = ? ORDER BY sort, id').bind(v.id).all(),
     ]);
-    const { plate, erp_ref, sort, created_at, ...pub } = v;
+    const { plate, erp_ref, sort, created_at, acq_cost, rv_rates, ...pub } = v;
+    let used = null;
+    if (v.price_mode === 'quote') {
+      const cfg = await loadQuoteConfig(env.DB);
+      const q = computeUsed(v, {}, cfg);
+      used = q.ok ? { terms: q.terms, base: q.base, selfIns: cfg.usedSelfIns, rows: q.rows } : { terms: [], error: q.error };
+    }
     return json({
       vehicle: {
         ...pub, plate: v.show_plate ? plate : '', pricing: pricingOf(v.pricing),
@@ -198,8 +214,19 @@ export function registerPublic(r) {
         option_list: jsonList(v.option_list), terms: (() => { try { return JSON.parse(v.terms || '{}'); } catch { return {}; } })(),
       },
       bases: prices.results,
-      plans: plans.results,
+      plans: v.price_mode === 'quote' ? [] : plans.results,
+      used,
     });
+  });
+
+  // 견적형 차량: 고객이 고른 보증금 · 선납금 · 자차 포함으로 기간별 월 렌트료 계산
+  r.post('/api/long/used-quote', async ({ env, request }) => {
+    const b = await readJson(request);
+    const v = await env.DB.prepare(`SELECT * FROM long_vehicles WHERE id = ? AND visible = 1 AND price_mode = 'quote'`).bind(int(b.vehicleId)).first();
+    if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
+    const q = computeUsed(v, { dep: int(b.dep), pre: int(b.pre), self: !!b.self }, await loadQuoteConfig(env.DB));
+    if (!q.ok) throw bad(q.error);
+    return json(q);
   });
 
   // 중장기 신청 · 법인 견적 (월 렌트료 · 보증금 · 선납금은 서버에서 다시 계산)
@@ -224,7 +251,15 @@ export function registerPublic(r) {
         if (!plan) throw bad('선택하신 이용 조건이 바뀌었습니다. 새로고침 후 다시 선택해 주세요.');
       }
     }
-    if (vehicle && !plan) {
+    let usedQ = null;
+    if (vehicle && vehicle.price_mode === 'quote' && !plan) {
+      const uq = computeUsed(vehicle, { dep: int(b.dep), pre: int(b.pre), self: !!b.self }, await loadQuoteConfig(env.DB));
+      if (!uq.ok) throw bad(uq.error);
+      const row = uq.rows.find((x) => x.term === int(b.term));
+      if (!row) throw bad('선택하신 계약 기간이 없습니다. 다시 선택해 주세요.');
+      usedQ = { ...uq, row };
+    }
+    if (vehicle && !plan && !usedQ) {
       const { results: bases } = await env.DB.prepare('SELECT term, monthly FROM long_prices WHERE vehicle_id = ? AND dep_pct = 0').bind(vehicle.id).all();
       if (bases.length) {
         if (!bases.some((x) => x.term === int(b.term))) throw bad('선택하신 계약 기간이 없습니다. 다시 선택해 주세요.');
@@ -232,11 +267,12 @@ export function registerPublic(r) {
       }
     }
     // 이용금액 줄을 고른 경우: 그 줄의 보증금 · 개월 · 월렌트료 · 주행거리를 그대로 사용
-    const s = plan ? { term: plan.term, km: plan.km_year, dep: plan.deposit, pre: 0 } : q ? q.sel : null;
-    const monthly = plan ? plan.monthly : q ? q.monthly : 0;
+    const s = plan ? { term: plan.term, km: plan.km_year, dep: plan.deposit, pre: 0 } : usedQ ? { term: usedQ.row.term, km: 0, dep: usedQ.dep, pre: usedQ.pre } : q ? q.sel : null;
+    const monthly = plan ? plan.monthly : usedQ ? usedQ.row.month : q ? q.monthly : 0;
     const depositAmt = s ? s.dep : 0;
     const prepayAmt = s ? s.pre : 0;
-    const depPct = s && vehicle.car_value ? Math.round((s.dep / vehicle.car_value) * 1000) / 10 : 0;
+    const baseVal = vehicle ? (vehicle.price_mode === 'quote' ? vehicle.acq_cost : vehicle.car_value) : 0;
+    const depPct = s && baseVal ? Math.round((s.dep / baseVal) * 1000) / 10 : 0;
     const kind = corp ? '법인 견적' : '중장기 신청';
 
     const customerId = await upsertCustomer(env.DB, {
@@ -245,13 +281,16 @@ export function registerPublic(r) {
     });
     await recordConsent(env.DB, customerId, { marketing: !!b.marketing });
     const no = await nextNo(env.DB, 'applications', 'L');
-    const extra = plan
+    const extra = usedQ
+      ? [usedQ.self ? '자차 포함' : '자차 불포함', `만기 인수가 ${won(usedQ.row.buyout)}`].join(' · ')
+      : plan
       ? [plan.km_year ? `연 ${plan.km_year.toLocaleString('ko-KR')}km` : '', plan.buyout ? `만기 인수가 ${won(plan.buyout)}` : ''].filter(Boolean).join(' · ')
       : q ? describe(q.p, s) : '';
     const row = {
       no, applicant_type: corp ? 'corp' : 'person', vehicle_id: vehicle ? vehicle.id : null, vehicle_name: vehicle ? vehicle.name : cleanText(b.vehicleWish, 100),
       term: s ? s.term : null, dep_pct: s ? Math.round(depPct) : null, deposit_amt: depositAmt, prepay_amt: prepayAmt, monthly,
       km: s && s.km ? `연 ${s.km.toLocaleString('ko-KR')}km` : '', extra, plan_id: plan ? plan.id : null,
+      quote_json: usedQ ? JSON.stringify({ term: usedQ.row.term, dep: usedQ.dep, pre: usedQ.pre, self: usedQ.self, month: usedQ.row.month, std: usedQ.row.std, buyout: usedQ.row.buyout }) : '',
       company, biz_no: cleanText(b.bizNo, 20), qty: cleanText(b.qty, 20), name, phone, wish_date: cleanText(b.wishDate, 20),
       request: cleanText(b.request, 1000), customer_id: customerId,
     };

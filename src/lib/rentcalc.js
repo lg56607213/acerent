@@ -55,7 +55,8 @@ export const DEFAULT_QUOTE_CONFIG = {
   insNote: '보험 보상 및 면책 조건의 세부 내용은 렌트 계약서 기준으로 적용됩니다.',
   // 자차 한도 올리기: 기본은 차종 등급의 한도(소·중형 400만원 · 대형 700만원), 고르면 월 보험료에 add 원을 더함 (공급가 기준)
   carLimits: [{ id: 'c1000', label: '1,000만원', add: 6000 }, { id: 'full', label: '차량가액 전액', add: 12000 }],
-  carLimitModels: '포터,봉고', // 자차 한도를 바꿀 수 있는 모델 (모델명에 들어간 글자, 쉼표 구분) — 승용은 기본 한도만
+  carLimitModels: '포터,봉고',
+  usedSelfIns: 40000, // 중장기 견적형(중고차): 자차 보험 포함 시 월 렌트료 추가금 (부가세 포함 최종 금액 기준) // 자차 한도를 바꿀 수 있는 모델 (모델명에 들어간 글자, 쉼표 구분) — 승용은 기본 한도만
   maturity: '반납형',
   guide: '본 견적서는 견적일 기준 차량가격 및 금리로 산출되었으며, 차량 출고 시점의 가격·금리·심사 결과에 따라 변동될 수 있습니다. 월 렌트료에는 자동차세, 보험료가 포함되어 있습니다.',
 };
@@ -245,4 +246,46 @@ export function toPublic(r) {
         : { on: o.on, n: o.n, km: o.km, pre: o.pre, dep: o.dep, agUser: o.agUser, rv: o.rv, rvMax: o.rvMax, rvCapped: o.rvCapped, rvAmtVat: o.rvAmtVat, supply: o.supply, vat: o.vat, month: o.month, upfront: o.upfront, total: o.total }
     ),
   };
+}
+
+
+// ── 중장기 '견적형'(중고차) 계산 ─────────────────────────────────────
+// 관리자가 차량마다 넣은 취득원가 · 기간별 잔가율과 견적 설정(금리 · 보험료 · 정비료 · 자동차세)으로 계산. AG 수수료 없음(직접 고객).
+//   월 렌트료 = PMT(금리/12, 개월, -(취득원가) + 선납금/1.1 + 보증금, 취득원가×잔가율 - 보증금) + 자동차세/12 + 보험료 + 정비료, 부가세 10%
+//   자차 포함이면 최종 월 렌트료에 usedSelfIns 를 더함. 보증금 · 선납금 % 는 취득원가 기준.
+export const USED_TERMS = [12, 24, 36, 48, 60];
+export function usedRates(raw) {
+  let o = raw;
+  if (typeof raw === 'string') { try { o = JSON.parse(raw || '{}'); } catch { o = {}; } }
+  const out = {};
+  for (const t of USED_TERMS) { const r = Number(o?.[t]); if (r > 0 && r < 1) out[t] = Math.round(r * 10000) / 10000; }
+  return out;
+}
+export function computeUsed(veh, sel, cfg) {
+  const acq = Math.max(0, num(veh.acq_cost));
+  const rates = usedRates(veh.rv_rates);
+  const terms = USED_TERMS.filter((t) => rates[t]);
+  if (!acq || !terms.length) return { ok: false, error: '견적 정보를 준비 중입니다. 1644-8891로 문의해 주세요.' };
+  const r1000 = (x) => Math.round(x / 1000) * 1000;
+  const dep = r1000(Math.max(0, num(sel.dep)));
+  const pre = r1000(Math.max(0, num(sel.pre)));
+  if (dep + pre >= acq) return { ok: false, error: '보증금과 선납금 합계가 차량가격보다 작아야 합니다.' };
+  const self = !!sel.self;
+  const fuel = String(veh.fuel || '');
+  const trLike = [0, 0, 0, 0, 0, 0, num(veh.displacement), fuel.includes('전기') ? '전기' : veh.class === '화물' ? '화물' : '승용', ''];
+  const mTax = R(annualTax(trLike, cfg) / 12);
+  const rate = rateOf(cfg.rate);
+  const ins = Math.max(0, num(cfg.insurance)), maint = Math.max(0, num(cfg.maint));
+  const selfAdd = self ? Math.max(0, num(cfg.usedSelfIns)) : 0;
+  const calc = (n, preAmt) => {
+    const rvAmt = R(acq * rates[n]);
+    const fin = R(PMT(rate / 12, n, -acq + R(preAmt / 1.1) + dep, rvAmt - dep, 0));
+    const supply = fin + mTax + ins + maint;
+    return { month: supply + R(supply * 0.1) + selfAdd, rvAmt };
+  };
+  const rows = terms.map((n) => {
+    const withPre = calc(n, pre), std = calc(n, 0);
+    return { term: n, month: withPre.month, std: std.month, preDeduct: std.month - withPre.month, buyout: R(withPre.rvAmt * 1.1) };
+  });
+  return { ok: true, terms, rows, dep, pre, upfront: dep + pre, self, selfAdd: self ? selfAdd : 0, base: acq };
 }

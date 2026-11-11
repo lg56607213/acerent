@@ -13,3 +13,4 @@
 - 견적 사용자 렌트료 계산은 src/lib/rentcalc.js (서버 전용, 엑셀 견적기와 같은 식). 설정은 settings.quote_config(JSON). 사용자 응답은 toPublic() 으로 결과 금액만 — 금리 · 보험료 · 원가 · 금융분 · IRR 을 응답에 넣지 말 것. 차량 가격표 데이터는 src/data/quote-data.json.
 - 이벤트 · 이용후기: src/routes/community.js, 광고 차단(Turnstile · 문자 인증 · 차단 규칙)은 src/lib/guard.js — 설정값이 비어 있으면 꺼진 채로 동작. 마케팅 수신 동의는 선택(필수로 묶지 말 것), customers.marketing_agree/marketing_agreed_at, 기록은 util.recordConsent().
 - 중장기 차량: 관리자 '+ 차량 등록'(차량번호) → 이용금액 줄(long_plans: 보증금 · 개월 · 월렌트료 · 연간km · 만기인수가, is_main 대표) · 옵션(option_list, public/assets/longopts.js) · 계약/보험 조건(terms). 이용금액 줄이 있으면 고객 화면은 줄 선택 방식, 없으면 예전 자동계산(longcalc.js).
+- 중장기 견적형(price_mode=quote): 취득원가(acq_cost) · 기간별 잔가율(rv_rates) → rentcalc.computeUsed() 서버 계산(금리 · 보험료 · 정비료 · 자동차세는 quote_config, 자차 포함 시 usedSelfIns 추가). 고객에게 취득원가 · 잔가율 · 금리를 직접 내려주지 않음 (결과 금액만).

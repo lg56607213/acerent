@@ -60,6 +60,7 @@ function cleanConfig(b) {
     id: /^[a-z0-9]{1,12}$/.test(String(x?.id || '')) ? x.id : 'l' + (i + 1),
     label: cleanText(x?.label, 20), add: n(x?.add, 0, 0, 10000000),
   })).filter((x, i, a) => x.label && a.findIndex((y) => y.id === x.id) === i);
+  out.usedSelfIns = n(b.usedSelfIns ?? d.usedSelfIns, 0, 0, 1000000);
   out.carLimitModels = typeof b.carLimitModels === 'string' ? cleanText(b.carLimitModels, 100) : d.carLimitModels;
   return out;
 }

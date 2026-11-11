@@ -5,6 +5,7 @@ import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
 import { pricingOf } from '../../public/assets/longcalc.js';
+import { usedRates, computeUsed, loadQuoteConfig } from '../lib/rentcalc.js';
 import { ALL_OPTIONS, STATUS as LONG_STATUS, MAKERS, MAINT, AGE } from '../../public/assets/longopts.js';
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
@@ -356,6 +357,8 @@ export function registerAdmin(r) {
     added_options: rows({ name: 60, price: 'i' }), usage_history: rows({ kind: 30, period: 40, user: 40 }), repair_history: rows({ date: 20, detail: 200, cost: 'i' }),
     pricing: pricingField,
     maker: 's20', model_group: 's40',
+    price_mode: (v) => (v === 'quote' ? 'quote' : 'table'), acq_cost: 'i',
+    rv_rates: (v) => JSON.stringify(usedRates(v && typeof v === 'object' ? v : {})),
     option_list: (v) => JSON.stringify((Array.isArray(v) ? v : []).filter((x) => ALL_OPTIONS.includes(x))),
     terms: (v) => {
       const t = v && typeof v === 'object' ? v : {};
@@ -393,7 +396,7 @@ export function registerAdmin(r) {
       env.DB.prepare('SELECT * FROM long_plans WHERE vehicle_id = ? ORDER BY sort, id').bind(id).all(),
     ]);
     const pj = (k, d = '[]') => { try { return JSON.parse(v[k] || d); } catch { return JSON.parse(d); } };
-    const vehicle = { ...v, added_options: pj('added_options'), usage_history: pj('usage_history'), repair_history: pj('repair_history'), pricing: pricingOf(v.pricing), option_list: pj('option_list'), terms: pj('terms', '{}') };
+    const vehicle = { ...v, rv_rates: usedRates(v.rv_rates), added_options: pj('added_options'), usage_history: pj('usage_history'), repair_history: pj('repair_history'), pricing: pricingOf(v.pricing), option_list: pj('option_list'), terms: pj('terms', '{}') };
     return json({ vehicle, prices: prices.results, plans: plans.results, photos: photos.results.map((p) => ({ ...p, url: img(p.image_key) })) });
   });
   // 차량번호로 등록 시작: 이미 있으면 그 차량, 없으면 (ERP 연동 시 ERP 정보로) 새 차량을 숨김 상태로 만들고 id 반환
@@ -411,7 +414,7 @@ export function registerAdmin(r) {
     const row = {
       plate, name: erp?.name || plate, class: erp?.class || '', year: int(erp?.year) || 0, first_reg: erp?.first_reg || '', km: int(erp?.km) || 0,
       fuel: erp?.fuel || '', color: erp?.color || '', seats: int(erp?.seats) || 0, new_price: int(erp?.new_price) || 0, displacement: int(erp?.displacement) || 0,
-      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고',
+      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고', price_mode: 'quote',
     };
     return json({ ok: true, id: await insertRow(env.DB, 'long_vehicles', row), existed: false, fromErp: !!erp });
   });
@@ -419,6 +422,13 @@ export function registerAdmin(r) {
     const row = pick(await readJson(request), LONG_FIELDS);
     if (!row.name) throw bad('차명을 입력해 주세요.');
     return json({ ok: true, id: await insertRow(env.DB, 'long_vehicles', row) });
+  });
+  // 견적형 미리 계산 (저장 전 입력값으로)
+  r.post('/api/admin/long/used-preview', async ({ env, request }) => {
+    const b = await readJson(request);
+    const cfg = await loadQuoteConfig(env.DB);
+    const veh = { acq_cost: int(b.acq_cost), rv_rates: b.rv_rates || {}, displacement: int(b.displacement), fuel: cleanText(b.fuel, 20), class: cleanText(b.class, 20) };
+    return json({ zero: computeUsed(veh, { dep: 0, pre: 0 }, cfg), self: computeUsed(veh, { dep: 0, pre: 0, self: true }, cfg), selfIns: cfg.usedSelfIns, rate: cfg.rate });
   });
   // 이용금액 통째로 저장: { plans: [{deposit, term, monthly, km_year, buyout, is_main}] }
   r.put('/api/admin/long/:id/plans', async ({ env, params, request }) => {

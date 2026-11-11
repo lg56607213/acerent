@@ -484,7 +484,7 @@ PAGES.long = async (arg) => {
 <div class="box scroll-x"><table class="a-table" style="min-width:860px"><thead><tr><th>사진</th><th>차량</th><th>차량번호</th><th class="num">사진</th><th class="num">대표 월 렌트료</th><th>출고여부</th><th>노출</th></tr></thead>
 <tbody>${items.length ? items.map((v) => `<tr class="click ${+arg === v.id ? 'sel' : ''}" data-id="${v.id}"><td>${v.photo ? `<img class="thumb" src="${esc(v.photo)}" alt="">` : '<span class="thumb empty">사진 없음</span>'}</td>
 <td><strong>${esc(v.name)}</strong><br><span class="hint">${[v.maker, v.model_group, v.year ? v.year + '년식' : '', v.km ? won(v.km) + 'km' : ''].filter(Boolean).map(esc).join(' · ')}</span></td>
-<td>${esc(v.plate || '-')}</td><td class="num">${v.photo_n}</td><td class="num">${v.main_monthly ? won(v.main_monthly) + '원' : v.plan_n ? '-' : '<span class="red">미입력</span>'}</td>
+<td>${esc(v.plate || '-')}</td><td class="num">${v.photo_n}</td><td class="num">${v.price_mode === 'quote' ? (v.acq_cost ? '견적형' : '<span class="red">견적형 · 취득원가 미입력</span>') : v.main_monthly ? won(v.main_monthly) + '원' : v.plan_n ? '-' : '<span class="red">미입력</span>'}</td>
 <td>${esc(LONG_STATUS[v.status] || v.status)}</td><td>${v.visible ? '<span class="st st-ok">노출</span>' : '<span class="st st-off">숨김</span>'}</td></tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:40px;text-align:center">등록된 차량이 없습니다. \'+ 차량 등록\'을 눌러 시작하세요.</td></tr>'}</tbody></table></div>
 <div id="detail"></div>`;
   $('#newCar').addEventListener('click', registerByPlate);
@@ -546,6 +546,8 @@ const kmList = (s) => String(s).split(/[,\s]+/).map((x) => x.replace(/[^\d.]/g, 
 
 async function carEditor(id) {
   const box = $('#detail');
+  const radio = (n) => ($(`input[name="${n}"]:checked`, box) || {}).value || '';
+  const num = (sel) => +($(sel, box).value || '').replace(/\D/g, '') || 0;
   const d = await api('/api/admin/long/' + id);
   const v = d.vehicle, photos = d.photos, t = v.terms || {};
   const opts2 = new Set(v.option_list || []);
@@ -584,9 +586,23 @@ async function carEditor(id) {
 <th>승차 인원</th><td><div class="u">${inp('v_seats', v.seats || '', '5', 'inputmode="numeric"')}<span>인승</span></div></td></tr>
 </tbody></table>
 
+<h3>가격 방식</h3>
+<div style="padding:0 18px">${radios('v_price_mode', { quote: '견적형 — 취득원가 · 잔가로 고객이 직접 견적 (내 견적 만들기)', table: '고정 가격표 — 이용금액 줄을 직접 입력' }, v.price_mode === 'table' ? 'table' : 'quote')}</div>
+
+<div id="qBlock">
+<h3>견적 조건 <span class="hint" style="font-weight:400">고객이 계약기간 · 보증금/선납금(0·10·20·30% 또는 직접입력) · 자차 포함 여부를 골라 월 렌트료를 봅니다. 금리 · 보험료 · 정비료 · 자차 추가금은 '견적 설정' 값을 씁니다.</span></h3>
+<table class="regt"><tbody>
+<tr><th>취득원가</th><td colspan="3"><div class="u">${inp('v_acq_cost', v.acq_cost ? won(v.acq_cost) : '', '예: 15,000,000', 'inputmode="numeric" style="max-width:200px"')}<span>원</span></div><span class="hint">보증금 · 선납금 % 와 잔가 금액의 기준입니다.</span></td></tr>
+<tr><th>기간별 잔가율</th><td colspan="3"><div class="tri">${[12, 24, 36, 48, 60].map((n) => `<label>${n}개월 <span class="u"><input class="input" data-rv="${n}" inputmode="decimal" value="${v.rv_rates && v.rv_rates[n] ? Math.round(v.rv_rates[n] * 1000) / 10 : ''}" placeholder="%" style="max-width:80px"><span>%</span></span></label>`).join('')}</div><span class="hint">비워 둔 기간은 고객 화면에 나오지 않습니다. 잔가 금액 = 취득원가 × 잔가율 (만기 인수가는 부가세 포함으로 표시)</span></td></tr>
+</tbody></table>
+<div style="padding:8px 18px 0"><button type="button" class="btn btn-sm" id="qPrev">미리 계산</button> <span class="hint">보증금 0 · 선납금 0 기준</span><div id="qPrevOut" style="margin-top:8px"></div></div>
+</div>
+
+<div id="pBlock">
 <h3>이용금액 <span class="hint" style="font-weight:400">메인 가격으로 고른 줄이 목록에 대표 가격으로 나옵니다. 월 렌트료는 부가세 포함.</span></h3>
 <div class="scroll-x" style="padding:0 18px"><table class="a-table plans" style="min-width:860px"><thead><tr><th style="width:60px">메인</th><th>보증금</th><th>계약 기간</th><th>월 렌트료</th><th>연간 주행거리</th><th>만기 인수가 (선택)</th><th></th></tr></thead><tbody id="planBody">${plans.map(planRow).join('')}</tbody></table>
 <button type="button" class="btn btn-xs" id="planAdd" style="margin:8px 0 0">+ 줄 추가</button></div>
+</div>
 
 <h3>차량옵션</h3>
 <table class="regt"><tbody>${OPTION_GROUPS.map(([g, list]) => `<tr><th>${esc(g)}</th><td colspan="3"><div class="optgrid">${list.map((o) => `<label class="ck"><input type="checkbox" data-opt="${esc(o)}" ${opts2.has(o) ? 'checked' : ''}>${esc(o)}</label>`).join('')}</div></td></tr>`).join('')}</tbody></table>
@@ -644,12 +660,21 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
     $$('[data-prm]', box).forEach((b) => (b.onclick = () => b.closest('tr').remove()));
     $$('#planBody input[data-k="monthly"]', box).forEach((i) => (i.onblur = () => { const n = +i.value.replace(/\D/g, ''); i.value = n ? won(n) : ''; }));
   };
+  const modeSync = () => { const q = radio('v_price_mode') !== 'table'; $('#qBlock').hidden = !q; $('#pBlock').hidden = q; };
+  $$('input[name="v_price_mode"]', box).forEach((r) => r.addEventListener('change', modeSync));
+  const rvRates = () => Object.fromEntries($$('[data-rv]', box).map((i) => [i.dataset.rv, (+i.value.replace(/[^\d.]/g, '') || 0) / 100]).filter(([, r]) => r > 0 && r < 1));
+  $('#v_acq_cost').addEventListener('blur', (e) => { const x = +e.target.value.replace(/\D/g, ''); e.target.value = x ? won(x) : ''; });
+  $('#qPrev').addEventListener('click', async () => {
+    const r = await run(() => api('/api/admin/long/used-preview', { method: 'POST', body: { acq_cost: num('#v_acq_cost'), rv_rates: rvRates(), displacement: v.displacement, fuel: radio('v_fuel'), class: $('#v_class').value } }));
+    if (!r.zero.ok) return ($('#qPrevOut').innerHTML = `<p class="red small" style="margin:0">${esc(r.zero.error)}</p>`);
+    $('#qPrevOut').innerHTML = `<table class="a-table" style="max-width:640px"><thead><tr><th>기간</th><th class="num">만기 인수가</th><th class="num">월 렌트료 (자차 불포함)</th><th class="num">자차 포함 (+${won(r.selfIns)}원)</th></tr></thead><tbody>${r.zero.rows.map((x, i) => `<tr><td>${x.term}개월</td><td class="num">${won(x.buyout)}</td><td class="num"><strong>${won(x.month)}</strong></td><td class="num">${won(r.self.rows[i].month)}</td></tr>`).join('')}</tbody></table><p class="hint" style="margin:4px 0 0">금리 ${r.rate}% · 견적 설정 기준</p>`;
+  });
   $('#planAdd').addEventListener('click', () => { $('#planBody').insertAdjacentHTML('beforeend', planRow({ km_year: 30000 })); bindPlans(); });
   bindPlans();
+  modeSync();
   $$('.money', box).forEach((i) => i.addEventListener('blur', () => { const x = +i.value.replace(/\D/g, ''); i.value = x ? won(x) : ''; }));
   $('#v_km').addEventListener('blur', (e) => { const x = +e.target.value.replace(/\D/g, ''); e.target.value = x ? won(x) : ''; });
-  const radio = (n) => ($(`input[name="${n}"]:checked`, box) || {}).value || '';
-  const num = (sel) => +($(sel, box).value || '').replace(/\D/g, '') || 0;
+
   $$('input[name="t_maint"]', box).forEach((r) => r.addEventListener('change', () => ($('#t_maintDesc').placeholder = '비우면: ' + MAINT_DEF[r.value])));
   $('#t_maintDesc').placeholder = '비우면: ' + MAINT_DEF[radio('t_maint') || 'none'];
 
@@ -663,12 +688,14 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
 
   $('#vSave').addEventListener('click', async () => {
     const plansNow = collectPlans();
-    const badRow = plansNow.find((p) => !p.term || !p.monthly);
+    const badRow = radio('v_price_mode') === 'table' && plansNow.find((p) => !p.term || !p.monthly);
     if (badRow) return toast('이용금액 줄마다 계약 기간과 월 렌트료를 넣어 주세요. (빈 줄은 삭제)', true);
     const name = $('#v_name').value.trim();
     if (!name) return toast('차량명 / 등급을 입력해 주세요.', true);
     const visible = $('#v_visible').checked;
-    if (visible && !plansNow.length) return toast('홈페이지에 노출하려면 이용금액을 한 줄 이상 넣어 주세요.', true);
+    const quoteMode = radio('v_price_mode') !== 'table';
+    if (visible && quoteMode && (!num('#v_acq_cost') || !Object.keys(rvRates()).length)) return toast('견적형으로 노출하려면 취득원가와 잔가율(한 기간 이상)을 넣어 주세요.', true);
+    if (visible && !quoteMode && !plansNow.length) return toast('홈페이지에 노출하려면 이용금액을 한 줄 이상 넣어 주세요.', true);
     const y = $('#v_y').value, m = $('#v_m').value;
     const body = {
       maker: $('#v_maker').value, model_group: $('#v_model_group').value, class: $('#v_class').value, status: radio('v_status') || 'available',
@@ -685,10 +712,11 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
       car_value: num('#v_car_value'), new_price: num('#v_new_price'), accident: $('#v_accident').value, pickup: $('#v_pickup').value, avail_note: $('#v_avail_note').value,
       show_plate: $('#v_show_plate').value === '1', spec_text: $('#v_spec_text').value, usage_history: getUsage(), repair_history: getRepair(),
       visible, badge: v.badge || '즉시출고',
+      price_mode: quoteMode ? 'quote' : 'table', acq_cost: num('#v_acq_cost'), rv_rates: rvRates(),
     };
     await run(async () => {
       await api('/api/admin/long/' + id, { method: 'PATCH', body });
-      await api(`/api/admin/long/${id}/plans`, { method: 'PUT', body: { plans: plansNow } });
+      if (!quoteMode) await api(`/api/admin/long/${id}/plans`, { method: 'PUT', body: { plans: plansNow } }); // 견적형은 이용금액 줄을 쓰지 않음
     }, '저장했습니다.');
     route();
   });
@@ -1093,6 +1121,8 @@ PAGES.quoteconfig = async () => {
 <div><button class="btn btn-sm" type="button" id="grAdd">+ 보험 등급 추가</button></div>
 <input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
 <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">중장기 견적형 (중고차 내 견적 만들기)</h2><p class="hint" style="margin:0">금리 · 월 보험료 · 정비료는 위 견적 설정 값을 같이 씁니다. 차량별 취득원가 · 잔가율은 '중장기 차량'에서 넣습니다.</p>
+${f('usedSelfIns', '자차 포함 시 월 렌트료 추가금 (원, 부가세 포함 최종 금액 기준)')}</div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자차 한도 올리기 (화물차)</h2>
 <p class="hint" style="margin:0">견적서에서 자차 한도를 기본(차종 등급 한도) 대신 고를 수 있게 합니다. 고르면 월 보험료(공급가)에 추가금이 더해지고 견적서 '자차 한도' 칸이 바뀝니다. 회원에게는 한도 이름만 보이고 추가 보험료는 보이지 않습니다.</p>
 ${f('carLimitModels', '변경 가능한 모델 (모델명에 들어간 글자, 쉼표 구분 — 비우면 아무 차종도 변경 불가)')}

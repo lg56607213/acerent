@@ -20,6 +20,8 @@ const P = v.pricing;
 // 관리자가 '이용금액' 줄을 넣은 차량은 그 줄 중에서 고르는 방식 (없으면 기존 자동 계산 방식)
 const plans = data.plans || [];
 const PLAN = plans.length > 0;
+// 견적형(중고차): 서버에서 계산 — 계약기간 · 보증금 · 선납금 · 자차 포함 여부
+const USED = !!(data.used && data.used.terms && data.used.terms.length);
 const cv = v.car_value || 0;
 root.innerHTML = '';
 root.append($('#carTpl').content.cloneNode(true));
@@ -214,7 +216,67 @@ function calc() {
   $('#applyBtn').textContent = has ? `${s.term}개월 · 월 ${won(Q.monthly)}원 신청` : '상담 신청';
 }
 
+// ── 견적형 ──
+const U = { term: 0, dep: 0, pre: 0, depC: false, preC: false, self: false, res: data.used ? { dep: 0, pre: 0, upfront: 0, self: false, ...data.used } : null, seq: 0 };
+const pctAmt = (p) => Math.round(((data.used?.base || 0) * p) / 100 / 1000) * 1000;
+function usedChips(boxSel, items, isOn, onPick) {
+  $(boxSel).innerHTML = items.map((it, i) => `<button type="button" class="opt ${isOn(it) ? 'on' : ''}" aria-pressed="${isOn(it)}" data-i="${i}">${it.html}</button>`).join('');
+  $$(boxSel + ' [data-i]').forEach((b) => b.addEventListener('click', () => onPick(items[+b.dataset.i])));
+}
+let uTimer;
+function usedFetch() {
+  clearTimeout(uTimer);
+  uTimer = setTimeout(async () => {
+    const my = ++U.seq;
+    try {
+      const r = await api('/api/long/used-quote', { method: 'POST', body: { vehicleId: v.id, dep: U.dep, pre: U.pre, self: U.self } });
+      if (my !== U.seq) return;
+      U.res = r; $('#uErr').textContent = ''; usedDraw();
+    } catch (e) { if (my === U.seq) $('#uErr').textContent = e.message; }
+  }, 200);
+}
+function usedDraw() {
+  const r = U.res;
+  if (!U.term || !r.terms.includes(U.term)) U.term = r.terms[r.terms.length - 1];
+  const row = r.rows.find((x) => x.term === U.term) || r.rows[0];
+  const pcts = [0, 10, 20, 30];
+  usedChips('#uTerm', r.terms.map((t) => ({ t, html: `${t}개월` })), (it) => it.t === U.term, (it) => { U.term = it.t; usedDraw(); });
+  const amtChips = (key) => [...pcts.map((p) => ({ a: pctAmt(p), html: `${p ? W(pctAmt(p)) : '없음'}<small>${p}%</small>` })), { custom: true, html: '직접입력' }];
+  for (const [key, boxSel, cBox, cIn] of [['dep', '#uDep', '#uDepC', '#uDepIn'], ['pre', '#uPre', '#uPreC', '#uPreIn']]) {
+    const ck = key + 'C';
+    usedChips(boxSel, amtChips(key), (it) => (it.custom ? U[ck] : !U[ck] && it.a === U[key]), (it) => {
+      if (it.custom) { U[ck] = true; usedDraw(); $(cIn).focus(); return; }
+      U[ck] = false; U[key] = it.a; usedDraw(); usedFetch();
+    });
+    $(cBox).hidden = !U[ck];
+    if (document.activeElement !== $(cIn)) $(cIn).value = U[key] ? won(U[key]) : '';
+  }
+  usedChips('#uSelf', [{ s: false, html: '불포함' }, { s: true, html: `포함<small>월 +${won(data.used.selfIns || 0)}원</small>` }], (it) => it.s === U.self, (it) => { U.self = it.s; usedDraw(); usedFetch(); });
+  // 오른쪽: 기간별 월 렌트료 + 결제 내역
+  $('#terms').innerHTML = r.rows.map((x) => `<li><button type="button" class="${x.term === U.term ? 'on' : ''}" aria-pressed="${x.term === U.term}" data-ut="${x.term}"><span>${x.term}개월</span><strong>${won(x.month)}원</strong></button></li>`).join('');
+  $$('#terms button').forEach((b) => b.addEventListener('click', () => { U.term = +b.dataset.ut; usedDraw(); }));
+  $('.sum').innerHTML = `<div><span class="muted">초기납입금</span><span>${r.upfront ? W(r.upfront) : '없음'}</span></div>
+<div><span class="muted">· 보증금 / 선납금</span><span>${W(r.dep)} / ${W(r.pre)}</span></div>
+<div><span class="muted">표준 렌트료</span><span>${W(row.std)}</span></div>
+${row.preDeduct ? `<div><span class="muted">월 선납금 차감</span><span>-${W(row.preDeduct)}</span></div>` : ''}
+<div><span class="muted">자차 보험</span><span>${r.self ? '포함' : '불포함'}</span></div>
+<div><span class="muted">만기 인수가</span><span>${W(row.buyout)}</span></div>
+<div class="big"><span>${row.term}개월 최종 렌트료</span><strong>${W(row.month)}</strong></div>`;
+  $('#mTerm').textContent = `${row.term}개월 · 부가세 포함`;
+  $('#mMonthly').textContent = W(row.month);
+  $('#applyCond').textContent = `${row.term}개월 · 보증금 ${r.dep ? W(r.dep) : '없음'} · 선납금 ${r.pre ? W(r.pre) : '없음'} · 자차 ${r.self ? '포함' : '불포함'} · 만기 인수가 ${W(row.buyout)}`;
+  $('#applyMonthly').textContent = W(row.month) + ' (부가세 포함)';
+  $('#applyBtn').textContent = `${row.term}개월 · 월 ${won(row.month)}원 신청`;
+}
+if (USED) {
+  for (const [key, cIn] of [['dep', '#uDepIn'], ['pre', '#uPreIn']]) {
+    $(cIn).addEventListener('input', (e) => { U[key] = +e.target.value.replace(/\D/g, '') || 0; usedFetch(); });
+    $(cIn).addEventListener('blur', (e) => { e.target.value = U[key] ? won(U[key]) : ''; });
+  }
+}
+
 function update() {
+  if (USED) { usedDraw(); return; }
   if (PLAN) { calcPlan(); drawPlans(); return; }
   calc();
   // 직접입력 칸 값이 범위를 벗어났으면 맞춘 값으로 보여 줌
@@ -223,9 +285,10 @@ function update() {
   drawOptions();
   drawTerms();
 }
-if (PLAN) {
+if (PLAN || USED) {
   $$('.sec.fx').forEach((x) => (x.hidden = true));
   $$('.sec.pl').forEach((x) => (x.hidden = false));
+  if (USED) { $('#secPlans').hidden = true; $('#secUsed').hidden = false; $('#goApply').textContent = '이 견적으로 신청'; }
   if (!v.added_options.length) $('#secOpts').hidden = true; // 가격 붙은 추가 옵션이 없으면 숨김 (옵션은 '차량 옵션'에 표시)
   const tr = termRows(v.terms || {});
   const dl = (rows) => rows.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('');
@@ -281,7 +344,7 @@ $('#applyBtn').addEventListener('click', async () => {
     const r = await api('/api/long/applications', {
       method: 'POST',
       body: {
-        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: !PLAN && Q.rows.length ? s.term : null, km: s.km, dep: s.dep, pre: s.pre, liab: s.liab, maint: s.maint, region: s.region,
+        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: USED ? U.term : !PLAN && Q.rows.length ? s.term : null, km: s.km, dep: USED ? U.dep : s.dep, pre: USED ? U.pre : s.pre, self: USED ? U.self : undefined, liab: s.liab, maint: s.maint, region: s.region,
         company: f.company.value, bizNo: f.bizNo.value, qty: f.qty.value, name: f.name.value, phone: f.phone.value,
         wishDate: f.wishDate.value, request: f.request.value, website: f.website.value, agree: true, marketing: f.marketing.checked,
       },
