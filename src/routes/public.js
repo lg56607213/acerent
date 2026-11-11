@@ -84,7 +84,11 @@ export function registerPublic(r) {
     const name = cleanText(b.name, 30);
     const phone = cleanPhone(b.phone);
     if (!name) throw bad('이름을 입력해 주세요.');
-    if (!phone) throw bad('휴대폰 번호를 확인해 주세요.');
+    if (!phone || !/^01\d{9}$/.test(phone.replace(/\D/g, ''))) throw bad('휴대폰 번호 11자리를 확인해 주세요. (예: 010-1234-5678)');
+    // 생년월일: 비우거나 YYYY-MM-DD (숫자 8자리)
+    const birthRaw = String(b.birth || '').replace(/\D/g, '');
+    if (birthRaw && !/^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(birthRaw)) throw bad('생년월일 8자리를 확인해 주세요. (예: 1990-01-01)');
+    const birth = birthRaw ? `${birthRaw.slice(0, 4)}-${birthRaw.slice(4, 6)}-${birthRaw.slice(6)}` : '';
     if (!b.agree) throw bad('필수 동의 항목에 체크해 주세요.');
     const from = b.pickupAt, to = b.returnAt;
     if (!isLocalDateTime(from) || !isLocalDateTime(to)) throw bad('대여·반납 일시를 확인해 주세요.');
@@ -122,7 +126,7 @@ export function registerPublic(r) {
       no, location_id: loc.id, location_name: loc.name, location_fee: loc.fee || 0, pickup_at: from, return_at: to, days,
       model_id: model.id, model_name: model.name, vehicle_ref: vehicleRef, erp_vehicle_id: picked ? picked.id : '', day_rate: rate, rent_amt: rent,
       insurance_name: ins ? ins.name : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
-      customer_id: customerId, name, phone, birth: cleanText(b.birth, 20), license: cleanText(b.license, 20),
+      customer_id: customerId, name, phone, birth, license: cleanText(b.license, 20),
       flight: cleanText(b.flight, 30), request: cleanText(b.request, 500),
     };
     const cols = Object.keys(row);

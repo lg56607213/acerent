@@ -64,6 +64,9 @@
 .sum-total { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid var(--ink); padding-top: 14px; }
 .sum-total strong:last-child { font-size: 24px; color: var(--red); }
 @media (max-width: 760px) { .summary { position: static; } .car-row .pay { flex: 1 1 100%; align-items: stretch; } }
+/* 모바일: 차를 고르면 그 차만 보이고, '다른 차량 보기'로 목록 다시 열기 */
+.show-all { display: none; }
+@media (max-width: 760px) { #carList.picked .car-row.other { display: none; } #carList.picked .show-all { display: flex; } }
 </style>
 
 <div class="wrap page-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
@@ -122,8 +125,8 @@
 <h2 style="font-size:18px;margin:28px 0 12px">운전자 정보</h2>
 <form id="infoForm" class="form-table" novalidate>
 <div class="form-row"><label class="th" for="fName">이름</label><div class="td"><input class="input" id="fName" name="name" autocomplete="name" required></div></div>
-<div class="form-row"><label class="th" for="fPhone">휴대폰 번호</label><div class="td"><input class="input" id="fPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000" autocomplete="tel" required></div></div>
-<div class="form-row"><label class="th" for="fBirth">생년월일</label><div class="td"><input class="input" id="fBirth" name="birth" placeholder="1990-01-01"></div></div>
+<div class="form-row"><label class="th" for="fPhone">휴대폰 번호</label><div class="td"><input class="input" id="fPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000" autocomplete="tel" maxlength="13" data-mask="phone" required></div></div>
+<div class="form-row"><label class="th" for="fBirth">생년월일</label><div class="td"><input class="input" id="fBirth" name="birth" inputmode="numeric" placeholder="1990-01-01" maxlength="10" data-mask="birth" autocomplete="bday"></div></div>
 <div class="form-row"><label class="th" for="fLicense">면허 종류</label><div class="td"><select class="select" id="fLicense" name="license"><option>1종 보통</option><option>2종 보통</option><option>1종 대형</option></select></div></div>
 <div class="form-row"><label class="th" for="fFlight">항공편</label><div class="td"><input class="input" id="fFlight" name="flight" placeholder="공항 인수 시 (예: KE000)"></div></div>
 <div class="form-row"><label class="th" for="fReq">요청 사항</label><div class="td"><textarea class="textarea" id="fReq" name="request" rows="3" style="max-width:none"></textarea></div></div>

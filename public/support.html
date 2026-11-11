@@ -89,7 +89,7 @@
 <div class="rv-notice" id="rwNotice" hidden></div>
 <form id="rvForm" class="form-table" novalidate>
 <div class="form-row"><label class="th" for="rName">이름</label><div class="td"><input class="input" id="rName" name="name" autocomplete="name" maxlength="30"></div></div>
-<div class="form-row"><label class="th" for="rPhone">휴대폰 번호</label><div class="td" style="flex-direction:column;align-items:flex-start;gap:8px"><input class="input" id="rPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000" autocomplete="tel"><div id="rVerify" style="width:100%"></div><span class="small muted">커피 쿠폰은 이 번호로 보내 드립니다. 화면에는 이름 일부만 보입니다.</span></div></div>
+<div class="form-row"><label class="th" for="rPhone">휴대폰 번호</label><div class="td" style="flex-direction:column;align-items:flex-start;gap:8px"><input class="input" id="rPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000" autocomplete="tel" maxlength="13"><div id="rVerify" style="width:100%"></div><span class="small muted">커피 쿠폰은 이 번호로 보내 드립니다. 화면에는 이름 일부만 보입니다.</span></div></div>
 <div class="form-row"><label class="th" for="rCar">이용 차종</label><div class="td"><input class="input" id="rCar" name="carModel" list="rCarList" placeholder="예: K5, 카니발" maxlength="40"><datalist id="rCarList"></datalist></div></div>
 <div class="form-row"><label class="th" for="rMonth">이용 시기</label><div class="td"><input class="input" id="rMonth" name="useMonth" type="month" style="max-width:200px"></div></div>
 <div class="form-row"><div class="th" id="rRateLabel">만족도</div><div class="td"><div class="rate" role="radiogroup" aria-labelledby="rRateLabel" id="rRate"></div></div></div>
@@ -113,7 +113,7 @@
 <form id="qnaForm" class="form-table" novalidate>
 <div class="form-row"><label class="th" for="qType">문의 유형</label><div class="td"><select class="select" id="qType" name="type"><option>단기렌트 예약</option><option>중장기렌트 상담</option><option>법인 견적</option><option>사고 · 정비</option><option>요금 · 결제</option><option>기타</option></select></div></div>
 <div class="form-row"><label class="th" for="qName">이름</label><div class="td"><input class="input" id="qName" name="name" autocomplete="name"></div></div>
-<div class="form-row"><label class="th" for="qPhone">휴대폰 번호</label><div class="td"><input class="input" id="qPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000"></div></div>
+<div class="form-row"><label class="th" for="qPhone">휴대폰 번호</label><div class="td"><input class="input" id="qPhone" name="phone" type="tel" inputmode="numeric" placeholder="010-0000-0000" maxlength="13"></div></div>
 <div class="form-row"><label class="th" for="qTitle">제목</label><div class="td"><input class="input" id="qTitle" name="title" style="max-width:none"></div></div>
 <div class="form-row"><label class="th" for="qBody">내용</label><div class="td"><textarea class="textarea" id="qBody" name="body" rows="7" style="max-width:none"></textarea></div></div>
 <div class="form-row"><label class="th" for="qFiles">사진 첨부</label><div class="td" style="flex-direction:column;align-items:flex-start"><input type="file" id="qFiles" name="files" accept="image/jpeg,image/png,image/webp" multiple><span class="small muted">사고 · 차량 상태 사진 최대 5장</span></div></div>

@@ -1,4 +1,4 @@
-import { api, $, $$, esc, won, shortDt, defaultPeriod, initLayout, setBusy, classImage } from './common.js';
+import { api, $, $$, esc, won, shortDt, defaultPeriod, initLayout, setBusy, classImage, validBirth } from './common.js';
 
 const site = await initLayout();
 const qs = new URLSearchParams(location.search);
@@ -82,7 +82,7 @@ function render() {
   $('#carList').innerHTML = list.length
     ? list
         .map(
-          (m) => `<article class="car-row">
+          (m) => `<article class="car-row ${st.modelId && m.id !== st.modelId ? 'other' : ''}">
 <div class="photo"><img src="${esc(m.image || classImage(m.class))}" alt="${esc(m.maker + ' ' + m.name)}" loading="lazy" style="object-fit:contain;background:#fff"></div>
 <div class="info"><span class="small muted">${[m.class, m.fuel, m.seats ? m.seats + '인승' : ''].filter(Boolean).map(esc).join(' · ')}</span><strong style="font-size:18px">${esc(m.maker)} ${esc(m.name)}</strong>
 ${m.features ? `<span class="small muted">${esc(m.features)}</span>` : ''}<span class="small muted">1일 요금 1~2일 ${won(m.tiers[0])} · 3~4일 ${won(m.tiers[1])} · 5~6일 ${won(m.tiers[2])} · 7일~ ${won(m.tiers[3])}</span><span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
@@ -92,7 +92,7 @@ ${m.id === st.modelId && m.vehicles && m.vehicles.length ? `<fieldset class="veh
 <div class="veh-opts">${m.vehicles.map((v) => `<label class="veh-opt"><input type="radio" name="veh" value="${esc(v.id)}" ${v.id === st.vehicleId ? 'checked' : ''}><span><strong>${esc(v.plate)}</strong><br><span class="small muted">${vehMeta(v) || '-'}</span></span></label>`).join('')}</div></fieldset>` : ''}
 </article>`
         )
-        .join('')
+        .join('') + (st.modelId ? '<div class="show-all" style="justify-content:center;padding:14px 0"><button type="button" class="btn" id="showAll" style="height:42px">다른 차량 보기</button></div>' : '')
     : '<p class="empty">선택하신 기간에 예약 가능한 차량이 없습니다. 날짜를 바꾸거나 1644-8891로 문의해 주세요.</p>';
   $$('#carList button[data-id]').forEach((b) => b.addEventListener('click', () => {
     if (st.modelId !== +b.dataset.id) st.vehicleId = null;
@@ -104,6 +104,9 @@ ${m.id === st.modelId && m.vehicles && m.vehicles.length ? `<fieldset class="veh
     else if (innerWidth < 760) $('.summary').scrollIntoView({ behavior: 'smooth' });
   }));
   $$('input[name=veh]').forEach((r) => r.addEventListener('change', () => { st.vehicleId = r.value; summary(); }));
+  // 모바일에서는 고른 차만 보여 줌 (화면 폭 760px 이하, CSS 로 처리)
+  $('#carList').classList.toggle('picked', !!model());
+  $('#showAll')?.addEventListener('click', () => { st.modelId = null; st.vehicleId = null; render(); $('#carList').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   summary();
 }
 
@@ -161,7 +164,8 @@ $('#submitRes').addEventListener('click', async () => {
   const err = $('#infoErr');
   err.textContent = '';
   if (!f.name.value.trim()) return (err.textContent = '이름을 입력해 주세요.'), f.name.focus();
-  if (f.phone.value.replace(/\D/g, '').length < 10) return (err.textContent = '휴대폰 번호를 확인해 주세요.'), f.phone.focus();
+  if (!/^01\d{9}$/.test(f.phone.value.replace(/\D/g, ''))) return (err.textContent = '휴대폰 번호 11자리를 입력해 주세요. (예: 010-1234-5678)'), f.phone.focus();
+  if (f.birth.value && !validBirth(f.birth.value)) return (err.textContent = '생년월일 8자리를 입력해 주세요. (예: 1990-01-01)'), f.birth.focus();
   if (!$('#agree1').checked || !$('#agree2').checked) return (err.textContent = '필수 확인 항목에 체크해 주세요.');
   const btn = $('#submitRes');
   setBusy(btn, true, '접수 중…');

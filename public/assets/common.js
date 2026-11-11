@@ -84,3 +84,37 @@ export function setBusy(btn, busy, label) {
     btn.disabled = false;
   }
 }
+
+// ── 입력 칸 자동 형식: 휴대폰 010-0000-0000 (숫자 11자리까지), 생년월일 1990-01-01 (숫자 8자리까지) ──
+export function fmtPhone(v) {
+  const d = String(v).replace(/\D/g, '').slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}`;
+}
+export function fmtBirth(v) {
+  const d = String(v).replace(/\D/g, '').slice(0, 8);
+  if (d.length < 5) return d;
+  if (d.length < 7) return `${d.slice(0, 4)}-${d.slice(4)}`;
+  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
+}
+// 생년월일이 실제 있는 날짜인지 (1900년 이후 ~ 오늘)
+export function validBirth(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+  if (!m) return false;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3] && +m[1] >= 1900 && d <= new Date();
+}
+if (typeof document !== 'undefined' && !window.__aceMask) {
+  window.__aceMask = true;
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement)) return;
+    const kind = el.dataset.mask || (el.type === 'tel' ? 'phone' : '');
+    if (!kind) return;
+    const f = kind === 'birth' ? fmtBirth : kind === 'phone' ? fmtPhone : null;
+    if (!f) return;
+    const v = f(el.value);
+    if (v !== el.value) el.value = v;
+  });
+}
