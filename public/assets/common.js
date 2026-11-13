@@ -65,8 +65,8 @@ export async function initLayout() {
     $$('[data-site="tel"]').forEach((el) => el.setAttribute('href', 'tel:' + String(s.phone).replace(/\D/g, '')));
     $$('[data-site="messenger"]').forEach((el) => (el.textContent = s.messenger));
     $$('[data-site="address"]').forEach((el) => (el.textContent = s.address));
-    $$('[data-site="biz"]').forEach((el) => (el.textContent = s.bizNo || '[사업자번호]'));
-    $$('[data-site="ceo"]').forEach((el) => (el.textContent = s.ceo || '[대표자명]'));
+    $$('[data-site="biz"]').forEach((el) => (el.textContent = s.bizNo || '393-81-01841'));
+    $$('[data-site="ceo"]').forEach((el) => (el.textContent = s.ceo || '백은영'));
     return s;
   } catch {
     return null;
