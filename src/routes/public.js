@@ -1,7 +1,7 @@
 // 고객용 API
 import {
   HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalDays, nextNo, int,
-  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, dayRateFor,
+  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, dayRateFor, shortRent,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -66,10 +66,10 @@ export function registerPublic(r) {
     for (const m of results) {
       const n = counts.get(m.id) || 0;
       if (n > 0) {
-        const rate = dayRateFor(m, days);
+        const sr = shortRent(m, days);
         models.push({
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
-          features: m.features, dayRate: rate, rent: rate * days, left: n, image: img(m.image_key),
+          features: m.features, dayRate: sr.dayRate, rent: sr.rent, rentLabel: sr.label, left: n, image: img(m.image_key),
           // 고객이 고를 수 있는 차량 (차량번호 · 색상 · 주행거리). ERP 연동이 아니면 빈 목록
           vehicles: vehicles.get(m.id) || [],
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
@@ -115,8 +115,8 @@ export function registerPublic(r) {
       : null;
     // 실제로 제공하는 부가 옵션만 받는다 (카시트는 보유하지 않아 제외)
     const options = Array.isArray(b.options) ? b.options.map((o) => cleanText(o, 30)).filter((o) => SHORT_OPTIONS.includes(o)) : [];
-    const rate = dayRateFor(model, days);
-    const rent = rate * days;
+    const sr = shortRent(model, days);
+    const rate = sr.dayRate, rent = sr.rent;
     // 자차: 1일 요금 × 일수 + 정액(건당 한 번)
     const insAmt = ins ? ins.per_day * days + (ins.flat_fee || 0) : 0;
     const total = rent + insAmt + (loc.fee || 0);

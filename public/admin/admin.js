@@ -195,7 +195,7 @@ ${d ? `<div class="stats"><div><span>확정 대기</span><strong class="red">${d
 <div class="a-title"><h2 style="font-size:17px">${esc(x.no)} · ${esc(x.name)}</h2>${badge(RES_ST, x.status)}</div>
 <div class="split"><div class="l"><dl class="dl">
 <dt>연락처</dt><dd><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a></dd><dt>생년월일 · 면허</dt><dd>${esc(x.birth || '-')} · ${esc(x.license || '-')}</dd>
-<dt>차종</dt><dd>${esc(x.model_name)} (1일 ${won(x.day_rate)}원)</dd><dt>장소</dt><dd>${esc(x.location_name)}${x.location_fee ? ` (+${won(x.location_fee)}원)` : ''}</dd>
+<dt>차종</dt><dd>${esc(x.model_name)} (${x.days >= 7 ? `대여료 ${won(x.rent_amt)}원 · 7일째부터 1일 ${won(x.day_rate)}원` : `1일 ${won(x.day_rate)}원`})</dd><dt>장소</dt><dd>${esc(x.location_name)}${x.location_fee ? ` (+${won(x.location_fee)}원)` : ''}</dd>
 <dt>기간</dt><dd>${dt(x.pickup_at)} ~ ${dt(x.return_at)} · ${x.days}일</dd><dt>보험</dt><dd>${esc(x.insurance_name || '-')} ${x.insurance_amt ? `(${won(x.insurance_amt)}원)` : ''}</dd>
 <dt>옵션</dt><dd>${esc(JSON.parse(x.options || '[]').join(', ') || '-')}</dd><dt>예상 요금</dt><dd><strong>${won(x.total_amt)}원</strong></dd>
 <dt>항공편</dt><dd>${esc(x.flight || '-')}</dd><dt>요청 사항</dt><dd>${esc(x.request || '-')}</dd>
@@ -840,13 +840,13 @@ PAGES.short = async () => {
   main.innerHTML = `<div class="a-title"><div><h1>단기 차종 · 요금 · 보험</h1><p class="desc">차종별 일요금과 대표 이미지(현대 · 기아)를 관리합니다. 예약 가능한 대수는 ${s.erpEnabled ? 'rentcarerp 배차 일정에서 자동으로' : '아래 임시 차량 목록으로'} 계산됩니다.</p></div></div>
 <div id="models"></div><div id="ins"></div>${s.erpEnabled ? '' : '<div id="fleet"></div>'}`;
   await listEditor({
-    target: '#models', endpoint: 'short-models', title: '단기 차종 · 대여기간별 1일 요금', desc: '요금 = 대여 일수 × 해당 구간 1일 요금 (비워둔 구간은 앞 구간 요금 사용). 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시되며, 없으면 차급별 기본 그림이 나옵니다.',
+    target: '#models', endpoint: 'short-models', title: '단기 차종 · 대여기간별 1일 요금', desc: '요금 = 대여 일수 × 해당 구간 1일 요금. 단, 7일 이상은 6일까지 5~6일 요금 × 6일 + 7일째부터 7일 이상 요금 × 남은 일수 (예: 10일 = 5~6일 요금 × 6 + 7일 요금 × 4). 비워둔 구간은 앞 구간 요금 사용. 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시되며, 없으면 차급별 기본 그림이 나옵니다.',
     columns: [
       { key: 'image_key', label: '대표 이미지', type: 'image', folder: 'model', fallback: true }, { key: 'maker', label: '제조사', w: 70 }, { key: 'name', label: '차종', w: 150 },
       { key: 'class', label: '차급', type: 'select', options: ['경차', '준중형', '중형', '대형', 'SUV', '승합', '수입'].map((x) => [x, x]) },
       { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', type: 'number', w: 50 },
       { key: 'day_rate', label: '1~2일 (1일)', type: 'number', w: 90 }, { key: 'rate_3_4', label: '3~4일 (1일)', type: 'number', w: 90 },
-      { key: 'rate_5_6', label: '5~6일 (1일)', type: 'number', w: 90 }, { key: 'rate_7', label: '7일 이상 (1일)', type: 'number', w: 90 },
+      { key: 'rate_5_6', label: '5~6일 (1일)', type: 'number', w: 90 }, { key: 'rate_7', label: '7일째부터 (1일)', type: 'number', w: 90 },
       { key: 'features', label: '주요 옵션', type: 'textarea', w: 180 }, { key: 'erp_code', label: 'ERP 차종코드', w: 100 }, { key: 'active', label: '사용', type: 'check' },
     ],
     blank: { maker: '기아', name: '새 차종', class: '준중형', fuel: '', seats: 5, day_rate: 0, active: 0 },

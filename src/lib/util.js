@@ -70,6 +70,19 @@ export function dayRateFor(model, days) {
   return r12;
 }
 
+// 단기 대여료: 1~6일은 해당 구간 1일 요금 × 일수, 7일 이상은 (5~6일 요금 × 6일) + (7일 이상 요금 × 7일째부터 일수)
+//   예) 5~6일 50,000 · 7일~ 30,000 → 10일 = 6 × 50,000 + 4 × 30,000
+export function shortRent(model, days) {
+  const r56 = model.rate_5_6 || model.rate_3_4 || model.day_rate || 0;
+  const r7 = model.rate_7 || r56;
+  if (days >= 7) {
+    const extra = days - 6;
+    return { rent: r56 * 6 + r7 * extra, dayRate: r7, label: `1일 ${r56.toLocaleString('ko-KR')}원 × 6일 + ${r7.toLocaleString('ko-KR')}원 × ${extra}일` };
+  }
+  const rate = dayRateFor(model, days);
+  return { rent: rate * days, dayRate: rate, label: `1일 ${rate.toLocaleString('ko-KR')}원 × ${days}일` };
+}
+
 export function cleanText(v, max = 200) {
   if (v === undefined || v === null) return '';
   return String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max);
