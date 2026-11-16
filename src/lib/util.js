@@ -41,12 +41,79 @@ export function isLocalDateTime(v) {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v);
 }
 
-// 대여 일수: 24시간 단위 올림, 최소 1일
-export function rentalDays(pickupAt, returnAt) {
+// 대여 기간 (예스렌터카와 같은 방식)
+//   일수 = 반납일 - 대여일 (날짜 기준, 같은 날 반납은 1일)
+//   초과 시간 = 반납 시각 - 대여 시각 (시 단위 내림, 0~10시간). 대여 시각보다 일찍 반납하면 0
+//   예) 12/1 10:00 ~ 12/2 13:30 → 1일 3시간 / 12/1 10:00 ~ 12/3 08:00 → 2일
+export function rentalPeriod(pickupAt, returnAt) {
   const a = Date.parse(pickupAt + ':00+09:00');
   const b = Date.parse(returnAt + ':00+09:00');
-  if (!isFinite(a) || !isFinite(b) || b <= a) return 0;
-  return Math.max(1, Math.ceil((b - a) / 86400000));
+  if (!isFinite(a) || !isFinite(b) || b <= a) return null;
+  const dateDiff = Math.round((Date.parse(returnAt.slice(0, 10)) - Date.parse(pickupAt.slice(0, 10))) / 86400000);
+  if (dateDiff <= 0) return { days: 1, hours: 0 };
+  const hhmm = (v) => +v.slice(11, 13) * 100 + +v.slice(14, 16);
+  const hours = Math.min(10, Math.max(0, Math.floor((hhmm(returnAt) - hhmm(pickupAt)) / 100)));
+  return { days: dateDiff, hours };
+}
+
+// 예전 이름 호환: 요금 일수
+export function rentalDays(pickupAt, returnAt) {
+  const p = rentalPeriod(pickupAt, returnAt);
+  return p ? p.days : 0;
+}
+
+const ceil1000 = (n) => Math.ceil(n / 1000) * 1000;
+
+// 기간에 토·일요일이 하루라도 있는지 (대여일 ~ 반납일, 날짜 기준)
+export function hasWeekend(pickupAt, returnAt) {
+  const a = Date.parse(pickupAt.slice(0, 10) + 'T00:00:00Z');
+  const b = Date.parse(returnAt.slice(0, 10) + 'T00:00:00Z');
+  for (let t = a, i = 0; t <= b && i < 8; t += 86400000, i++) {
+    const d = new Date(t).getUTCDay();
+    if (d === 0 || d === 6) return true;
+  }
+  return false;
+}
+
+// 성수기 할증률(%): 기간(날짜 기준)과 겹치는 성수기 중 가장 높은 할증률. peaks = [{ name, start_date, end_date, rate }]
+export function peakRate(pickupAt, returnAt, peaks) {
+  const s = pickupAt.slice(0, 10), e = returnAt.slice(0, 10);
+  let best = null;
+  for (const p of peaks || []) {
+    if (!p.rate || !p.start_date || !p.end_date) continue;
+    if (s <= p.end_date && e >= p.start_date && (!best || p.rate > best.rate)) best = p;
+  }
+  return best;
+}
+
+// 단기 대여료 전체 (예스렌터카 예약 화면과 같은 계산 순서)
+//   1) 일수 대여료 (요금표 또는 4구간)  2) 성수기 할증 (% · 천원 올림)  3) 주말 추가 (차종별 정액, 기간에 토·일이 있으면 1건당 한 번)
+//   4) 초과 시간: (1~3 합계 ÷ 일수) × 시간 × 10% (천원 올림, 최대 10시간)
+//   배회차비(장소) · 보험은 여기에 포함하지 않음
+export function shortQuote(model, pickupAt, returnAt, peaks) {
+  const period = rentalPeriod(pickupAt, returnAt);
+  if (!period) return null;
+  const { days, hours } = period;
+  const base = shortRent(model, days);
+  const peak = peakRate(pickupAt, returnAt, peaks);
+  const afterPeak = peak ? ceil1000((base.rent * (100 + peak.rate)) / 100) : base.rent;
+  const weekend = model.weekend_fee && hasWeekend(pickupAt, returnAt) ? model.weekend_fee : 0;
+  const sub = afterPeak + weekend;
+  const overtime = hours ? ceil1000(((sub / days) * hours) / 10) : 0;
+  const rent = sub + overtime;
+  const parts = [`${days}일 ${won(base.rent)}`];
+  if (peak) parts.push(`${peak.name || '성수기'} +${peak.rate}%`);
+  if (weekend) parts.push(`주말 +${won(weekend)}`);
+  if (overtime) parts.push(`${hours}시간 +${won(overtime)}`);
+  return {
+    days, hours, base: base.rent, peakName: peak ? peak.name : '', peakRate: peak ? peak.rate : 0, peakAmt: afterPeak - base.rent,
+    weekend, overtime, rent, dayRate: Math.round(rent / days), label: parts.join(' · '),
+  };
+}
+
+// '3일' / '1일 3시간'
+export function periodText(days, hours) {
+  return `${days}일${hours ? ` ${hours}시간` : ''}`;
 }
 
 // 신청번호: 접두어-YYYYMMDD-0001 (그날 순번)

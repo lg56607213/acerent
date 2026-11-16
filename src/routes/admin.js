@@ -11,11 +11,18 @@ import { ALL_OPTIONS, STATUS as LONG_STATUS, MAKERS, MAINT, AGE } from '../../pu
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
 const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
 
+// 날짜 칸: 'YYYY-MM-DD' 또는 'YYYYMMDD' 만 받음 (그 외 빈 값)
+const cleanDate = (v) => {
+  const d = String(v || '').replace(/\D/g, '');
+  return /^20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : '';
+};
+
 // 단순 목록형 테이블: 허용 칸만 받아서 추가·수정·삭제
 const SIMPLE = {
   locations: { table: 'locations', order: 'sort, id', fields: { name: 's60', type: 's20', guide: 's500', hours: 's60', fee: 'i', can_pickup: 'b', can_return: 'b', active: 'b', sort: 'i' } },
   insurance: { table: 'insurance_options', order: 'sort, id', fields: { name: 's60', per_day: 'i', flat_fee: 'i', active: 'b', sort: 'i' } },
-  'short-models': { table: 'short_models', order: 'sort, id', fields: { erp_code: 's40', maker: 's20', name: 's60', class: 's20', fuel: 's20', seats: 'i', features: 's200', day_rate: 'i', rate_3_4: 'i', rate_5_6: 'i', rate_7: 'i', rate_table: cleanRateTable, image_key: 'k', active: 'b', sort: 'i' } },
+  'short-models': { table: 'short_models', order: 'sort, id', fields: { erp_code: 's40', maker: 's20', name: 's60', class: 's20', fuel: 's20', seats: 'i', features: 's200', day_rate: 'i', rate_3_4: 'i', rate_5_6: 'i', rate_7: 'i', rate_table: cleanRateTable, weekend_fee: 'i', image_key: 'k', active: 'b', sort: 'i' } },
+  'short-peaks': { table: 'short_peaks', order: 'start_date, id', fields: { name: 's40', start_date: cleanDate, end_date: cleanDate, rate: 'i', active: 'b', sort: 'i' } },
   'short-vehicles': { table: 'short_vehicles', order: 'model_id, id', fields: { model_id: 'i', plate: 's20', year: 'i', active: 'b' } },
   banners: { table: 'banners', order: 'sort, id', fields: { image_key: 'k', text: 's120', sub_text: 's120', link: 's200', visible: 'b', sort: 'i' } },
   posts: { table: 'posts', order: "board, pinned DESC, sort, id DESC", fields: { board: 's10', title: 's150', body: 's20000', pinned: 'b', visible: 'b', sort: 'i', attachments: 'j', start_date: 's10', end_date: 's10', image_key: 's120', summary: 's200', cta_label: 's30', cta_link: 's200' }, touch: true },

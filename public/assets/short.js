@@ -2,13 +2,13 @@ import { api, $, $$, esc, won, shortDt, defaultPeriod, initLayout, setBusy, clas
 
 const site = await initLayout();
 const qs = new URLSearchParams(location.search);
-const st = { models: [], days: 0, cls: '전체', modelId: null, vehicleId: null, insId: null };
+const st = { models: [], days: 0, hours: 0, periodText: '', cls: '전체', modelId: null, vehicleId: null, insId: null };
 const locs = ((site && site.locations) || []).filter((l) => l.can_pickup);
 const ins = (site && site.insurance) || [];
 if (site && site.driverNote) $('#driverNote').textContent = site.driverNote;
 
 $('#loc').innerHTML = locs.length
-  ? locs.map((l) => `<option value="${l.id}">${esc(l.name)}${l.fee ? ` (+${won(l.fee)}원)` : ''}</option>`).join('')
+  ? locs.map((l) => `<option value="${l.id}">${esc(l.name)}${l.fee ? ` (배회차 ${won(l.fee)}원 추가)` : ''}</option>`).join('')
   : '<option value="">예약 장소 준비 중</option>';
 if (qs.get('loc')) $('#loc').value = qs.get('loc');
 const [df, dt] = defaultPeriod();
@@ -57,9 +57,11 @@ async function search() {
     const r = await api(`/api/short/search?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&location=${$('#loc').value}`);
     st.models = r.models;
     st.days = r.days;
+    st.hours = r.hours || 0;
+    st.periodText = r.periodText || `${r.days}일`;
     if (!model()) st.modelId = null;
     if (!vehicle()) st.vehicleId = null;
-    $('#period').textContent = `총 ${r.days}일`;
+    $('#period').textContent = `총 ${st.periodText}`;
     $('#soldOut').innerHTML = r.soldOut.length ? `<strong style="color:var(--ink)">예약 마감</strong> &nbsp; ${r.soldOut.map((n) => `<span style="text-decoration:line-through">${esc(n)}</span>`).join(' &nbsp; ')}` : '';
     history.replaceState(null, '', `?loc=${$('#loc').value}&from=${from}&to=${to}`);
     render();
@@ -86,7 +88,7 @@ function render() {
 <div class="photo"><img src="${esc(m.image || classImage(m.class))}" alt="${esc(m.maker + ' ' + m.name)}" loading="lazy" style="object-fit:contain;background:#fff"></div>
 <div class="info"><span class="small muted">${[m.class, m.fuel, m.seats ? m.seats + '인승' : ''].filter(Boolean).map(esc).join(' · ')}</span><strong style="font-size:18px">${esc(m.maker)} ${esc(m.name)}</strong>
 ${m.features ? `<span class="small muted">${esc(m.features)}</span>` : ''}<span class="small muted">${m.samples ? `대여료 ${m.samples.map(([d, v]) => `${d}일 ${won(v)}`).join(' · ')}` : `1일 요금 1~2일 ${won(m.tiers[0])} · 3~4일 ${won(m.tiers[1])} · 5~6일 ${won(m.tiers[2])} · 7일째부터 ${won(m.tiers[3])}`}</span><span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
-<div class="pay"><span class="small muted">${esc(m.rentLabel || `1일 ${won(m.dayRate)}원 × ${st.days}일`)}</span><strong>${won(m.rent)}원</strong>
+<div class="pay"><span class="small muted">${esc(m.rentLabel || `${st.periodText} 대여료`)}</span><strong>${won(m.rent)}원</strong>
 <button type="button" class="btn ${m.id === st.modelId ? 'btn-red' : ''} btn-block" style="height:42px;margin-top:8px" data-id="${m.id}" aria-pressed="${m.id === st.modelId}">${m.id === st.modelId ? '선택됨' : '선택'}</button></div>
 ${m.id === st.modelId && m.vehicles && m.vehicles.length ? `<fieldset class="veh-pick"><legend>차량 선택 <span class="small muted" style="font-weight:400">차량번호 · 색상 · 주행거리를 보고 골라 주세요</span></legend>
 <div class="veh-opts">${m.vehicles.map((v) => `<label class="veh-opt"><input type="radio" name="veh" value="${esc(v.id)}" ${v.id === st.vehicleId ? 'checked' : ''}><span><strong>${esc(v.plate)}</strong><br><span class="small muted">${vehMeta(v) || '-'}</span></span></label>`).join('')}</div></fieldset>` : ''}
@@ -125,7 +127,7 @@ function summary() {
   if (!m) return;
   const a = amounts();
   $('#sumCar').textContent = `${m.maker} ${m.name}${vehicle() ? ' · ' + vehLabel(vehicle()) : ''}`;
-  $('#sumPeriod').textContent = `${shortDt($('#from').value)} ~ ${shortDt($('#to').value)} · ${st.days}일`;
+  $('#sumPeriod').textContent = `${shortDt($('#from').value)} ~ ${shortDt($('#to').value)} · ${st.periodText}`;
   $('#sumRent').textContent = won(a.rent) + '원';
   $('#sumIns').textContent = won(a.insAmt) + '원';
   $('#sumLoc').textContent = a.fee ? won(a.fee) + '원' : '없음';
@@ -152,7 +154,7 @@ $('#goInfo').addEventListener('click', () => {
   const opts = $$('input[name=opt]:checked').map((x) => x.value);
   $('#cCar').textContent = `${m.maker} ${m.name}${vehicle() ? ' · ' + vehLabel(vehicle()) : ''}`;
   $('#cLoc').textContent = loc() ? loc().name : '';
-  $('#cPeriod').textContent = `${$('#from').value.replace('T', ' ')} ~ ${$('#to').value.replace('T', ' ')} (${st.days}일)`;
+  $('#cPeriod').textContent = `${$('#from').value.replace('T', ' ')} ~ ${$('#to').value.replace('T', ' ')} (${st.periodText})`;
   $('#cIns').textContent = [i ? i.name : '', ...opts].filter(Boolean).join(' · ');
   $('#cTotal').textContent = won(a.total) + '원';
   step(2);
@@ -181,7 +183,7 @@ $('#submitRes').addEventListener('click', async () => {
     });
     $('#dNo').textContent = r.no;
     $('#dCar').textContent = r.vehicle ? `${r.model} · ${r.vehicle}` : r.model;
-    $('#dPeriod').textContent = `${r.location} · ${r.pickupAt.replace('T', ' ')} ~ ${r.returnAt.replace('T', ' ')} (${r.days}일)`;
+    $('#dPeriod').textContent = `${r.location} · ${r.pickupAt.replace('T', ' ')} ~ ${r.returnAt.replace('T', ' ')} (${r.periodText || r.days + '일'})`;
     $('#dTotal').textContent = won(r.total) + '원';
     step(3);
   } catch (e) {
