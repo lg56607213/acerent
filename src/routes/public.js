@@ -66,7 +66,7 @@ export function registerPublic(r) {
     const period = rentalPeriod(from, to);
     if (!period) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
     const { days, hours } = period;
-    const [{ counts, vehicles }, peaks] = await Promise.all([availableSafe(env, { from, to, locationId }), loadPeaks(env.DB)]);
+    const [{ counts }, peaks] = await Promise.all([availableSafe(env, { from, to, locationId }), loadPeaks(env.DB)]);
     const { results } = await env.DB.prepare('SELECT * FROM short_models WHERE active = 1 ORDER BY sort, id').all();
     const models = [];
     const soldOut = [];
@@ -78,8 +78,6 @@ export function registerPublic(r) {
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
           features: m.features, dayRate: sr.dayRate, rent: sr.rent, rentLabel: sr.label, left: n, image: img(m.image_key),
           weekendFee: m.weekend_fee || 0,
-          // 고객이 고를 수 있는 차량 (차량번호 · 색상 · 주행거리). ERP 연동이 아니면 빈 목록
-          vehicles: vehicles.get(m.id) || [],
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
           // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
           samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, shortRent(m, d).rent]) : null,
@@ -114,11 +112,9 @@ export function registerPublic(r) {
     if (!model) throw bad('차량을 다시 선택해 주세요.');
     const { counts, vehicles } = await availableSafe(env, { from, to, locationId: loc.id });
     if (!(counts.get(model.id) > 0)) throw new HttpError(409, '방금 선택하신 차량이 마감되었습니다. 다른 차량을 선택해 주세요.');
-    // 고를 수 있는 차량이 있으면(ERP 연동) 고객이 고른 차량이 아직 비어 있어야 한다
+    // 고객은 차종만 고름 → ERP 연동 시 그 차종의 비어 있는 첫 차량을 자동 배정 (관리자 화면에서 바꿀 수 있음)
     const choices = vehicles.get(model.id) || [];
-    const picked = choices.length ? choices.find((v) => v.id === String(b.vehicleId || '')) : null;
-    if (choices.length && !b.vehicleId) throw bad('차량(차량번호)을 선택해 주세요.');
-    if (choices.length && !picked) throw new HttpError(409, '방금 선택하신 차량이 마감되었습니다. 다른 차량을 선택해 주세요.');
+    const picked = choices[0] || null;
     const vehicleRef = picked ? `${picked.plate}${picked.color ? ` (${picked.color})` : ''}` : '';
 
     const ins = b.insuranceId
@@ -163,7 +159,7 @@ export function registerPublic(r) {
         pushHold(env, row, model),
       ])
     );
-    return json({ ok: true, no, total, days, hours, periodText: periodText(days, hours), model: model.name, vehicle: vehicleRef, location: loc.name, pickupAt: from, returnAt: to });
+    return json({ ok: true, no, total, days, hours, periodText: periodText(days, hours), model: model.name, location: loc.name, pickupAt: from, returnAt: to });
   });
 
   // 중장기: 노출 중인 차량 목록 (기간별 기준 월 렌트료 + 가격 조건)
