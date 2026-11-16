@@ -1118,9 +1118,14 @@ PAGES.quoteconfig = async () => {
   const f = (k, label, v = c[k]) => `<label class="field">${label}<input class="input" data-c="${k}" value="${esc(v)}"></label>`;
   const rvRow = (key, label, arr) => `<tr data-rv="${esc(key)}"><td><strong>${esc(label)}</strong></td>${terms.map((t, i) => `<td><input class="input" style="text-align:right" data-i="${i}" value="${p100(arr?.[i])}" placeholder="-" aria-label="${esc(label)} ${t}개월"></td>`).join('')}</tr>`;
   main.innerHTML = `<div class="a-title"><div><h1>견적 설정</h1><p class="desc">회원 견적 화면(/quote)의 렌트료 계산과 견적서에 쓰입니다. 금리 · 보험료 · 자동차세 · 관리자 AG는 회원에게 보이지 않고, 회원은 결과 금액만 봅니다. 보험 조건(보상 한도 · 면책금)은 고객 견적서에 표시됩니다.</p></div><button class="btn btn-red btn-sm" id="qcSave1">저장</button></div>
-<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">금리 · 보험료 · AG</h2>
-<p class="hint" style="margin:0">렌트료 계산의 AG 수수료는 여기서 정한 관리자 AG에, 사용자가 상품별로 직접 넣는 사용자 AG를 더한 금액입니다.</p>
-<div class="grid2">${f('rate', '금리 (연 %)')}${f('insurance', '보험료 (월, 원)')}${f('ag', '관리자 AG 수수료 (% 또는 원, 예: 1%) — 사용자에게 안 보임')}${f('maint', '정비료 (월, 원) — Self 는 0')}</div></div>
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">상품구분별 금리 · 보험료 · AG</h2>
+<p class="hint" style="margin:0">견적기에서 상품구분(일반상품 · 저신용자상품)을 고르면 그 상품의 금리 · 보험료 · 관리자 AG · 최대 잔가율(아래 표)로 계산합니다. 회원에게는 상품명만 보이고 금리 등은 보이지 않습니다. 렌트료의 AG 수수료는 관리자 AG에 사용자가 직접 넣는 사용자 AG를 더한 금액입니다.</p>
+<div style="overflow-x:auto"><table class="a-table" style="max-width:820px"><thead><tr><th>코드</th><th>상품명 (견적기 표시)</th><th style="text-align:right">금리 (연 %)</th><th style="text-align:right">보험료 (월, 원)</th><th style="text-align:right">관리자 AG (% 또는 원)</th></tr></thead><tbody>
+${c.products.map((p) => p.code === 'N'
+    ? `<tr><td><strong>${esc(p.code)}</strong></td><td><input class="input" data-pn="${esc(p.code)}" value="${esc(p.name)}"></td><td><input class="input" style="text-align:right" data-c="rate" value="${esc(c.rate)}"></td><td><input class="input" style="text-align:right" data-c="insurance" value="${esc(c.insurance)}"></td><td><input class="input" style="text-align:right" data-c="ag" value="${esc(c.ag)}"></td></tr>`
+    : `<tr><td><strong>${esc(p.code)}</strong></td><td><input class="input" data-pn="${esc(p.code)}" value="${esc(p.name)}"></td>${['rate', 'insurance', 'ag'].map((k) => `<td><input class="input" style="text-align:right" data-pc="${esc(p.code)}" data-pk="${k}" value="${esc(p[k])}"></td>`).join('')}</tr>`).join('')}
+</tbody></table></div>
+<div class="grid2">${f('maint', '정비료 (월, 원, 모든 상품 공통) — Self 는 0')}</div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">보험 조건 (차종별 · 고객 견적서에 표시)</h2>
 <p class="hint" style="margin:0">보험 등급마다 보상 한도와 면책금을 정하고, 아래 차종 표에서 차종별로 등급을 지정합니다. 견적서에는 선택한 차종의 등급 값이 나갑니다.</p>
 <div class="grid2">${f('insAge', '운전가능연령 (전 차종 공통)')}</div>
@@ -1128,8 +1133,8 @@ PAGES.quoteconfig = async () => {
 <div><button class="btn btn-sm" type="button" id="grAdd">+ 보험 등급 추가</button></div>
 <input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
 <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
-<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">중장기 견적형 (중고차 내 견적 만들기)</h2><p class="hint" style="margin:0">금리 · 월 보험료 · 정비료는 위 견적 설정 값을 같이 씁니다. 차량별 취득원가 · 잔가율은 '중장기 차량'에서 넣습니다.</p>
-${f('usedSelfIns', '자차 포함 시 월 렌트료 추가금 (원, 부가세 포함 최종 금액 기준)')}
+<div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">중장기 견적형 (중고차 내 견적 만들기)</h2><p class="hint" style="margin:0">홈페이지 중고차 견적은 아래 금리를 쓰고, 월 보험료 · 정비료는 일반상품(N) 값을 같이 씁니다. 차량별 취득원가 · 잔가율은 '중장기 차량'에서 넣습니다.</p>
+<div class="grid2">${f('usedRate', '중고차 견적 금리 (연 %)')}${f('usedSelfIns', '자차 포함 시 월 렌트료 추가금 (원, 부가세 포함 최종 금액 기준)')}</div>
 <div class="grid2"><label class="field">차량 잔가율의 기준 약정거리<select class="select" data-c="usedRvKm">${opts([['10000', '연 1만km'], ['20000', '연 2만km'], ['30000', '연 3만km']], String(c.usedRvKm || 20000))}</select></label>${f('usedRvAdj', '5천km당 잔가 조정 (%p) — 짧으면 +, 길면 −')}</div>
 <p class="hint" style="margin:0">고객은 연 1만 · 2만 · 3만km 중 고릅니다. 예) 기준 2만km · 조정 1.4%p → 1만km 는 잔가 +2.8%p, 3만km 는 −2.8%p.</p></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">자차 한도 올리기 (화물차)</h2>
@@ -1147,9 +1152,11 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">최대 잔가율 (%)</h2>
 <p class="hint" style="margin:0">사용자는 이 값 이하로만 잔가율을 넣을 수 있고, 비워 두면 최대값이 적용됩니다. 약정거리가 기준보다 길면 아래 조정만큼 최대값이 내려갑니다. 칸을 비우면 그 기간은 견적을 낼 수 없습니다.</p>
 <div class="grid2">${f('rvKm', '잔가 기준 약정거리 (km/년)')}${f('rvAdj', '5천km당 잔가 조정 (%p)')}</div>
+<div class="tabs" role="tablist" style="display:flex;gap:6px;flex-wrap:wrap">${c.products.map((p, i) => `<button type="button" class="btn btn-sm ${i ? '' : 'btn-red'}" data-rvtab="${esc(p.code)}" aria-selected="${!i}">${esc(p.code)} · ${esc(p.name)} 잔가</button>`).join('')}
+<button type="button" class="btn btn-sm" id="rvCopy" hidden>일반상품(N) 잔가 그대로 복사</button></div>
 <input class="input" id="rvFind" placeholder="잔가그룹 찾기 (예: 쏘렌토)" style="max-width:280px" aria-label="잔가그룹 찾기">
-<div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="rvTbl" style="min-width:560px"><thead><tr><th style="position:sticky;top:0">잔가그룹</th>${terms.map((t) => `<th style="position:sticky;top:0;text-align:right">${t}개월</th>`).join('')}</tr></thead>
-<tbody>${rvRow('__default', '잔가표에 없는 차종', c.rvDefault)}${groups.map((g) => rvRow(g, g, c.rv[g])).join('')}</tbody></table></div></div>
+${c.products.map((p, i) => { const rv = p.code === 'N' ? c.rv : p.rv, rd = p.code === 'N' ? c.rvDefault : p.rvDefault; return `<div class="rvwrap" data-rvp="${esc(p.code)}" ${i ? 'hidden' : ''} style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table rvTbl" style="min-width:560px"><thead><tr><th style="position:sticky;top:0">잔가그룹 (${esc(p.name)})</th>${terms.map((t) => `<th style="position:sticky;top:0;text-align:right">${t}개월</th>`).join('')}</tr></thead>
+<tbody>${rvRow('__default', '잔가표에 없는 차종', rd)}${groups.map((g) => rvRow(g, g, rv[g])).join('')}</tbody></table></div>`; }).join('')}</div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">취득 비용 · 시공비</h2>
 <div class="grid2">${f('acq', '취득세율 (%)')}${f('plate1', '보조번호판')}${f('plate2', '번호판대')}${f('stamp', '인지대')}${f('reg', '등록대행 수수료')}${f('bond', '공채 할인비용')}${f('tint', '썬팅 시공비 (VAT포함)')}${f('bb', '블랙박스 시공비 (VAT포함)')}${f('del1', '제조사 탁송료 기본값 (사용자가 바꿀 수 있음)')}</div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">견적서 문구 (고객 견적서에 표시)</h2>
@@ -1188,7 +1195,19 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
 
   $('#rvFind').addEventListener('input', () => {
     const q = $('#rvFind').value.trim();
-    $$('#rvTbl tbody tr').forEach((tr) => (tr.hidden = !!q && tr.dataset.rv !== '__default' && !tr.dataset.rv.includes(q)));
+    $$('.rvTbl tbody tr').forEach((tr) => (tr.hidden = !!q && tr.dataset.rv !== '__default' && !tr.dataset.rv.includes(q)));
+  });
+  let rvCur = 'N';
+  $$('[data-rvtab]').forEach((b) => b.addEventListener('click', () => {
+    rvCur = b.dataset.rvtab;
+    $$('[data-rvtab]').forEach((x) => { const on = x === b; x.classList.toggle('btn-red', on); x.setAttribute('aria-selected', on); });
+    $$('.rvwrap').forEach((w) => (w.hidden = w.dataset.rvp !== rvCur));
+    $('#rvCopy').hidden = rvCur === 'N';
+  }));
+  $('#rvCopy').addEventListener('click', async () => {
+    if (!(await confirmBox('일반상품(N) 잔가표를 이 상품 잔가표에 그대로 덮어쓸까요? (저장해야 적용됩니다)', '복사'))) return;
+    const src = $$('.rvwrap[data-rvp="N"] tbody tr'), dst = $$(`.rvwrap[data-rvp="${rvCur}"] tbody tr`);
+    src.forEach((tr, i) => $$('input', tr).forEach((inp, j) => ($$('input', dst[i])[j].value = inp.value)));
   });
   const bindCl = () => $$('[data-clrm]').forEach((x) => (x.onclick = () => x.closest('tr').remove()));
   bindCl();
@@ -1197,11 +1216,21 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
     const b = {};
     $$('[data-c]').forEach((el) => (b[el.dataset.c] = el.value));
     const rvOf = (tr) => $$('input', tr).map((i) => { const v = i.value.trim().replace('%', ''); return v === '' ? null : Number(v) / 100; });
-    b.rv = {};
-    for (const tr of $$('#rvTbl tbody tr')) {
-      if (tr.dataset.rv === '__default') b.rvDefault = rvOf(tr);
-      else b.rv[tr.dataset.rv] = rvOf(tr);
-    }
+    const rvTable = (code) => {
+      const o = { rv: {}, rvDefault: [] };
+      for (const tr of $$(`.rvwrap[data-rvp="${code}"] tbody tr`)) {
+        if (tr.dataset.rv === '__default') o.rvDefault = rvOf(tr);
+        else o.rv[tr.dataset.rv] = rvOf(tr);
+      }
+      return o;
+    };
+    Object.assign(b, rvTable('N'));
+    b.products = c.products.map((p) => {
+      const o = { code: p.code, name: $(`[data-pn="${p.code}"]`).value.trim() };
+      if (p.code === 'N') return o;
+      $$(`[data-pc="${p.code}"]`).forEach((el) => (o[el.dataset.pk] = el.value));
+      return { ...o, ...rvTable(p.code) };
+    });
     b.cc = c.cc.map((r) => [...r]);
     $$('[data-cc]').forEach((el) => (b.cc[+el.dataset.cc][+el.dataset.j] = el.value));
     b.fixed = c.fixed.map((r) => [...r]);
@@ -1212,7 +1241,7 @@ ${c.fixed.map((r, i) => `<tr><td>${esc(r[0])}</td><td><input class="input" style
     return b;
   };
   const bad = () => {
-    for (const i of $$('#rvTbl input')) { const v = i.value.trim().replace('%', ''); if (v !== '' && !(Number(v) > 0 && Number(v) < 100)) { i.focus(); return '최대 잔가율은 0보다 크고 100보다 작은 % 숫자로 넣어 주세요.'; } }
+    for (const i of $$('.rvTbl input')) { const v = i.value.trim().replace('%', ''); if (v !== '' && !(Number(v) > 0 && Number(v) < 100)) { i.focus(); return '최대 잔가율은 0보다 크고 100보다 작은 % 숫자로 넣어 주세요.'; } }
     return '';
   };
   const save = async () => {
@@ -1255,6 +1284,7 @@ async function quoteLogDetail(id) {
   main.innerHTML = `<div class="a-title"><div><h1>견적 ${esc(x.no)}</h1><p class="desc">${kst(x.created_at)} 발행</p></div><a class="btn btn-sm" href="#quotelogs">목록으로</a></div>
 <div class="split"><div class="l box box-pad" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:16px">발행 정보</h2>
 <dl class="dl"><dt>사용자</dt><dd>${esc(x.user_name)} (${esc(x.username)})${x.user_company ? ' · ' + esc(x.user_company) : ''}</dd>
+<dt>상품구분</dt><dd><strong>${r.prod ? `${esc(r.prod.code)} · ${esc(r.prod.name)}` : 'N · 일반상품'}</strong></dd>
 <dt>고객</dt><dd>${esc(x.customer_name || '-')} (${esc(x.customer_type)})</dd><dt>견적서 담당자</dt><dd>${esc([inp.mgr, inp.tel].filter(Boolean).join(' / ') || '-')}</dd><dt>견적일</dt><dd>${esc(inp.date || '-')}</dd></dl></div>
 <div class="r box box-pad" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:16px">차량</h2>
 <dl class="dl"><dt>차량</dt><dd>${esc(x.vehicle)}</dd><dt>기본가격</dt><dd>${won(v.base)}원</dd>

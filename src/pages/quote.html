@@ -208,6 +208,8 @@ table.cl tr.sum td{font-weight:700;color:var(--fg)}
 
     <section class="card">
       <h2>상품 조건 <span class="tag" id="prodTag"></span></h2>
+      <div class="fields" style="margin-bottom:10px"><div class="f"><label for="prodSel">상품구분</label><select id="prodSel"><option value="N">N · 일반상품</option></select></div>
+        <div class="f wide"><label>&nbsp;</label><div class="note" id="prodInfo" style="margin:0"></div></div></div>
       <div class="tscroll"><table class="pt" id="pt"></table></div>
       <p class="note">선납금·보증금·AG수수료: 1 미만은 비율(0.1=10%), 1~999는 %, 1,000 이상은 금액(원). 잔가 직접입력은 금액(VAT포함)이 율보다 우선, 둘 다 비우면 잔가표 + 약정거리 조정. 수기 렌트료를 넣으면 견적서에는 그 금액이 월 렌트료로 표기되고(공급가·부가세는 그 금액에서 역산), 실질 IRR을 함께 보여줍니다.</p>
     </section>
@@ -282,9 +284,9 @@ const MAINT_DEF={'Self':['-','-','-','-','-','-'],'Basic':['●','-','●','●'
 
 /* ---------- 기본 견적 (엑셀 렌트견적 예시값) ---------- */
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function defProd(o){return Object.assign({on:true,term:36,km:30000,pre:'0',dep:'10%',rvRate:'',rvAmt:'',ins:SET.ins,mName:'Self',mAmt:0,rate:String(SET.rate),ag:SET.ag+'%',pay:'후불',manual:''},o)}
+function defProd(o){return Object.assign({on:true,term:36,km:30000,pre:'0',dep:'10%',rvRate:'',rvAmt:'',ins:prodIns(PROD),mName:'Self',mAmt:0,rate:String(prodRate(PROD)),ag:SET.ag+'%',pay:'후불',manual:''},o)}
 function defState(sample){
-  const s={date:today(),v:{mk:'',cat:'',model:'',line:'',trim:''},opts:[],ext:'',int:'',extra:0,del1:330000,del2:0,del3:0,tint:'고객자체시공',bb:'고객자체시공',carLim:'',otherName:'',otherAmt:0,mfr:'0',ctype:'법인',cname:'',mgr:'',tel:'',
+  const s={prod:PROD,date:today(),v:{mk:'',cat:'',model:'',line:'',trim:''},opts:[],ext:'',int:'',extra:0,del1:330000,del2:0,del3:0,tint:'고객자체시공',bb:'고객자체시공',carLim:'',otherName:'',otherAmt:0,mfr:'0',ctype:'법인',cname:'',mgr:'',tel:'',
     P:[defProd({term:36}),defProd({term:48}),defProd({term:60})]};
   if(sample){
     s.v={mk:'현대',cat:'포터II',model:'포터II 카고',line:'2WD',trim:'더블캡 모던'};s.opts=['5단 자동변속기'];s.ext='스노우 화이트 펄';s.int='블랙';
@@ -303,18 +305,42 @@ function insGrade(){
 }
 // 기본 설정 · 잔가표는 서버(홈페이지 관리자 › 견적 설정)에 저장 → 어느 PC에서 열어도 같고, 회원 견적에도 같은 값이 쓰임
 let CFG=null, RVT=DATA.RV, RVD=[null,null,null,null,null];
+// 상품구분 (N 일반상품 = 기본 설정 · 잔가표 그대로, 그 외 = 견적 설정의 상품별 금리 · 보험료 · 잔가표)
+let PROD='N', RVN={rv:RVT,rvd:RVD};
+function prodList(){return (CFG&&Array.isArray(CFG.products)&&CFG.products.length)?CFG.products:[{code:'N',name:'일반상품'}]}
+function prodOf(code){return prodList().find(p=>p.code===code)||prodList()[0]}
+function prodRate(code){const p=prodOf(code);return p.code==='N'?SET.rate:pnum(p.rate)}
+function prodIns(code){const p=prodOf(code);return p.code==='N'?SET.ins:pnum(p.insurance)}
+function stashRv(){ const p=prodOf(PROD); if(p.code==='N') RVN={rv:RVT,rvd:RVD}; else { p.rv=RVT; p.rvDefault=RVD; } }
+function loadRv(){ const p=prodOf(PROD); if(p.code==='N'){RVT=RVN.rv;RVD=RVN.rvd;} else {RVT=p.rv||RVN.rv;RVD=p.rvDefault||RVN.rvd;} }
+function buildProdSel(){
+  const list=prodList(); if(!list.some(p=>p.code===PROD)) PROD=list[0].code;
+  $('prodSel').innerHTML=list.map(p=>'<option value="'+esc(p.code)+'">'+esc(p.code)+' · '+esc(p.name)+'</option>').join('');
+  $('prodSel').value=PROD;
+  const p=prodOf(PROD);
+  $('prodInfo').textContent=p.code==='N'?'기본 설정의 금리 · 보험료 · 잔가표로 계산합니다.':'견적 설정의 「'+p.name+'」 금리 '+pnum(p.rate)+'% · 보험료 '+won(pnum(p.insurance))+'원 · 상품 잔가표가 기본값입니다. (잔가 설정에서 이 상품 잔가표를 고칩니다)';
+}
+function switchProd(code){
+  if(code===PROD) return;
+  const oldR=prodRate(PROD), oldI=prodIns(PROD);
+  stashRv(); PROD=code; S.prod=code; loadRv();
+  const nr=prodRate(code), ni=prodIns(code);
+  for(const p of S.P){ if(Math.abs(pnum(p.rate)-oldR)<1e-9) p.rate=String(nr); if(pnum(p.ins)===oldI) p.ins=ni; }
+  buildProdSel(); buildProdTable(); update();
+}
 const pnum=v=>{const x=parseFloat(String(v??'').replace(/[,%\s원]/g,''));return isFinite(x)?x:0};
 function cfgToSet(c){
   return {rate:pnum(c.rate), ins:pnum(c.insurance), ag:pnum(c.toolAg||'5'), acq:pnum(c.acq), plate1:c.plate1, plate2:c.plate2, stamp:c.stamp, reg:c.reg, bond:c.bond,
     rvKm:c.rvKm, rvAdj:c.rvAdj, tint:c.tint, bb:c.bb, carTax:c.carTax, cc:c.cc, fixed:c.fixed, company:c.company||SET.company, guide:c.guide||SET.guide};
 }
 function setToCfg(){
-  return {...CFG, rate:SET.rate, insurance:SET.ins, toolAg:SET.ag+'%', acq:SET.acq, plate1:SET.plate1, plate2:SET.plate2, stamp:SET.stamp, reg:SET.reg, bond:SET.bond,
-    rvKm:SET.rvKm, rvAdj:SET.rvAdj, tint:SET.tint, bb:SET.bb, carTax:SET.carTax, cc:SET.cc, fixed:SET.fixed, company:SET.company, guide:SET.guide, rv:RVT, rvDefault:RVD};
+  stashRv();
+  return {...CFG, products:prodList(), rate:SET.rate, insurance:SET.ins, toolAg:SET.ag+'%', acq:SET.acq, plate1:SET.plate1, plate2:SET.plate2, stamp:SET.stamp, reg:SET.reg, bond:SET.bond,
+    rvKm:SET.rvKm, rvAdj:SET.rvAdj, tint:SET.tint, bb:SET.bb, carTax:SET.carTax, cc:SET.cc, fixed:SET.fixed, company:SET.company, guide:SET.guide, rv:RVN.rv, rvDefault:RVN.rvd};
 }
 // 기본값을 바꾸면, 기본값 그대로 쓰던 상품 칸도 같이 바뀌게
 function carryDefaults(old){
-  if(typeof S==='undefined'||!S) return;
+  if(typeof S==='undefined'||!S||PROD!=='N') return;
   for(const p of S.P){
     if(old.rate!==undefined && Math.abs(pnum(p.rate)-old.rate)<1e-9 && old.rate!==SET.rate) p.rate=String(SET.rate);
     if(old.ag!==undefined && Math.abs(pnum(p.ag)-old.ag)<1e-9 && old.ag!==SET.ag) p.ag=SET.ag+'%';
@@ -326,12 +352,12 @@ async function saveCfg(){
   const r=await fetch('/api/admin/quote-config',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(setToCfg())});
   const d=await r.json().catch(()=>({}));
   if(!r.ok) return {ok:false,msg:d.error||'저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
-  CFG=d.config; return {ok:true};
+  CFG=d.config; loadRv(); return {ok:true};
 }
 fetch('/api/admin/quote-config',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
   if(!d||!d.config) return; const c=d.config; CFG=c;
   INS={insAge:c.insAge,call:c.call,maturity:c.maturity,insNote:c.insNote,insGrades:c.insGrades,insMap:c.insMap};
-  RVT=c.rv||DATA.RV; RVD=c.rvDefault||RVD;
+  RVN={rv:c.rv||DATA.RV, rvd:c.rvDefault||RVD}; loadRv(); buildProdSel();
   const old={rate:SET.rate,ag:SET.ag,ins:SET.ins};
   Object.assign(SET,cfgToSet(c)); carryDefaults(old);
   if(typeof update==='function'&&C){ buildProdTable(); if(typeof buildCarLim==='function') buildCarLim(); update(); }
@@ -339,6 +365,7 @@ fetch('/api/admin/quote-config',{credentials:'same-origin'}).then(r=>r.ok?r.json
 let SET = load('ace_set') || structuredClone(DEF_SET);
 for(const k in DEF_SET) if(SET[k]===undefined) SET[k]=structuredClone(DEF_SET[k]);
 let S = load('ace_state') || defState(true);
+PROD = S.prod || 'N'; S.prod = PROD;
 
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 function save(){try{localStorage.setItem('ace_state',JSON.stringify(S));localStorage.setItem('ace_set',JSON.stringify(SET))}catch(e){}}
@@ -698,6 +725,7 @@ function renderRv(){
 }
 $('btnRv').onclick=()=>{
   rvBackup={rv:structuredClone(RVT),rvd:[...RVD],km:SET.rvKm,adj:SET.rvAdj};
+  $('rvTitle').textContent='잔가 설정 — '+prodOf(PROD).code+' · '+prodOf(PROD).name;
   $('rv_km').value=SET.rvKm; $('rv_adj').value=SET.rvAdj; rvOnlyCur=false; $('rvFind').value=''; $('rvCur').textContent='현재 견적 차종만 보기';
   $('rvSaveInfo').textContent = CFG ? '저장하면 회원 견적의 최대 잔가율에도 적용됩니다.' : '홈페이지 관리자에 로그인하지 않아 이 브라우저에서만 쓰입니다.';
   rvExample(); renderRv(); $('rvModal').hidden=false; $('rvFind').focus();
@@ -761,11 +789,12 @@ $('pt').addEventListener('change',e=>{const t=e.target; if(t.dataset.p===undefin
 $('btnPdf').onclick=()=>makePdf('pdf');
 $('btnJpg').onclick=()=>makePdf('jpg');
 $('btnReset').onclick=()=>{
-  if(resetArm&&Date.now()-resetArm<4000){resetArm=0;$('btnReset').textContent='새 견적';S=defState(false);syncInputs();renderVehicleSelects();buildProdTable();update();toast('새 견적을 시작합니다');}
+  if(resetArm&&Date.now()-resetArm<4000){resetArm=0;$('btnReset').textContent='새 견적';S=defState(false);buildProdSel();syncInputs();renderVehicleSelects();buildProdTable();update();toast('새 견적을 시작합니다');}
   else{resetArm=Date.now();$('btnReset').textContent='한 번 더 누르면 초기화';setTimeout(()=>{if(resetArm&&Date.now()-resetArm>=4000){resetArm=0;$('btnReset').textContent='새 견적'}},4100);}
 };
 
-syncInputs(); renderVehicleSelects(); buildProdTable(); update();
+$('prodSel').addEventListener('change',()=>switchProd($('prodSel').value));
+buildProdSel(); syncInputs(); renderVehicleSelects(); buildProdTable(); update();
 if(document.fonts) document.fonts.ready.then(fitPaper);
 </script>
 

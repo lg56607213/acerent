@@ -22,7 +22,7 @@ function blankState() {
     date: today(), v: { mk: '', cat: '', model: '', line: '', trim: '' }, opts: [],
     ext: '', int: '', extra: '0', del1: String(CFG.del1 ?? 330000), del2: '0', del3: '0',
     tint: '고객자체시공', bb: '고객자체시공', otherName: '', otherAmt: '0', carLim: '',
-    ctype: '법인', cname: '', mgr: ME?.name || '', tel: ME?.phone || '',
+    prod: 'N', ctype: '법인', cname: '', mgr: ME?.name || '', tel: ME?.phone || '',
     P: [P(36, '10%'), P(48, '10%'), P(60, '10%')],
   };
 }
@@ -73,6 +73,9 @@ async function boot() {
   if (!S.P || S.P.length !== 3) S = blankState();
   S.P.forEach((p) => { if (p.ag === undefined) p.ag = '0'; });
   if (S.carLim === undefined) S.carLim = '';
+  const prods = Array.isArray(CFG.products) && CFG.products.length ? CFG.products : [{ code: 'N', name: '일반상품' }];
+  $('#prod').innerHTML = prods.map((p) => `<option value="${esc(p.code)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('');
+  if (!prods.some((p) => p.code === S.prod)) S.prod = prods[0].code;
   syncInputs(); renderVehicle(); buildProducts(); recalc(true);
 }
 
@@ -145,7 +148,7 @@ $('#opts').addEventListener('change', (e) => {
 });
 
 // ── 입력 칸 ───────────────────────────────────────────
-const BIND = ['ext', 'int', 'extra', 'del1', 'del2', 'del3', 'tint', 'bb', 'carLim', 'otherName', 'otherAmt', 'ctype', 'cname', 'mgr', 'tel'];
+const BIND = ['prod', 'ext', 'int', 'extra', 'del1', 'del2', 'del3', 'tint', 'bb', 'carLim', 'otherName', 'otherAmt', 'ctype', 'cname', 'mgr', 'tel'];
 const MONEY = ['extra', 'del1', 'del2', 'del3', 'otherAmt'];
 // 자차 한도 선택지 (추가 보험료는 서버에서만 계산 — 화면에는 이름만)
 // 포터 · 봉고 등 설정된 모델만 바꿀 수 있음 (승용은 기본 한도)

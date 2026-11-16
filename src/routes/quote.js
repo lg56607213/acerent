@@ -23,7 +23,7 @@ function cleanConfig(b) {
   const d = DEFAULT_QUOTE_CONFIG;
   const n = (v, def, min = 0, max = 1e12) => { const x = Number(String(v ?? '').replace(/[,\s원%]/g, '')); return Number.isFinite(x) && x >= min && x <= max ? x : def; };
   const out = {
-    rate: n(b.rate, d.rate, 0, 100), insurance: n(b.insurance, d.insurance), maint: n(b.maint, d.maint),
+    rate: n(b.rate, d.rate, 0, 100), usedRate: n(b.usedRate, d.usedRate, 0, 100), insurance: n(b.insurance, d.insurance), maint: n(b.maint, d.maint),
     ag: cleanText(b.ag, 20) || d.ag, toolAg: cleanText(b.toolAg, 20) || d.toolAg, acq: n(b.acq, d.acq, 0, 100),
     plate1: n(b.plate1, d.plate1), plate2: n(b.plate2, d.plate2), stamp: n(b.stamp, d.stamp), reg: n(b.reg, d.reg), bond: n(b.bond, d.bond),
     tint: n(b.tint, d.tint), bb: n(b.bb, d.bb), del1: n(b.del1, d.del1),
@@ -63,6 +63,20 @@ function cleanConfig(b) {
   out.usedSelfIns = n(b.usedSelfIns ?? d.usedSelfIns, 0, 0, 1000000);
   out.usedRvKm = [10000, 20000, 30000].includes(+b.usedRvKm) ? +b.usedRvKm : d.usedRvKm;
   out.usedRvAdj = n(b.usedRvAdj ?? d.usedRvAdj, d.usedRvAdj, 0, 20);
+  // 상품구분: N(일반)은 위 값, 나머지는 금리 · 보험료 · 관리자 AG · 잔가표를 따로
+  const bp = Array.isArray(b.products) ? b.products : [];
+  out.products = d.products.map((dp) => {
+    const x = bp.find((y) => y && y.code === dp.code) || {};
+    const name = cleanText(x.name, 20) || dp.name;
+    if (dp.code === 'N') return { code: 'N', name };
+    const rv = {};
+    for (const g of residualGroups()) rv[g] = rvRow(x.rv?.[g] ?? out.rv[g]);
+    return {
+      code: dp.code, name,
+      rate: n(x.rate, dp.rate ?? out.rate, 0, 100), insurance: n(x.insurance, out.insurance), ag: cleanText(x.ag, 20) || out.ag,
+      rv, rvDefault: rvRow(x.rvDefault ?? out.rvDefault),
+    };
+  });
   out.carLimitModels = typeof b.carLimitModels === 'string' ? cleanText(b.carLimitModels, 100) : d.carLimitModels;
   return out;
 }
@@ -153,6 +167,7 @@ export function registerQuote(r) {
     const pub = Object.fromEntries(PUBLIC_CONFIG_KEYS.map((k) => [k, cfg[k]]));
     pub.carLimits = (cfg.carLimits || []).map(({ id, label }) => ({ id, label })); // 추가 보험료는 내려주지 않음
     pub.carLimitModels = cfg.carLimitModels || '';
+    pub.products = (cfg.products || []).map(({ code, name }) => ({ code, name })); // 상품구분 이름만 (금리 · 잔가는 안 내려줌)
     return json({ ...vehicleData(), config: pub, terms: TERMS }, 200, { 'cache-control': 'private, no-store' });
   });
 
@@ -173,7 +188,7 @@ export function registerQuote(r) {
     if (broken) throw bad(broken.error);
     const v = res.vehicle;
     const vehicle = [v.mk, v.model, v.line, v.trim].filter(Boolean).join(' ');
-    const summary = shown.map((o) => `${o.n}개월 ${wonTxt(o.month)}${o.agUser ? ` (사용자AG ${wonTxt(o.agUser)})` : ''}`).join(' / ');
+    const summary = `[${res.prod.name}] ` + shown.map((o) => `${o.n}개월 ${wonTxt(o.month)}${o.agUser ? ` (사용자AG ${wonTxt(o.agUser)})` : ''}`).join(' / ');
     let no = '';
     for (let i = 0; i < 3; i++) {
       no = await nextNo(env.DB, 'quote_logs', 'Q');

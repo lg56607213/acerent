@@ -28,7 +28,8 @@ export function modelList() {
 const DEFAULT_INS_MAP = Object.fromEntries(modelList().map((m) => [m.key, LARGE_MODELS.has(m.model) ? 'large' : 'mid']));
 
 export const DEFAULT_QUOTE_CONFIG = {
-  rate: 12, // 연 %
+  rate: 10, // 연 % — 일반상품(상품구분 N) 금리. 저신용자상품 등 다른 상품구분은 products 의 값으로 덮어씀
+  usedRate: 12, // 중장기 견적형(홈페이지 중고차) 금리 연 %
   insurance: 100000, // 월 보험료 (원)
   toolAg: '5%', // 관리자용 견적기(/admin/quote)의 AG 수수료 기본값 (회원 견적과 무관)
   ag: '1%', // 관리자 AG 수수료 (사용자에게 안 보임): % 또는 원. 사용자 AG 는 상품별로 사용자가 따로 입력
@@ -58,6 +59,11 @@ export const DEFAULT_QUOTE_CONFIG = {
   carLimitModels: '포터,봉고',
   usedSelfIns: 40000, // 중장기 견적형(중고차): 자차 보험 포함 시 월 렌트료 추가금 (부가세 포함 최종 금액 기준)
   usedRvKm: 20000, usedRvAdj: 1.4, // 중장기 견적형: 차량별 잔가율의 기준 약정거리(연 km) · 5천km당 잔가 조정(%p) // 자차 한도를 바꿀 수 있는 모델 (모델명에 들어간 글자, 쉼표 구분) — 승용은 기본 한도만
+  // 상품구분: N = 일반상품(위의 금리 · 보험료 · AG · 잔가표 그대로), 그 외 상품은 아래 값으로 덮어씀 (잔가표가 비어 있으면 일반상품 잔가표 사용)
+  products: [
+    { code: 'N', name: '일반상품' },
+    { code: 'L', name: '저신용자상품', rate: 14 },
+  ],
   maturity: '반납형',
   guide: '본 견적서는 견적일 기준 차량가격 및 금리로 산출되었으며, 차량 출고 시점의 가격·금리·심사 결과에 따라 변동될 수 있습니다. 월 렌트료에는 자동차세, 보험료가 포함되어 있습니다.',
 };
@@ -72,7 +78,28 @@ export async function loadQuoteConfig(db) {
   const d = DEFAULT_QUOTE_CONFIG;
   const insGrades = Array.isArray(saved.insGrades) && saved.insGrades.length ? saved.insGrades : d.insGrades;
   const carLimits = Array.isArray(saved.carLimits) ? saved.carLimits : d.carLimits;
-  return { ...d, ...saved, rv: { ...d.rv, ...(saved.rv || {}) }, insGrades, carLimits, insMap: { ...d.insMap, ...(saved.insMap || {}) } };
+  const cfg = { ...d, ...saved, rv: { ...d.rv, ...(saved.rv || {}) }, insGrades, carLimits, insMap: { ...d.insMap, ...(saved.insMap || {}) } };
+  if (saved.usedRate === undefined && saved.rate !== undefined) cfg.usedRate = saved.rate; // 상품구분 도입 전 저장값: 중고차 금리는 예전 금리 유지
+  const savedP = Array.isArray(saved.products) ? saved.products : [];
+  cfg.products = d.products.map((dp) => {
+    const sp = savedP.find((x) => x && x.code === dp.code) || {};
+    if (dp.code === 'N') return { code: 'N', name: sp.name || dp.name };
+    return {
+      code: dp.code, name: sp.name || dp.name,
+      rate: sp.rate ?? dp.rate ?? cfg.rate, insurance: sp.insurance ?? cfg.insurance, ag: sp.ag || cfg.ag,
+      rv: { ...cfg.rv, ...(sp.rv || {}) }, rvDefault: Array.isArray(sp.rvDefault) ? sp.rvDefault : cfg.rvDefault,
+    };
+  });
+  return cfg;
+}
+
+// 상품구분 코드 → 그 상품의 금리 · 보험료 · AG · 잔가표가 적용된 설정
+export const PRODUCT_CODES = DEFAULT_QUOTE_CONFIG.products.map((p) => p.code);
+export function productConfig(cfg, code) {
+  const list = cfg.products || DEFAULT_QUOTE_CONFIG.products;
+  const p = list.find((x) => x.code === code) || list[0];
+  if (!p || p.code === 'N') return { ...cfg, prod: { code: 'N', name: (p && p.name) || '일반상품' } };
+  return { ...cfg, rate: p.rate, insurance: p.insurance, ag: p.ag, rv: p.rv, rvDefault: p.rvDefault, prod: { code: p.code, name: p.name } };
 }
 
 // 차종의 보험 조건 (등급이 없거나 지워졌으면 첫 등급)
@@ -141,6 +168,7 @@ export function cleanInput(b) {
   const s = (v, n = 60) => String(v ?? '').slice(0, n);
   const P = Array.isArray(b.P) ? b.P.slice(0, 3) : [];
   return {
+    prod: PRODUCT_CODES.includes(b.prod) ? b.prod : 'N',
     v: { mk: s(b.v?.mk), cat: s(b.v?.cat), model: s(b.v?.model), line: s(b.v?.line), trim: s(b.v?.trim) },
     opts: Array.isArray(b.opts) ? b.opts.slice(0, 30).map((x) => s(x, 120)) : [],
     ext: s(b.ext), int: s(b.int), extra: s(b.extra, 20),
@@ -159,7 +187,8 @@ export function cleanInput(b) {
 }
 
 // 전체 계산 (관리자 기록용 내부 값 포함)
-export function computeQuote(input, cfg) {
+export function computeQuote(input, baseCfg) {
+  const cfg = productConfig(baseCfg, input.prod);
   const tr = findTrim(input.v);
   if (!tr) return { ok: false, error: '차량을 트림까지 선택해 주세요.' };
   const base = tr[5];
@@ -219,7 +248,8 @@ export function computeQuote(input, cfg) {
   return {
     ok: true,
     vehicle: { mk: tr[0], cat: tr[1], model: tr[2], line: tr[3], trim: tr[4], base, cc: tr[6], tax: tr[7], optList, optSum, extra, price, ins: insWithLimit(cfg, tr, lim), carLim: lim ? lim.id : '' },
-    internal: { rate, ins, limAdd, maint, ag: cfg.ag, acqCost, acq, yTax, mTax, rvGroup: tr[9] },
+    prod: cfg.prod,
+    internal: { prod: cfg.prod.code, rate, ins, limAdd, maint, ag: cfg.ag, acqCost, acq, yTax, mTax, rvGroup: tr[9] },
     products,
   };
 }
@@ -240,6 +270,7 @@ export function toPublic(r) {
   const { tax, ...vehicle } = r.vehicle; // 세금 구분도 회원 화면에는 필요 없음
   return {
     ok: true,
+    prod: r.prod,
     vehicle,
     products: r.products.map((o) =>
       o.error
@@ -287,7 +318,7 @@ export function computeUsed(veh, sel, cfg) {
   const fuel = String(veh.fuel || '');
   const trLike = [0, 0, 0, 0, 0, 0, num(veh.displacement), fuel.includes('전기') ? '전기' : veh.class === '화물' ? '화물' : '승용', ''];
   const mTax = R(annualTax(trLike, cfg) / 12);
-  const rate = rateOf(cfg.rate);
+  const rate = rateOf(cfg.usedRate ?? cfg.rate);
   const ins = Math.max(0, num(cfg.insurance)), maint = Math.max(0, num(cfg.maint));
   const selfAdd = self ? Math.max(0, num(cfg.usedSelfIns)) : 0;
   const calc = (n, preAmt) => {
