@@ -41,7 +41,8 @@ export function registerPublic(r) {
     const s = await getSettings(env.DB);
     const [banners, locations, insurance] = await Promise.all([
       env.DB.prepare('SELECT id, image_key, text, sub_text, link FROM banners WHERE visible = 1 ORDER BY sort, id').all(),
-      env.DB.prepare('SELECT id, name, type, hours, fee, can_pickup, can_return FROM locations WHERE active = 1 ORDER BY sort, id').all(),
+      // 배회차비(fee)는 고객에게 보이지 않게 내려주지 않음 — 대여료에 포함해서 계산
+      env.DB.prepare('SELECT id, name, type, hours, can_pickup, can_return FROM locations WHERE active = 1 ORDER BY sort, id').all(),
       env.DB.prepare('SELECT id, name, per_day, flat_fee FROM insurance_options WHERE active = 1 ORDER BY sort, id').all(),
     ]);
     return json({
@@ -66,21 +67,27 @@ export function registerPublic(r) {
     const period = rentalPeriod(from, to);
     if (!period) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
     const { days, hours } = period;
-    const [{ counts }, peaks] = await Promise.all([availableSafe(env, { from, to, locationId }), loadPeaks(env.DB)]);
+    const [{ counts }, peaks, loc] = await Promise.all([
+      availableSafe(env, { from, to, locationId }),
+      loadPeaks(env.DB),
+      locationId ? env.DB.prepare('SELECT fee FROM locations WHERE id = ? AND active = 1').bind(locationId).first() : null,
+    ]);
+    // 배회차비: 고객 화면에는 따로 보이지 않고 대여료에 포함
+    const fee = (loc && loc.fee) || 0;
     const { results } = await env.DB.prepare('SELECT * FROM short_models WHERE active = 1 ORDER BY sort, id').all();
     const models = [];
     const soldOut = [];
     for (const m of results) {
       const n = counts.get(m.id) || 0;
       if (n > 0) {
-        const sr = shortQuote(m, from, to, peaks);
+        const sr = shortQuote(m, from, to, peaks, fee);
         models.push({
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
-          features: m.features, dayRate: sr.dayRate, rent: sr.rent, rentLabel: sr.label, left: n, image: img(m.image_key),
+          features: m.features, rent: sr.shownRent, rentLabel: sr.shownLabel, left: n, image: img(m.image_key),
           weekendFee: m.weekend_fee || 0,
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
           // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
-          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, shortRent(m, d).rent]) : null,
+          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, shortRent(m, d).rent + fee]) : null,
         });
       } else soldOut.push(m.name);
     }

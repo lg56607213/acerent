@@ -18,7 +18,7 @@ if (site && site.banners && site.banners.length) {
 const sel = $('#mLoc');
 const locs = (site && site.locations) || [];
 sel.innerHTML = locs.length
-  ? locs.filter((l) => l.can_pickup).map((l) => `<option value="${l.id}">${esc(l.name)}${l.fee ? ` (+${won(l.fee)}원)` : ''}</option>`).join('')
+  ? locs.filter((l) => l.can_pickup).map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('')
   : '<option value="">예약 장소 준비 중</option>';
 
 const [f, t] = defaultPeriod();

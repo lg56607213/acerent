@@ -70,7 +70,7 @@
 
 <section class="wrap" style="margin-top:20px">
 <form class="searchbar" id="searchForm">
-<label class="field" style="flex:1 1 260px">대여·반납 장소<select class="select" id="loc" name="loc"></select></label>
+<label class="field" style="flex:1 1 260px">대여·반납 장소<select class="select" id="loc" name="loc"></select><span class="small muted" id="locNote" hidden>탁송비는 별도로 추가됩니다.</span></label>
 <label class="field">대여 일시<input class="input" type="datetime-local" id="from" name="from" step="1800" required></label>
 <label class="field">반납 일시<input class="input" type="datetime-local" id="to" name="to" step="1800" required></label>
 <div class="period" id="period" aria-live="polite">-</div>
@@ -98,7 +98,6 @@
 <dl class="sum-dl">
 <dt>대여료</dt><dd id="sumRent">0원</dd>
 <dt>자차 보험</dt><dd id="sumIns">0원</dd>
-<dt>배회차비</dt><dd id="sumLoc">없음</dd>
 </dl>
 <div class="sum-total"><strong>총 결제 예정 금액</strong><strong id="sumTotal">0원</strong></div>
 <button class="btn btn-red btn-lg" type="button" id="goInfo">예약 신청</button>

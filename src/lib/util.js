@@ -89,8 +89,8 @@ export function peakRate(pickupAt, returnAt, peaks) {
 // 단기 대여료 전체 (예스렌터카 예약 화면과 같은 계산 순서)
 //   1) 일수 대여료 (요금표 또는 4구간)  2) 성수기 할증 (% · 천원 올림)  3) 주말 추가 (차종별 정액, 기간에 토·일이 있으면 1건당 한 번)
 //   4) 초과 시간: (1~3 합계 ÷ 일수) × 시간 × 10% (천원 올림, 최대 10시간)
-//   배회차비(장소) · 보험은 여기에 포함하지 않음
-export function shortQuote(model, pickupAt, returnAt, peaks) {
+//   배회차비(장소) · 보험은 여기에 포함하지 않음 (rent). hiddenFee 를 주면 고객 화면용 shownRent · shownLabel 에 배회차비를 일수 대여료에 합쳐서 보여줌
+export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   const period = rentalPeriod(pickupAt, returnAt);
   if (!period) return null;
   const { days, hours } = period;
@@ -101,13 +101,16 @@ export function shortQuote(model, pickupAt, returnAt, peaks) {
   const sub = afterPeak + weekend;
   const overtime = hours ? ceil1000(((sub / days) * hours) / 10) : 0;
   const rent = sub + overtime;
-  const parts = [`${days}일 ${won(base.rent)}`];
-  if (peak) parts.push(`${peak.name || '성수기'} +${peak.rate}%`);
-  if (weekend) parts.push(`주말 +${won(weekend)}`);
-  if (overtime) parts.push(`${hours}시간 +${won(overtime)}`);
+  const extras = [];
+  if (peak) extras.push(`${peak.name || '성수기'} +${peak.rate}%`);
+  if (weekend) extras.push(`주말 +${won(weekend)}`);
+  if (overtime) extras.push(`${hours}시간 +${won(overtime)}`);
+  const parts = [`${days}일 ${won(base.rent)}`, ...extras];
+  const shownParts = [`${days}일 ${won(base.rent + hiddenFee)}`, ...extras];
   return {
     days, hours, base: base.rent, peakName: peak ? peak.name : '', peakRate: peak ? peak.rate : 0, peakAmt: afterPeak - base.rent,
     weekend, overtime, rent, dayRate: Math.round(rent / days), label: parts.join(' · '),
+    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '),
   };
 }
 

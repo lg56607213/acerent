@@ -8,9 +8,13 @@ const ins = (site && site.insurance) || [];
 if (site && site.driverNote) $('#driverNote').textContent = site.driverNote;
 
 $('#loc').innerHTML = locs.length
-  ? locs.map((l) => `<option value="${l.id}">${esc(l.name)}${l.fee ? ` (배회차 ${won(l.fee)}원 추가)` : ''}</option>`).join('')
+  ? locs.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('')
   : '<option value="">예약 장소 준비 중</option>';
 if (qs.get('loc')) $('#loc').value = qs.get('loc');
+// 딜리버리 지역(서울 등)은 탁송비 별도 안내
+const locNote = () => { const l = locs.find((x) => String(x.id) === $('#loc').value); $('#locNote').hidden = !(l && l.type === '딜리버리'); };
+locNote();
+$('#loc').addEventListener('change', locNote);
 const [df, dt] = defaultPeriod();
 $('#from').value = qs.get('from') || df;
 $('#to').value = qs.get('to') || dt;
@@ -105,8 +109,8 @@ function amounts() {
   const m = model(), i = insCur(), l = loc();
   const rent = m ? m.rent : 0;
   const insAmt = i ? i.per_day * st.days + (i.flat_fee || 0) : 0;
-  const fee = l ? l.fee || 0 : 0;
-  return { rent, insAmt, fee, total: rent + insAmt + fee };
+  // 배회차비는 서버가 대여료(rent)에 포함해서 내려줌 — 따로 더하지 않음
+  return { rent, insAmt, total: rent + insAmt };
 }
 
 function summary() {
@@ -119,7 +123,6 @@ function summary() {
   $('#sumPeriod').textContent = `${shortDt($('#from').value)} ~ ${shortDt($('#to').value)} · ${st.periodText}`;
   $('#sumRent').textContent = won(a.rent) + '원';
   $('#sumIns').textContent = won(a.insAmt) + '원';
-  $('#sumLoc').textContent = a.fee ? won(a.fee) + '원' : '없음';
   $('#sumTotal').textContent = won(a.total) + '원';
 }
 
