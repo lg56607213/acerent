@@ -70,9 +70,33 @@ export function dayRateFor(model, days) {
   return r12;
 }
 
-// 단기 대여료: 1~6일은 해당 구간 1일 요금 × 일수, 7일 이상은 (5~6일 요금 × 6일) + (7일 이상 요금 × 7일째부터 일수)
+// 일수별 요금표 (rate_table): '1일 총액,2일 총액,…,30일 총액' 쉼표 구분 문자열 → 숫자 배열. 비어 있으면 []
+export function parseRateTable(v) {
+  return String(v || '')
+    .split(/[\s,]+/)
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .slice(0, 60);
+}
+
+// 관리자 입력값 정리: 숫자만 남겨서 쉼표 구분 문자열로 저장
+export function cleanRateTable(v) {
+  return parseRateTable(Array.isArray(v) ? v.join(',') : v).join(',');
+}
+
+// 단기 대여료
+//   요금표(rate_table)가 있으면: 대여 일수 칸의 총액 그대로. 표보다 길면 마지막 칸 총액 + (마지막 칸 1일 평균 × 넘는 일수)
+//   요금표가 없으면: 1~6일은 해당 구간 1일 요금 × 일수, 7일 이상은 (5~6일 요금 × 6일) + (7일 이상 요금 × 7일째부터 일수)
 //   예) 5~6일 50,000 · 7일~ 30,000 → 10일 = 6 × 50,000 + 4 × 30,000
 export function shortRent(model, days) {
+  const table = parseRateTable(model.rate_table);
+  if (table.length) {
+    const n = table.length;
+    let rent;
+    if (days <= n) rent = table[days - 1];
+    else rent = table[n - 1] + Math.round(table[n - 1] / n / 100) * 100 * (days - n);
+    return { rent, dayRate: Math.round(rent / days), label: `${days}일 대여료` };
+  }
   const r56 = model.rate_5_6 || model.rate_3_4 || model.day_rate || 0;
   const r7 = model.rate_7 || r56;
   if (days >= 7) {

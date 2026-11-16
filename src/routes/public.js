@@ -1,7 +1,7 @@
 // 고객용 API
 import {
   HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalDays, nextNo, int,
-  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, dayRateFor, shortRent,
+  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, dayRateFor, shortRent, parseRateTable,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -73,6 +73,8 @@ export function registerPublic(r) {
           // 고객이 고를 수 있는 차량 (차량번호 · 색상 · 주행거리). ERP 연동이 아니면 빈 목록
           vehicles: vehicles.get(m.id) || [],
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
+          // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
+          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, shortRent(m, d).rent]) : null,
         });
       } else soldOut.push(m.name);
     }

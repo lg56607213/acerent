@@ -1,5 +1,5 @@
 // 관리자 API (모두 로그인 필요 — 로그인·최초설정 제외)
-import { HttpError, bad, json, readJson, cleanText, int, getSettings, esc } from '../lib/util.js';
+import { HttpError, bad, json, readJson, cleanText, int, getSettings, esc, cleanRateTable } from '../lib/util.js';
 import { hashPassword, verifyPassword, createSession, sessionCookie, clearCookie, requireAdmin, endSession, currentAdmin, endOtherSessions } from '../lib/auth.js';
 import { notifyAdmins, sendLogged, buildMailHtml } from '../lib/mail.js';
 import { searchErpVehicles } from '../lib/erp.js';
@@ -15,7 +15,7 @@ const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
 const SIMPLE = {
   locations: { table: 'locations', order: 'sort, id', fields: { name: 's60', type: 's20', guide: 's500', hours: 's60', fee: 'i', can_pickup: 'b', can_return: 'b', active: 'b', sort: 'i' } },
   insurance: { table: 'insurance_options', order: 'sort, id', fields: { name: 's60', per_day: 'i', flat_fee: 'i', active: 'b', sort: 'i' } },
-  'short-models': { table: 'short_models', order: 'sort, id', fields: { erp_code: 's40', maker: 's20', name: 's60', class: 's20', fuel: 's20', seats: 'i', features: 's200', day_rate: 'i', rate_3_4: 'i', rate_5_6: 'i', rate_7: 'i', image_key: 'k', active: 'b', sort: 'i' } },
+  'short-models': { table: 'short_models', order: 'sort, id', fields: { erp_code: 's40', maker: 's20', name: 's60', class: 's20', fuel: 's20', seats: 'i', features: 's200', day_rate: 'i', rate_3_4: 'i', rate_5_6: 'i', rate_7: 'i', rate_table: cleanRateTable, image_key: 'k', active: 'b', sort: 'i' } },
   'short-vehicles': { table: 'short_vehicles', order: 'model_id, id', fields: { model_id: 'i', plate: 's20', year: 'i', active: 'b' } },
   banners: { table: 'banners', order: 'sort, id', fields: { image_key: 'k', text: 's120', sub_text: 's120', link: 's200', visible: 'b', sort: 'i' } },
   posts: { table: 'posts', order: "board, pinned DESC, sort, id DESC", fields: { board: 's10', title: 's150', body: 's20000', pinned: 'b', visible: 'b', sort: 'i', attachments: 'j', start_date: 's10', end_date: 's10', image_key: 's120', summary: 's200', cta_label: 's30', cta_link: 's200' }, touch: true },
