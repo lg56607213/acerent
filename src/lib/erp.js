@@ -24,11 +24,50 @@ async function erpFetch(env, path, init = {}) {
 }
 
 const isHybrid = (f) => /하이브리드|hybrid|hev/i.test(String(f || ''));
-function pickModel(list, fuel) {
-  if (!list || !list.length) return null;
-  if (list.length === 1) return list[0].id;
-  const want = fuel ? isHybrid(fuel) : false;
-  return (list.find((m) => isHybrid(m.fuel) === want) || list[0]).id;
+const normPlate = (p) => String(p || '').replace(/s+/g, '');
+// 홈페이지 전용 하이브리드 차종코드: ERP 차종코드 뒤에 _HEV (예: K5 → K5_HEV)
+//   ERP 는 가솔린 · 하이브리드를 같은 차종코드로 보내므로, 차량 연료를 확인해 하이브리드는 _HEV 차종에 담는다
+const HEV = '_HEV';
+const baseCode = (code) => String(code || '').replace(/_HEV$/, '');
+
+// 차량별 연료 확인: ERP 응답의 fuel → 차종명(model_name) → ERP 차량 정보(/api/public/vehicles, D1 에 7일 보관)
+async function vehicleFuels(env, list) {
+  const out = new Map();
+  const ask = [];
+  for (const v of list) {
+    const id = String(v.id);
+    if (v.fuel) out.set(id, v.fuel);
+    else if (isHybrid(v.model_name)) out.set(id, '하이브리드');
+    else ask.push(v);
+  }
+  if (!ask.length) return out;
+  const { results: cached } = await env.DB.prepare(
+    `SELECT vehicle_id, fuel, checked_at FROM erp_vehicle_fuel WHERE vehicle_id IN (${ask.map(() => '?').join(',')})`
+  ).bind(...ask.map((v) => String(v.id))).all();
+  const now = Date.now();
+  const fresh = new Map(
+    cached
+      .filter((c) => now - Date.parse(c.checked_at.replace(' ', 'T') + 'Z') < (c.fuel ? 7 : 1) * 86400000)
+      .map((c) => [c.vehicle_id, c.fuel])
+  );
+  const miss = ask.filter((v) => !fresh.has(String(v.id)));
+  for (const [id, f] of fresh) out.set(id, f);
+  await Promise.all(
+    miss.slice(0, 20).map(async (v) => {
+      const id = String(v.id);
+      try {
+        const r = await erpFetch(env, `/api/public/vehicles?q=${encodeURIComponent(v.plate || id)}`);
+        const hit = (r.vehicles || []).find((x) => String(x.id) === id || normPlate(x.plate) === normPlate(v.plate));
+        const fuel = hit ? hit.fuel || (isHybrid(hit.name) ? '하이브리드' : '') : '';
+        out.set(id, fuel);
+        await env.DB.prepare(
+          `INSERT INTO erp_vehicle_fuel (vehicle_id, plate, fuel, checked_at) VALUES (?, ?, ?, datetime('now'))
+           ON CONFLICT(vehicle_id) DO UPDATE SET plate = excluded.plate, fuel = excluded.fuel, checked_at = excluded.checked_at`
+        ).bind(id, v.plate || '', fuel).run();
+      } catch {}
+    })
+  );
+  return out;
 }
 
 // 반환: { counts: Map<model_id, 남은 대수>, vehicles: Map<model_id, 고를 수 있는 차량[]> }
@@ -45,15 +84,13 @@ export async function availableByModel(env, { from, to, locationId }) {
       env,
       `/api/public/short/availability?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&location=${encodeURIComponent(locationId || '')}`
     );
-    // 같은 ERP 차종코드에 가솔린 · 하이브리드 차종이 같이 있으면 ERP 차량의 연료(fuel)로 나눔
-    //   (연료 정보가 없으면 하이브리드가 아닌 차종으로)
-    const byCode = new Map();
-    for (const m of models.filter((x) => x.erp_code)) {
-      if (!byCode.has(m.erp_code)) byCode.set(m.erp_code, []);
-      byCode.get(m.erp_code).push(m);
-    }
-    for (const v of data.vehicles || []) {
-      const mid = pickModel(byCode.get(String(v.model_code)), v.fuel);
+    const byCode = new Map(models.filter((m) => m.erp_code).map((m) => [m.erp_code, m.id]));
+    const list = data.vehicles || [];
+    const fuels = await vehicleFuels(env, list.filter((v) => byCode.has(String(v.model_code) + HEV))).catch(() => new Map());
+    for (const v of list) {
+      let code = String(v.model_code);
+      if (byCode.has(code + HEV) && isHybrid(fuels.get(String(v.id)))) code += HEV;
+      const mid = byCode.get(code);
       if (mid) vehicles.get(mid).push({ id: String(v.id), plate: v.plate, color: v.color || '', mileage: v.mileage || null, year: v.year || null });
     }
     // 아직 ERP 에 반영되지 않은 홈페이지 예약: 고른 차량은 그 차를, 아니면 그 차종에서 한 대를 뺀다
@@ -96,7 +133,7 @@ export async function pushHold(env, reservation, model) {
       method: 'POST',
       body: JSON.stringify({
         no: reservation.no,
-        model_code: model.erp_code,
+        model_code: baseCode(model.erp_code),
         fuel: model.fuel || undefined,
         pickup_at: reservation.pickup_at,
         return_at: reservation.return_at,
