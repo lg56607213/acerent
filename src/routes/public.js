@@ -1,7 +1,7 @@
 // 고객용 API
 import {
   HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalPeriod, nextNo, int,
-  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, shortRent, shortQuote, periodText, parseRateTable,
+  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, shortRent, shortQuote, periodText, insNameFor, parseRateTable,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -85,6 +85,7 @@ export function registerPublic(r) {
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
           features: m.features, rent: sr.shownRent, rentLabel: sr.shownLabel, left: n, image: img(m.image_key),
           weekendFee: m.weekend_fee || 0,
+          insLimit: m.self_ins_limit || 0,
           monthly: sr.monthly, kmLimit: sr.kmLimit, overKmFee: sr.overKmFee, kmText: sr.kmText,
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
           // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
@@ -144,7 +145,7 @@ export function registerPublic(r) {
     const row = {
       no, location_id: loc.id, location_name: loc.name, location_fee: locFee, pickup_at: from, return_at: to, days, extra_hours: hours, rent_detail: sr.label,
       model_id: model.id, model_name: model.name, vehicle_ref: vehicleRef, erp_vehicle_id: picked ? picked.id : '', day_rate: rate, rent_amt: rent,
-      insurance_name: ins ? ins.name : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
+      insurance_name: ins ? insNameFor(ins.name, model.self_ins_limit) : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
       customer_id: customerId, name, phone, birth, license: cleanText(b.license, 20),
       flight: cleanText(b.flight, 30), request: cleanText(b.request, 500),
     };

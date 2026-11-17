@@ -90,6 +90,12 @@ export function peakRate(pickupAt, returnAt, peaks) {
 //   1) 일수 대여료 (요금표 또는 4구간)  2) 성수기 할증 (% · 천원 올림)  3) 주말 추가 (차종별 정액, 기간에 토·일이 있으면 1건당 한 번)
 //   4) 초과 시간: (1~3 합계 ÷ 일수) × 시간 × 10% (천원 올림, 최대 10시간)
 //   배회차비(장소) · 보험은 여기에 포함하지 않음 (rent). hiddenFee 를 주면 고객 화면용 shownRent · shownLabel 에 배회차비를 일수 대여료에 합쳐서 보여줌
+// 자차보험 이름의 한도를 차종별 한도로 바꿔 표시 (예: '자차보험 포함 (자차한도 400만원)' → 카니발 700만원)
+export function insNameFor(name, limitManwon) {
+  const n = String(name || '');
+  return limitManwon > 0 ? n.replace(/자차한도\s*[\d,]+\s*만원/, `자차한도 ${limitManwon}만원`) : n;
+}
+
 // 월렌트 = 30일 대여
 export const MONTH_DAYS = 30;
 

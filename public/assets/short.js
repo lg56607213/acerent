@@ -41,7 +41,7 @@ $('#insBox').insertAdjacentHTML(
   'beforeend',
   ins
     .map(
-      (i) => `<label class="check"><input type="radio" name="ins" value="${i.id}" ${i.id === st.insId ? 'checked' : ''}><span>${esc(i.name)}</span><span class="p">${insPriceText(i)}</span></label>`
+      (i) => `<label class="check"><input type="radio" name="ins" value="${i.id}" ${i.id === st.insId ? 'checked' : ''}><span class="ins-name" data-id="${i.id}">${esc(i.name)}</span><span class="p">${insPriceText(i)}</span></label>`
     )
     .join('')
 );
@@ -59,6 +59,8 @@ function insPriceText(i) {
 const loc = () => locs.find((l) => String(l.id) === $('#loc').value);
 const model = () => st.models.find((m) => m.id === st.modelId);
 const insCur = () => ins.find((i) => i.id === st.insId);
+// 차종별 자차 한도 (예: 카니발 700만원) — 보험 이름의 '자차한도 N만원'을 바꿔 보여 줌
+const insName = (i) => { const lim = model()?.insLimit || 0; return lim > 0 ? i.name.replace(/자차한도\s*[\d,]+\s*만원/, `자차한도 ${lim}만원`) : i.name; };
 
 let timer;
 ['loc', 'from', 'to'].forEach((id) => $('#' + id).addEventListener('change', () => { clearTimeout(timer); timer = setTimeout(search, 150); }));
@@ -134,6 +136,7 @@ function summary() {
   $('#sumBody').hidden = !m;
   if (!m) return;
   const a = amounts();
+  $('.ins-name').forEach((el) => { const i = ins.find((x) => String(x.id) === el.dataset.id); if (i) el.textContent = insName(i); });
   $('#sumCar').textContent = `${m.maker} ${m.name}`;
   $('#sumPeriod').textContent = `${shortDt($('#from').value)} ~ ${shortDt($('#to').value)} · ${st.periodText}`;
   $('#sumRent').textContent = won(a.rent) + '원';
@@ -158,7 +161,7 @@ $('#goInfo').addEventListener('click', () => {
   $('#cCar').textContent = `${m.maker} ${m.name}`;
   $('#cLoc').textContent = loc() ? loc().name : '';
   $('#cPeriod').textContent = `${$('#from').value.replace('T', ' ')} ~ ${$('#to').value.replace('T', ' ')} (${st.periodText})`;
-  $('#cIns').textContent = [i ? i.name : '', ...opts].filter(Boolean).join(' · ');
+  $('#cIns').textContent = [i ? insName(i) : '', ...opts].filter(Boolean).join(' · ');
   $('#cTotal').textContent = won(a.total) + '원';
   $('#cKmRow').hidden = !m.kmText;
   $('#cKm').textContent = m.kmText ? `월렌트 ${m.kmText}` : '';
