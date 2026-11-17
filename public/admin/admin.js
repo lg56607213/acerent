@@ -603,7 +603,7 @@ async function carEditor(id) {
 </div>
 
 <div id="pBlock">
-<h3>이용금액 <span class="hint" style="font-weight:400">메인 가격으로 고른 줄이 목록에 대표 가격으로 나옵니다. 월 렌트료는 부가세 포함. 여기 보증금은 '기본 보증금'이고, 고객이 보증금을 더 넣거나 선납금을 넣으면 '견적 설정'의 추가 보증금 할인 금리와 선납금 ÷ 개월 수 만큼 월 렌트료가 내려갑니다. 보증금 · 선납금 % 버튼은 위 신차가격 기준입니다.</span></h3>
+<h3>이용금액 <span class="hint" style="font-weight:400">메인 가격으로 고른 줄이 목록에 대표 가격으로 나옵니다. 월 렌트료는 부가세 포함. 여기 보증금은 '기본 보증금'이고, 고객이 보증금을 더 넣거나 선납금을 넣으면 '견적 설정'의 보증금 · 선납금 금리로 계산한 만큼 월 렌트료가 내려갑니다. 보증금 · 선납금 % 버튼은 위 신차가격 기준입니다.</span></h3>
 <div class="scroll-x" style="padding:0 18px"><table class="a-table plans" style="min-width:860px"><thead><tr><th style="width:60px">메인</th><th>보증금</th><th>계약 기간</th><th>월 렌트료</th><th>연간 주행거리</th><th>만기 인수가 (선택)</th><th></th></tr></thead><tbody id="planBody">${plans.map(planRow).join('')}</tbody></table>
 <button type="button" class="btn btn-xs" id="planAdd" style="margin:8px 0 0">+ 줄 추가</button></div>
 </div>
@@ -1153,8 +1153,8 @@ ${c.products.map((p) => p.code === 'N'
 <input class="input" id="imFind" placeholder="차종 찾기 (예: 쏘렌토, 스타리아)" style="max-width:280px" aria-label="차종 찾기">
 <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line)"><table class="a-table" id="imTbl" style="min-width:520px"></table></div></div>
 <div class="box box-pad" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:16px">중장기 견적형 (중고차 내 견적 만들기)</h2><p class="hint" style="margin:0">홈페이지 중고차 견적은 아래 금리를 쓰고, 월 보험료 · 정비료는 일반상품(N) 값을 같이 씁니다. 차량별 취득원가 · 잔가율은 '중장기 차량'에서 넣습니다.</p>
-<div class="grid2">${f('planDepRate', '이용금액 표 차량: 추가 보증금 할인 금리 (연 %) — 기본보다 더 낸 보증금 × 금리 ÷ 12 만큼 월 렌트료 할인')}</div>
-<p class="hint" style="margin:0">이용금액 표 차량은 고객이 보증금을 더 넣거나 선납금(선납금 ÷ 개월 수 만큼 매월 차감)을 넣으면 월 렌트료가 내려갑니다. 예) 추가 보증금 1,000만원 · 14% → 월 116,700원 할인.</p>
+<div class="grid2">${f('planDepRate', '이용금액 표 차량: 보증금 · 선납금 금리 (연 %)')}</div>
+<p class="hint" style="margin:0">고객이 보증금을 더 넣으면 추가 보증금 × 금리 ÷ 12, 선납금을 넣으면 선납금을 같은 금리로 계약 개월 동안 원리금 균등으로 나눈 금액만큼 월 렌트료가 내려갑니다. 예) 7.5% · 추가 보증금 1,000만원 → 월 62,500원, 선납금 1,000만원 · 36개월 → 월 311,100원.</p>
 <div class="grid2">${f('usedRate', '중고차 견적 금리 (연 %)')}${f('usedSelfIns', '자차 포함 시 월 렌트료 추가금 (원, 부가세 포함 최종 금액 기준)')}</div>
 <div class="grid2"><label class="field">차량 잔가율의 기준 약정거리<select class="select" data-c="usedRvKm">${opts([['10000', '연 1만km'], ['20000', '연 2만km'], ['30000', '연 3만km']], String(c.usedRvKm || 20000))}</select></label>${f('usedRvAdj', '5천km당 잔가 조정 (%p) — 짧으면 +, 길면 −')}</div>
 <p class="hint" style="margin:0">고객은 연 1만 · 2만 · 3만km 중 고릅니다. 예) 기준 2만km · 조정 1.4%p → 1만km 는 잔가 +2.8%p, 3만km 는 −2.8%p.</p></div>

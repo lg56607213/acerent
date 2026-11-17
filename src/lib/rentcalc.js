@@ -58,7 +58,7 @@ export const DEFAULT_QUOTE_CONFIG = {
   carLimits: [{ id: 'c1000', label: '1,000만원', add: 6000 }, { id: 'full', label: '차량가액 전액', add: 12000 }],
   carLimitModels: '포터,봉고',
   usedSelfIns: 40000, // 중장기 견적형(중고차): 자차 보험 포함 시 월 렌트료 추가금 (부가세 포함 최종 금액 기준)
-  planDepRate: 14, // 중장기 이용금액(표) 차량: 기본 보증금보다 더 낸 보증금에 대한 월 렌트료 할인 금리 (연 %)
+  planDepRate: 7.5, // 중장기 이용금액(표) 차량: 추가 보증금 · 선납금에 적용하는 금리 (연 %)
   usedRvKm: 20000, usedRvAdj: 1.4, // 중장기 견적형: 차량별 잔가율의 기준 약정거리(연 km) · 5천km당 잔가 조정(%p) // 자차 한도를 바꿀 수 있는 모델 (모델명에 들어간 글자, 쉼표 구분) — 승용은 기본 한도만
   // 상품구분: N = 일반상품(위의 금리 · 보험료 · AG · 잔가표 그대로), 그 외 상품은 아래 값으로 덮어씀 (잔가표가 비어 있으면 일반상품 잔가표 사용)
   products: [
@@ -337,7 +337,7 @@ export function computeUsed(veh, sel, cfg) {
 
 // ── 중장기 '이용금액 표' 차량: 등록한 줄(개월 · 기본 보증금 · 월 렌트료)에 고객이 보증금 추가 · 선납금을 넣으면 월 렌트료를 낮춤 ──
 //   보증금 할인 = (고른 보증금 - 기본 보증금) × planDepRate% ÷ 12   (보증금은 기본 보증금보다 낮출 수 없음)
-//   선납금 차감 = 선납금 ÷ 개월 수
+//   선납금 차감 = 선납금을 같은 금리로 개월 수 동안 나눈 월 금액 (원리금 균등, PMT)
 //   월 렌트료 = 등록 월 렌트료 - 보증금 할인 - 선납금 차감 (100원 단위)
 export function planAdjust(plan, sel, cfg, newPrice) {
   const r1000 = (x) => Math.round(x / 1000) * 1000;
@@ -346,8 +346,10 @@ export function planAdjust(plan, sel, cfg, newPrice) {
   const pre = r1000(Math.max(0, num(sel.pre)));
   const cap = newPrice > 0 ? newPrice * 0.6 : 100000000;
   if (dep + pre > cap) return { ok: false, error: '보증금과 선납금 합계가 너무 큽니다. 금액을 낮춰 주세요.' };
-  const depDeduct = R(((dep - base) * Math.max(0, num(cfg.planDepRate))) / 100 / 12);
-  const preDeduct = R(pre / Math.max(1, num(plan.term)));
+  const r = Math.max(0, num(cfg.planDepRate)) / 100 / 12;
+  const n = Math.max(1, num(plan.term));
+  const depDeduct = R((dep - base) * r);
+  const preDeduct = R(r > 0 ? (pre * r) / (1 - Math.pow(1 + r, -n)) : pre / n);
   const month = num(plan.monthly) - depDeduct - preDeduct;
   if (month < num(plan.monthly) * 0.3) return { ok: false, error: '보증금 · 선납금이 너무 커서 계산할 수 없습니다. 금액을 낮춰 주세요.' };
   return { ok: true, planId: plan.id, term: plan.term, std: num(plan.monthly), baseDep: base, dep, pre, upfront: dep + pre, depDeduct, preDeduct, month };
