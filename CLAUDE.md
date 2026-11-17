@@ -15,3 +15,4 @@
 - 중장기 차량: 관리자 '+ 차량 등록'(차량번호) → 이용금액 줄(long_plans: 보증금 · 개월 · 월렌트료 · 연간km · 만기인수가, is_main 대표) · 옵션(option_list, public/assets/longopts.js) · 계약/보험 조건(terms). 이용금액 줄이 있으면 고객 화면은 줄 선택 방식, 없으면 예전 자동계산(longcalc.js).
 - 중장기 견적형(price_mode=quote): 취득원가(acq_cost, 비공개) · 신차가격(new_price, 고객 표시 · 보증금/선납금 % 기준) · 기간별 잔가율(rv_rates, quote_config.usedRvKm 기준) → rentcalc.computeUsed() 서버 계산. 고객은 기간 · 약정거리(연 1/2/3만km, 5천km당 usedRvAdj %p 잔가 조정) · 보증금 · 선납금 · 자차(usedSelfIns 추가)만 고름. 고객에게 취득원가 · 잔가율 · 금리를 내려주지 않음 (used.base = 신차가격).
 - 견적기 상품구분(products): N 일반상품 = quote_config 최상위 rate · insurance · ag · rv · rvDefault, L 저신용자상품 등은 products[] 의 값으로 덮어씀 → rentcalc.productConfig(). 입력 prod 코드, 결과 prod{code,name}. 회원에게는 상품명만. 홈페이지 중고차 금리는 usedRate(별도).
+- 중장기 가격표(price_mode=table, 새 차량 기본값): long_plans 줄의 보증금 = 기본 보증금. 고객이 보증금 추가(기본 이상만) · 선납금을 넣으면 rentcalc.planAdjust() — 월 렌트료 − (추가 보증금 × planDepRate% ÷ 12) − (선납금 ÷ 개월). POST /api/long/plan-quote, 신청 시 서버 재계산(quote_json).

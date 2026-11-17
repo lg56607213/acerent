@@ -9,7 +9,7 @@ import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { saveUpload } from './upload.js';
 import { pricingOf, quote, describe } from '../../public/assets/longcalc.js';
 import { PUBLIC_STATUS } from '../../public/assets/longopts.js';
-import { computeUsed, loadQuoteConfig } from '../lib/rentcalc.js';
+import { computeUsed, loadQuoteConfig, planAdjust } from '../lib/rentcalc.js';
 
 const jsonList = (s) => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 
@@ -229,6 +229,20 @@ export function registerPublic(r) {
     return json(q);
   });
 
+  // 이용금액 표 차량: 고객이 넣은 보증금 · 선납금으로 줄마다 월 렌트료 다시 계산
+  r.post('/api/long/plan-quote', async ({ env, request }) => {
+    const b = await readJson(request);
+    const v = await env.DB.prepare(`SELECT id, new_price FROM long_vehicles WHERE id = ? AND visible = 1`).bind(int(b.vehicleId)).first();
+    if (!v) throw new HttpError(404, '차량을 찾을 수 없습니다.');
+    const { results: plans } = await env.DB.prepare('SELECT id, deposit, term, monthly FROM long_plans WHERE vehicle_id = ? ORDER BY sort, id').bind(v.id).all();
+    if (!plans.length) throw bad('이용 조건이 없습니다.');
+    const cfg = await loadQuoteConfig(env.DB);
+    const rows = plans.map((p) => planAdjust(p, { dep: b.dep === null || b.dep === undefined ? p.deposit : int(b.dep), pre: int(b.pre) }, cfg, int(v.new_price)));
+    const cur = rows.find((x) => x.planId === int(b.planId)) || rows[0];
+    if (!cur.ok) throw bad(cur.error);
+    return json({ ok: true, rows: rows.filter((x) => x.ok) });
+  });
+
   // 중장기 신청 · 법인 견적 (월 렌트료 · 보증금 · 선납금은 서버에서 다시 계산)
   r.post('/api/long/applications', async ({ env, request, ctx }) => {
     const b = await readJson(request);
@@ -251,6 +265,11 @@ export function registerPublic(r) {
         if (!plan) throw bad('선택하신 이용 조건이 바뀌었습니다. 새로고침 후 다시 선택해 주세요.');
       }
     }
+    let planQ = null;
+    if (plan) {
+      planQ = planAdjust(plan, { dep: b.dep === null || b.dep === undefined ? plan.deposit : int(b.dep), pre: int(b.pre) }, await loadQuoteConfig(env.DB), int(vehicle.new_price));
+      if (!planQ.ok) throw bad(planQ.error);
+    }
     let usedQ = null;
     if (vehicle && vehicle.price_mode === 'quote' && !plan) {
       const uq = computeUsed(vehicle, { dep: int(b.dep), pre: int(b.pre), self: !!b.self, km: int(b.km) }, await loadQuoteConfig(env.DB));
@@ -267,11 +286,11 @@ export function registerPublic(r) {
       }
     }
     // 이용금액 줄을 고른 경우: 그 줄의 보증금 · 개월 · 월렌트료 · 주행거리를 그대로 사용
-    const s = plan ? { term: plan.term, km: plan.km_year, dep: plan.deposit, pre: 0 } : usedQ ? { term: usedQ.row.term, km: usedQ.km, dep: usedQ.dep, pre: usedQ.pre } : q ? q.sel : null;
-    const monthly = plan ? plan.monthly : usedQ ? usedQ.row.month : q ? q.monthly : 0;
+    const s = plan ? { term: plan.term, km: plan.km_year, dep: planQ.dep, pre: planQ.pre } : usedQ ? { term: usedQ.row.term, km: usedQ.km, dep: usedQ.dep, pre: usedQ.pre } : q ? q.sel : null;
+    const monthly = plan ? planQ.month : usedQ ? usedQ.row.month : q ? q.monthly : 0;
     const depositAmt = s ? s.dep : 0;
     const prepayAmt = s ? s.pre : 0;
-    const baseVal = vehicle ? (vehicle.price_mode === 'quote' ? vehicle.new_price : vehicle.car_value) : 0;
+    const baseVal = vehicle ? (vehicle.price_mode === 'quote' || plan ? vehicle.new_price : vehicle.car_value) : 0;
     const depPct = s && baseVal ? Math.round((s.dep / baseVal) * 1000) / 10 : 0;
     const kind = corp ? '법인 견적' : '중장기 신청';
 
@@ -284,13 +303,13 @@ export function registerPublic(r) {
     const extra = usedQ
       ? [usedQ.self ? '자차 포함' : '자차 불포함', `만기 인수가 ${won(usedQ.row.buyout)}`].join(' · ')
       : plan
-      ? [plan.km_year ? `연 ${plan.km_year.toLocaleString('ko-KR')}km` : '', plan.buyout ? `만기 인수가 ${won(plan.buyout)}` : ''].filter(Boolean).join(' · ')
+      ? [plan.km_year ? `연 ${plan.km_year.toLocaleString('ko-KR')}km` : '', planQ.dep > planQ.baseDep ? `보증금 추가 할인 -${won(planQ.depDeduct)}` : '', planQ.pre ? `선납금 차감 -${won(planQ.preDeduct)}` : '', plan.buyout ? `만기 인수가 ${won(plan.buyout)}` : ''].filter(Boolean).join(' · ')
       : q ? describe(q.p, s) : '';
     const row = {
       no, applicant_type: corp ? 'corp' : 'person', vehicle_id: vehicle ? vehicle.id : null, vehicle_name: vehicle ? vehicle.name : cleanText(b.vehicleWish, 100),
       term: s ? s.term : null, dep_pct: s ? Math.round(depPct) : null, deposit_amt: depositAmt, prepay_amt: prepayAmt, monthly,
       km: s && s.km ? `연 ${s.km.toLocaleString('ko-KR')}km` : '', extra, plan_id: plan ? plan.id : null,
-      quote_json: usedQ ? JSON.stringify({ term: usedQ.row.term, km: usedQ.km, dep: usedQ.dep, pre: usedQ.pre, self: usedQ.self, month: usedQ.row.month, std: usedQ.row.std, buyout: usedQ.row.buyout }) : '',
+      quote_json: planQ ? JSON.stringify({ planId: plan.id, term: plan.term, std: planQ.std, baseDep: planQ.baseDep, dep: planQ.dep, pre: planQ.pre, depDeduct: planQ.depDeduct, preDeduct: planQ.preDeduct, month: planQ.month }) : usedQ ? JSON.stringify({ term: usedQ.row.term, km: usedQ.km, dep: usedQ.dep, pre: usedQ.pre, self: usedQ.self, month: usedQ.row.month, std: usedQ.row.std, buyout: usedQ.row.buyout }) : '',
       company, biz_no: cleanText(b.bizNo, 20), qty: cleanText(b.qty, 20), name, phone, wish_date: cleanText(b.wishDate, 20),
       request: cleanText(b.request, 1000), customer_id: customerId,
     };
