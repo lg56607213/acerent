@@ -56,7 +56,7 @@ showPhoto(0);
 
 // ── 차량 정보 ──
 const kv = (rows) => rows.filter((r) => r[1] !== '' && r[1] != null).map(([k, val, cls]) => `<div class="${cls || ''}"><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('');
-const dep = v.new_price ? v.new_price - (v.tax_cut || 0) - cv : 0;
+const dep = v.new_price && cv > 0 ? v.new_price - (v.tax_cut || 0) - cv : 0; // 현재 차량가격이 없으면 감가상각 표시 안 함
 $('#kvMain').innerHTML = kv([
   ['차량 번호', v.plate || ''],
   ['신차가격', v.new_price ? W(v.new_price) : ''],
@@ -156,35 +156,77 @@ if (P.maintAddFee > 0) {
 }
 
 // ── 이용금액 줄 고르기 (PLAN) ──
-const man = (n) => (n >= 10000 ? won(Math.round(n / 10000)) + '만원' : n ? W(n) : '없음');
+const man = (n) => (n >= 10000 && n % 10000 === 0 ? won(n / 10000) + '만원' : n ? W(n) : '없음');
 const planLabel = (p) => `${p.term}개월 · 보증금 ${p.deposit ? man(p.deposit) : '없음'}${p.km_year ? ' · 연 ' + (p.km_year / 10000) + '만km' : ''}`;
 const curPlan = () => plans.find((p) => p.id === st.planId) || plans.find((p) => p.is_main) || plans[0];
 function drawPlans() {
   const cp = curPlan();
   $('#planRows').innerHTML = plans
-    .map((p) => `<tr class="${p.id === cp.id ? 'on' : ''} ${p.is_main ? 'main' : ''}" data-p="${p.id}"><td><input type="radio" name="plan" ${p.id === cp.id ? 'checked' : ''} aria-label="${esc(planLabel(p))}"></td><td>${p.term}개월</td><td>${p.deposit ? man(p.deposit) : '없음'}</td><td>${p.km_year ? '연 ' + won(p.km_year) + 'km' : '-'}</td><td style="text-align:right;font-weight:700">${W(p.monthly)}</td><td style="text-align:right">${p.buyout ? man(p.buyout) : '-'}</td></tr>`)
+    .map((p) => `<tr class="${p.id === cp.id ? 'on' : ''} ${p.is_main ? 'main' : ''}" data-p="${p.id}"><td><input type="radio" name="plan" ${p.id === cp.id ? 'checked' : ''} aria-label="${esc(planLabel(p))}"></td><td>${p.term}개월</td><td>${p.deposit ? man(p.deposit) : '없음'}</td><td>${p.km_year ? '연 ' + won(p.km_year) + 'km' : '-'}</td><td style="text-align:right;font-weight:700">${adjRow(p).month !== p.monthly ? `<s class="muted small" style="font-weight:400">${W(p.monthly)}</s> ` : ''}${W(adjRow(p).month)}</td><td style="text-align:right">${p.buyout ? man(p.buyout) : '-'}</td></tr>`)
     .join('');
   $$('#planRows tr').forEach((tr) => tr.addEventListener('click', () => { st.planId = +tr.dataset.p; update(); }));
   $('#terms').innerHTML = plans
-    .map((p) => `<li><button type="button" class="${p.id === cp.id ? 'on' : ''}" aria-pressed="${p.id === cp.id}" data-pp="${p.id}"><span style="text-align:left;font-size:14px">${p.term}개월<br><span class="small muted">보증금 ${p.deposit ? man(p.deposit) : '없음'}</span></span><strong>${won(p.monthly)}원</strong></button></li>`)
+    .map((p) => `<li><button type="button" class="${p.id === cp.id ? 'on' : ''}" aria-pressed="${p.id === cp.id}" data-pp="${p.id}"><span style="text-align:left;font-size:14px">${p.term}개월<br><span class="small muted">보증금 ${adjRow(p).dep ? man(adjRow(p).dep) : '없음'}</span></span><strong>${won(adjRow(p).month)}원</strong></button></li>`)
     .join('');
   $$('#terms button').forEach((b) => b.addEventListener('click', () => { st.planId = +b.dataset.pp; update(); }));
+}
+// 보증금 추가 · 선납금 (서버에서 줄마다 다시 계산)
+const A = { dep: null, pre: 0, depC: false, preC: false, res: null, seq: 0 };
+const NP = +v.new_price || 0;
+const npAmt = (p) => Math.round((NP * p) / 100 / 1000) * 1000;
+const adjRow = (p) => (A.res && A.res.rows.find((x) => x.planId === p.id)) || { planId: p.id, term: p.term, std: p.monthly, baseDep: p.deposit, dep: Math.max(p.deposit, A.dep ?? p.deposit), pre: A.pre, upfront: p.deposit + A.pre, depDeduct: 0, preDeduct: 0, month: p.monthly };
+let aTimer;
+function planFetch() {
+  clearTimeout(aTimer);
+  if (A.dep === null && !A.pre) { A.res = null; A.seq++; $('#aErr').textContent = ''; update(); return; }
+  aTimer = setTimeout(async () => {
+    const my = ++A.seq;
+    try {
+      const r = await api('/api/long/plan-quote', { method: 'POST', body: { vehicleId: v.id, planId: curPlan().id, dep: A.dep, pre: A.pre } });
+      if (my !== A.seq) return;
+      A.res = r; $('#aErr').textContent = ''; update();
+    } catch (e) { if (my === A.seq) $('#aErr').textContent = e.message; }
+  }, 200);
+}
+function adjChips(cp) {
+  const pcts = NP ? [10, 20, 30].map((p) => ({ a: npAmt(p), sub: `신차가격 ${p}%` })) : [3000000, 5000000, 10000000].map((a) => ({ a, sub: '' }));
+  const depItems = [{ a: null, html: `기본 ${cp.deposit ? man(cp.deposit) : '없음'}` }, ...pcts.filter((x) => x.a > cp.deposit).map((x) => ({ a: x.a, html: `${man(x.a)}${x.sub ? `<small>${x.sub}</small>` : ''}` })), { custom: true, html: '직접입력' }];
+  const preItems = [{ a: 0, html: '없음' }, ...pcts.map((x) => ({ a: x.a, html: `${man(x.a)}${x.sub ? `<small>${x.sub}</small>` : ''}` })), { custom: true, html: '직접입력' }];
+  for (const [key, items, boxSel, cBox, cIn] of [['dep', depItems, '#aDep', '#aDepC', '#aDepIn'], ['pre', preItems, '#aPre', '#aPreC', '#aPreIn']]) {
+    const ck = key + 'C';
+    usedChips(boxSel, items, (it) => (it.custom ? A[ck] : !A[ck] && it.a === A[key]), (it) => {
+      if (it.custom) { A[ck] = true; update(); $(cIn).focus(); return; }
+      A[ck] = false; A[key] = it.a; update(); planFetch();
+    });
+    $(cBox).hidden = !A[ck];
+    if (document.activeElement !== $(cIn)) $(cIn).value = A[key] ? won(A[key]) : '';
+  }
+  $('#aDepHint').textContent = `기본 보증금 ${cp.deposit ? man(cp.deposit) : '없음'} 이상`;
 }
 function calcPlan() {
   const p = curPlan();
   st.planId = p.id;
-  $('#sKm').textContent = p.km_year ? '연 ' + km(p.km_year) : '-';
-  $('#sDep').textContent = p.deposit ? man(p.deposit) : '없음';
-  $('#sPre').previousElementSibling.textContent = '만기 인수가';
-  $('#sPre').textContent = p.buyout ? man(p.buyout) : '-';
-  $('#sExtraRow').hidden = true;
-  $('#sTerm').textContent = `${p.term}개월 월 렌트료`;
-  $('#sMonthly').textContent = W(p.monthly);
+  const r = adjRow(p);
+  adjChips(p);
+  $('.sum').innerHTML = `<div><span class="muted">약정운행거리</span><span>${p.km_year ? '연 ' + km(p.km_year) : '-'}</span></div>
+<div><span class="muted">보증금</span><span>${r.dep ? man(r.dep) : '없음'}</span></div>
+<div><span class="muted">선납금</span><span>${r.pre ? man(r.pre) : '없음'}</span></div>
+${r.depDeduct || r.preDeduct ? `<div><span class="muted">표준 렌트료</span><span>${W(r.std)}</span></div>` : ''}
+${r.depDeduct ? `<div><span class="muted">보증금 추가 할인</span><span>-${W(r.depDeduct)}</span></div>` : ''}
+${r.preDeduct ? `<div><span class="muted">월 선납금 차감</span><span>-${W(r.preDeduct)}</span></div>` : ''}
+${p.buyout ? `<div><span class="muted">만기 인수가</span><span>${man(p.buyout)}</span></div>` : ''}
+<div class="big"><span>${p.term}개월 월 렌트료</span><strong>${W(r.month)}</strong></div>`;
   $('#mTerm').textContent = `${p.term}개월 · 부가세 포함`;
-  $('#mMonthly').textContent = W(p.monthly);
-  $('#applyCond').textContent = planLabel(p) + (p.buyout ? ` · 만기 인수가 ${man(p.buyout)}` : '');
-  $('#applyMonthly').textContent = W(p.monthly) + ' (부가세 포함)';
-  $('#applyBtn').textContent = `${p.term}개월 · 월 ${won(p.monthly)}원 신청`;
+  $('#mMonthly').textContent = W(r.month);
+  $('#applyCond').textContent = `${p.term}개월 · 보증금 ${r.dep ? man(r.dep) : '없음'} · 선납금 ${r.pre ? man(r.pre) : '없음'}${p.km_year ? ' · 연 ' + (p.km_year / 10000) + '만km' : ''}` + (p.buyout ? ` · 만기 인수가 ${man(p.buyout)}` : '');
+  $('#applyMonthly').textContent = W(r.month) + ' (부가세 포함)';
+  $('#applyBtn').textContent = `${p.term}개월 · 월 ${won(r.month)}원 신청`;
+}
+if (PLAN) {
+  for (const [key, cIn] of [['dep', '#aDepIn'], ['pre', '#aPreIn']]) {
+    $(cIn).addEventListener('input', (e) => { const x = +e.target.value.replace(/\D/g, '') || 0; A[key] = key === 'dep' && !x ? null : x; planFetch(); });
+    $(cIn).addEventListener('blur', (e) => { e.target.value = A[key] ? won(A[key]) : ''; });
+  }
 }
 
 function drawTerms() {
@@ -290,7 +332,7 @@ function update() {
 if (PLAN || USED) {
   $$('.sec.fx').forEach((x) => (x.hidden = true));
   $$('.sec.pl').forEach((x) => (x.hidden = false));
-  if (USED) { $('#secPlans').hidden = true; $('#secUsed').hidden = false; $('#goApply').textContent = '이 견적으로 신청'; }
+  if (USED) { $('#secPlans').hidden = true; $('#secAdj').hidden = true; $('#secUsed').hidden = false; $('#goApply').textContent = '이 견적으로 신청'; }
   if (!v.added_options.length) $('#secOpts').hidden = true; // 가격 붙은 추가 옵션이 없으면 숨김 (옵션은 '차량 옵션'에 표시)
   const tr = termRows(v.terms || {});
   const dl = (rows) => rows.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('');
@@ -346,7 +388,7 @@ $('#applyBtn').addEventListener('click', async () => {
     const r = await api('/api/long/applications', {
       method: 'POST',
       body: {
-        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: USED ? U.term : !PLAN && Q.rows.length ? s.term : null, km: USED ? U.km : s.km, dep: USED ? U.dep : s.dep, pre: USED ? U.pre : s.pre, self: USED ? U.self : undefined, liab: s.liab, maint: s.maint, region: s.region,
+        applicantType: st.type, vehicleId: v.id, planId: PLAN ? curPlan().id : null, term: USED ? U.term : !PLAN && Q.rows.length ? s.term : null, km: USED ? U.km : s.km, dep: USED ? U.dep : PLAN ? A.dep : s.dep, pre: USED ? U.pre : PLAN ? A.pre : s.pre, self: USED ? U.self : undefined, liab: s.liab, maint: s.maint, region: s.region,
         company: f.company.value, bizNo: f.bizNo.value, qty: f.qty.value, name: f.name.value, phone: f.phone.value,
         wishDate: f.wishDate.value, request: f.request.value, website: f.website.value, agree: true, marketing: f.marketing.checked,
       },

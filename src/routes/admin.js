@@ -422,7 +422,7 @@ export function registerAdmin(r) {
     const row = {
       plate, name: erp?.name || plate, class: erp?.class || '', year: int(erp?.year) || 0, first_reg: erp?.first_reg || '', km: int(erp?.km) || 0,
       fuel: erp?.fuel || '', color: erp?.color || '', seats: int(erp?.seats) || 0, new_price: int(erp?.new_price) || 0, displacement: int(erp?.displacement) || 0,
-      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고', price_mode: 'quote',
+      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고', price_mode: 'table',
     };
     return json({ ok: true, id: await insertRow(env.DB, 'long_vehicles', row), existed: false, fromErp: !!erp });
   });

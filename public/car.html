@@ -154,6 +154,12 @@
 <div style="display:flex;flex-direction:column"><dl class="kv" id="kvMain"></dl><dl class="kv" id="kvMore" hidden></dl><button type="button" class="more-btn" id="moreBtn">더 보기</button></div>
 </div></div></section>
 <section class="sec pl" id="secPlans" hidden><h2>이용 조건 선택</h2><div class="sec-body"><div class="scroll-x"><table class="htable ptable"><thead><tr><th scope="col" style="width:44px"></th><th scope="col">계약 기간</th><th scope="col">보증금</th><th scope="col">연간 주행거리</th><th scope="col" style="text-align:right">월 렌트료</th><th scope="col" style="text-align:right">만기 인수가</th></tr></thead><tbody id="planRows"></tbody></table></div><p class="small muted" style="margin:0">월 렌트료는 부가세 포함입니다. 심사 결과에 따라 보증금 조건이 달라질 수 있습니다.</p></div></section>
+<section class="sec pl" id="secAdj" hidden><h2>보증금 · 선납금 조정</h2><div class="sec-body" style="gap:18px">
+<div><strong class="uqh">보증금 <small class="muted" style="font-weight:400" id="aDepHint">기본 보증금 이상</small></strong><div class="opts" id="aDep"></div><div class="custom" id="aDepC" hidden><input class="input" id="aDepIn" inputmode="numeric" aria-label="보증금 직접 입력 (원)"><span>원</span></div></div>
+<div><strong class="uqh">선납금 <small class="muted" style="font-weight:400" id="aPreHint"></small></strong><div class="opts" id="aPre"></div><div class="custom" id="aPreC" hidden><input class="input" id="aPreIn" inputmode="numeric" aria-label="선납금 직접 입력 (원)"><span>원</span></div></div>
+<ul class="note"><li>보증금을 기본보다 더 넣거나 선납금을 넣으면 월 렌트료가 내려갑니다. 보증금은 계약이 끝나면 돌려드리고, 선납금은 계약 기간 동안 매월 나눠 차감됩니다.</li><li>심사 결과에 따라 보증금 조건이 달라질 수 있습니다.</li></ul>
+<p class="error-msg" id="aErr" style="margin:0"></p>
+</div></section>
 <section class="sec uq" id="secUsed" hidden><h2>내 견적 만들기</h2><div class="sec-body" style="gap:18px">
 <div><strong class="uqh">계약기간</strong><div class="opts" id="uTerm"></div></div>
 <div><strong class="uqh">약정거리</strong><div class="opts" id="uKm"></div></div>
