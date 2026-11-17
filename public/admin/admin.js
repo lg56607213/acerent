@@ -847,7 +847,7 @@ PAGES.short = async () => {
       { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', w: 50 },
       { key: 'day_rate', label: '1~2일 (1일)', type: 'number', w: 90 }, { key: 'rate_3_4', label: '3~4일 (1일)', type: 'number', w: 90 },
       { key: 'rate_5_6', label: '5~6일 (1일)', type: 'number', w: 90 }, { key: 'rate_7', label: '7일째부터 (1일)', type: 'number', w: 90 },
-      { key: 'rate_table', label: '일수별 요금표 (1일~30일 총액, 쉼표 구분)', type: 'textarea', w: 220 }, { key: 'weekend_fee', label: '주말 추가 (건당)', type: 'number', w: 90 }, { key: 'month_price', label: '월렌트 30일 확정가 (배회차·할증 없음, 0=요금표)', type: 'number', w: 110 },
+      { key: 'rate_table', label: '일수별 요금표 (1일~30일 총액, 쉼표 구분)', type: 'textarea', w: 220 }, { key: 'weekend_fee', label: '주말 추가 (건당)', type: 'number', w: 90 }, { key: 'month_price', label: '월렌트 30일 확정가 (배회차·할증 없음, 0=요금표)', type: 'number', w: 110 }, { key: 'month_km', label: '월렌트 제한 km', type: 'number', w: 80 }, { key: 'over_km_fee', label: '초과 1km당 (원)', type: 'number', w: 80 },
       { key: 'features', label: '주요 옵션', type: 'textarea', w: 180 }, { key: 'erp_code', label: 'ERP 차종코드', w: 100 }, { key: 'active', label: '사용', type: 'check' },
     ],
     blank: { maker: '기아', name: '새 차종', class: '준중형', fuel: '', seats: 5, day_rate: 0, active: 0 },

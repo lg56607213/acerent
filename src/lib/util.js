@@ -111,12 +111,17 @@ export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   if (peak) extras.push(`${peak.name || '성수기'} +${peak.rate}%`);
   if (weekend) extras.push(`주말 +${won(weekend)}`);
   if (overtime) extras.push(`${hours}시간 +${won(overtime)}`);
+  // 월렌트 주행거리 제한: 차종별 제한 km · 초과 1km당 요금 (예약 내역 · 알림 메일에 기록)
+  const kmLimit = monthly ? model.month_km || 0 : 0;
+  const overKmFee = monthly ? model.over_km_fee || 0 : 0;
+  const kmText = kmLimit ? `${kmLimit.toLocaleString('ko-KR')}km 제한${overKmFee ? ` (초과 1km당 ${won(overKmFee)})` : ''}` : '';
+  if (kmText) extras.push(kmText);
   const parts = [monthly ? `월렌트 ${won(base.rent)}` : `${days}일 ${won(base.rent)}`, ...extras];
   const shownParts = [monthly ? `월렌트 ${won(base.rent)}` : `${days}일 ${won(base.rent + hiddenFee)}`, ...extras];
   return {
     days, hours, base: base.rent, peakName: peak ? peak.name : '', peakRate: peak ? peak.rate : 0, peakAmt: afterPeak - base.rent,
     weekend, overtime, rent, dayRate: Math.round(rent / days), label: parts.join(' · '),
-    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '), monthly,
+    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '), monthly, kmLimit, overKmFee, kmText,
   };
 }
 

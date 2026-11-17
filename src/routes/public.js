@@ -85,6 +85,7 @@ export function registerPublic(r) {
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
           features: m.features, rent: sr.shownRent, rentLabel: sr.shownLabel, left: n, image: img(m.image_key),
           weekendFee: m.weekend_fee || 0,
+          monthly: sr.monthly, kmLimit: sr.kmLimit, overKmFee: sr.overKmFee, kmText: sr.kmText,
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
           // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
           samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, d === 30 && m.month_price > 0 ? m.month_price : shortRent(m, d).rent + fee]) : null,
