@@ -23,11 +23,19 @@ async function erpFetch(env, path, init = {}) {
   return res.json();
 }
 
+const isHybrid = (f) => /하이브리드|hybrid|hev/i.test(String(f || ''));
+function pickModel(list, fuel) {
+  if (!list || !list.length) return null;
+  if (list.length === 1) return list[0].id;
+  const want = fuel ? isHybrid(fuel) : false;
+  return (list.find((m) => isHybrid(m.fuel) === want) || list[0]).id;
+}
+
 // 반환: { counts: Map<model_id, 남은 대수>, vehicles: Map<model_id, 고를 수 있는 차량[]> }
 // vehicles 는 ERP 연동일 때만 채워진다 (임시 모드는 차종만 고름)
 export async function availableByModel(env, { from, to, locationId }) {
   const db = env.DB;
-  const { results: models } = await db.prepare('SELECT id, erp_code FROM short_models WHERE active = 1').all();
+  const { results: models } = await db.prepare('SELECT id, erp_code, fuel FROM short_models WHERE active = 1 ORDER BY sort, id').all();
   const counts = new Map(models.map((m) => [m.id, 0]));
   const vehicles = new Map(models.map((m) => [m.id, []]));
 
@@ -37,9 +45,15 @@ export async function availableByModel(env, { from, to, locationId }) {
       env,
       `/api/public/short/availability?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&location=${encodeURIComponent(locationId || '')}`
     );
-    const byCode = new Map(models.filter((m) => m.erp_code).map((m) => [m.erp_code, m.id]));
+    // 같은 ERP 차종코드에 가솔린 · 하이브리드 차종이 같이 있으면 ERP 차량의 연료(fuel)로 나눔
+    //   (연료 정보가 없으면 하이브리드가 아닌 차종으로)
+    const byCode = new Map();
+    for (const m of models.filter((x) => x.erp_code)) {
+      if (!byCode.has(m.erp_code)) byCode.set(m.erp_code, []);
+      byCode.get(m.erp_code).push(m);
+    }
     for (const v of data.vehicles || []) {
-      const mid = byCode.get(String(v.model_code));
+      const mid = pickModel(byCode.get(String(v.model_code)), v.fuel);
       if (mid) vehicles.get(mid).push({ id: String(v.id), plate: v.plate, color: v.color || '', mileage: v.mileage || null, year: v.year || null });
     }
     // 아직 ERP 에 반영되지 않은 홈페이지 예약: 고른 차량은 그 차를, 아니면 그 차종에서 한 대를 뺀다
@@ -83,6 +97,7 @@ export async function pushHold(env, reservation, model) {
       body: JSON.stringify({
         no: reservation.no,
         model_code: model.erp_code,
+        fuel: model.fuel || undefined,
         pickup_at: reservation.pickup_at,
         return_at: reservation.return_at,
         vehicle_id: reservation.erp_vehicle_id || undefined,
