@@ -625,8 +625,9 @@ async function carEditor(id) {
 <h3>보험조건</h3>
 <table class="regt"><tbody>
 <tr><th>책임한도</th><td colspan="3"><div class="tri"><label>대인 ${inp('t_liabPerson', t.liabPerson, '무한')}</label><label>대물 ${inp('t_liabProperty', t.liabProperty, '1억원')}</label><label>자손 ${inp('t_liabSelf', t.liabSelf, '1,500만원')}</label></div></td></tr>
-<tr><th>면책금</th><td colspan="3"><div class="tri"><label>자차 ${inp('t_dedCar', t.dedCar, '50만원')}</label><label>대물 ${inp('t_dedProperty', t.dedProperty, '30만원')}</label><label>대인 ${inp('t_dedPerson', t.dedPerson, '30만원')}</label><label>자손 ${inp('t_dedSelf', t.dedSelf, '30만원')}</label></div>
+<tr><th>면책금</th><td colspan="3"><div class="tri"><label>자차 ${inp('t_dedCar', t.dedCar, '50만원')}</label><label>대물 ${inp('t_dedProperty', t.dedProperty, '50만원')}</label><label>대인 ${inp('t_dedPerson', t.dedPerson, '50만원')}</label><label>자손 ${inp('t_dedSelf', t.dedSelf, '50만원')}</label></div>
 ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차량 자차 100만원', 'style="margin-top:6px"')}</td></tr>
+<tr><th>자차한도</th><td colspan="3"><div class="u">${inp('t_carLimit', t.carLimit, '400만원')}</div><span class="hint">비우면 400만원</span></td></tr>
 </tbody></table>
 
 <h3>추가운전자 범위</h3>
@@ -713,7 +714,7 @@ ${inp('t_dedNote', t.dedNote, '예: 수입차 및 렌트비 100만원 이상 차
         minAge: radio('t_minAge'), career: $('#t_career').value, credit: $('#t_credit').value, penalty: $('#t_penalty').value, overKm: $('#t_overKm').value,
         buyout: radio('t_buyout'), maint: radio('t_maint'), maintDesc: $('#t_maintDesc').value,
         liabPerson: $('#t_liabPerson').value, liabProperty: $('#t_liabProperty').value, liabSelf: $('#t_liabSelf').value,
-        dedCar: $('#t_dedCar').value, dedProperty: $('#t_dedProperty').value, dedPerson: $('#t_dedPerson').value, dedSelf: $('#t_dedSelf').value, dedNote: $('#t_dedNote').value,
+        dedCar: $('#t_dedCar').value, dedProperty: $('#t_dedProperty').value, dedPerson: $('#t_dedPerson').value, dedSelf: $('#t_dedSelf').value, dedNote: $('#t_dedNote').value, carLimit: $('#t_carLimit').value,
         driverPerson: $('#t_driverPerson').value, driverCorp: $('#t_driverCorp').value,
       },
       car_value: num('#v_car_value'), new_price: num('#v_new_price'), accident: $('#v_accident').value, pickup: $('#v_pickup').value, avail_note: $('#v_avail_note').value,

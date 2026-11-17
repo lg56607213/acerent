@@ -23,6 +23,14 @@ export const MAINT_DEFAULT = {
 export const AGE = { '26': '만 26세 이상', '21': '만 21세 이상', all: '전연령 이용가능' };
 export const DRIVER_DEFAULT = { person: '계약자 외 1인 (등본 또는 가족관계증명서에 기재된 1인)', corp: '법인 대표자 외 1인 / 4대보험 가입 직원' };
 
+// 모든 중장기 차량 공통 계약 · 보험 조건 (새로 등록하는 차량의 기본값)
+export const COMMON_TERMS = {
+  minAge: '26', career: '1', credit: '', penalty: '30', overKm: '300', buyout: 'yes', maint: 'none', maintDesc: '',
+  liabPerson: '무한', liabProperty: '1억원', liabSelf: '1,500만원',
+  dedCar: '50만원', dedProperty: '50만원', dedPerson: '50만원', dedSelf: '50만원', dedNote: '', carLimit: '400만원',
+  driverPerson: DRIVER_DEFAULT.person, driverCorp: DRIVER_DEFAULT.corp,
+};
+
 // 계약 · 보험 조건을 고객에게 보여 줄 문장으로 (비운 칸은 기본 문구)
 export function termRows(t = {}) {
   const d = (v, def) => (String(v ?? '').trim() ? String(v).trim() : def);
@@ -39,9 +47,10 @@ export function termRows(t = {}) {
     ],
     insurance: [
       ['책임한도', [`대인 ${d(t.liabPerson, '무한')}`, `대물 ${d(t.liabProperty, '1억원')}`, `자손 ${d(t.liabSelf, '1,500만원')}`].join(' · ')],
-      ['면책금', [`자차 ${d(t.dedCar, '50만원')}`, `대물 ${d(t.dedProperty, '30만원')}`, `대인 ${d(t.dedPerson, '30만원')}`, `자손 ${d(t.dedSelf, '30만원')}`].join(' · ') + (t.dedNote ? `\n${t.dedNote}` : '')],
-      ['추가운전자 (개인)', d(t.driverPerson, DRIVER_DEFAULT.person)],
-      ['추가운전자 (법인)', d(t.driverCorp, DRIVER_DEFAULT.corp)],
+      ['면책금', [`대물 ${d(t.dedProperty, '50만원')}`, `대인 ${d(t.dedPerson, '50만원')}`, `자손 ${d(t.dedSelf, '50만원')}`, `자차 ${d(t.dedCar, '50만원')}`].join(' · ') + (t.dedNote ? `\n${t.dedNote}` : '')],
+      ['자차한도', d(t.carLimit, '400만원')],
+      ['운전자 범위 (개인)', d(t.driverPerson, DRIVER_DEFAULT.person)],
+      ['운전자 범위 (법인)', d(t.driverCorp, DRIVER_DEFAULT.corp)],
     ],
   };
 }
