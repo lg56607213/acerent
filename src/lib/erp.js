@@ -28,42 +28,46 @@ const normPlate = (p) => String(p || '').replace(/s+/g, '');
 // 홈페이지 전용 하이브리드 차종코드: ERP 차종코드 뒤에 _HEV (예: K5 → K5_HEV)
 //   ERP 는 가솔린 · 하이브리드를 같은 차종코드로 보내므로, 차량 연료를 확인해 하이브리드는 _HEV 차종에 담는다
 const HEV = '_HEV';
-const baseCode = (code) => String(code || '').replace(/_HEV$/, '');
+// 6인승 차종코드: ERP 차종코드 뒤에 _6S (예: SORENTO → SORENTO_6S). 하이브리드와 같이 쓰면 _6S_HEV 순서
+const SIX = '_6S';
+const baseCode = (code) => String(code || '').replace(/(_6S)?(_HEV)?$/, '');
 
-// 차량별 연료 확인: ERP 응답의 fuel → 차종명(model_name) → ERP 차량 정보(/api/public/vehicles, D1 에 7일 보관)
-async function vehicleFuels(env, list) {
+// 차량별 연료 · 인승 확인: ERP 응답 값 → 차종명(model_name) → ERP 차량 정보(/api/public/vehicles, D1 에 7일 보관)
+async function vehicleInfo(env, list) {
   const out = new Map();
   const ask = [];
   for (const v of list) {
     const id = String(v.id);
-    if (v.fuel) out.set(id, v.fuel);
-    else if (isHybrid(v.model_name)) out.set(id, '하이브리드');
+    const fuel = v.fuel || (isHybrid(v.model_name) ? '하이브리드' : '');
+    const seats = parseInt(v.seats, 10) || (/6s*인승/.test(v.model_name || '') ? 6 : 0);
+    if (fuel && seats) out.set(id, { fuel, seats });
     else ask.push(v);
   }
   if (!ask.length) return out;
   const { results: cached } = await env.DB.prepare(
-    `SELECT vehicle_id, fuel, checked_at FROM erp_vehicle_fuel WHERE vehicle_id IN (${ask.map(() => '?').join(',')})`
+    `SELECT vehicle_id, fuel, seats, checked_at FROM erp_vehicle_fuel WHERE vehicle_id IN (${ask.map(() => '?').join(',')})`
   ).bind(...ask.map((v) => String(v.id))).all();
   const now = Date.now();
   const fresh = new Map(
     cached
-      .filter((c) => now - Date.parse(c.checked_at.replace(' ', 'T') + 'Z') < (c.fuel ? 7 : 1) * 86400000)
-      .map((c) => [c.vehicle_id, c.fuel])
+      .filter((c) => c.seats !== null && now - Date.parse(c.checked_at.replace(' ', 'T') + 'Z') < (c.fuel ? 7 : 1) * 86400000)
+      .map((c) => [c.vehicle_id, { fuel: c.fuel, seats: c.seats }])
   );
   const miss = ask.filter((v) => !fresh.has(String(v.id)));
   for (const [id, f] of fresh) out.set(id, f);
   await Promise.all(
-    miss.slice(0, 20).map(async (v) => {
+    miss.slice(0, 30).map(async (v) => {
       const id = String(v.id);
       try {
         const r = await erpFetch(env, `/api/public/vehicles?q=${encodeURIComponent(v.plate || id)}`);
         const hit = (r.vehicles || []).find((x) => String(x.id) === id || normPlate(x.plate) === normPlate(v.plate));
         const fuel = hit ? hit.fuel || (isHybrid(hit.name) ? '하이브리드' : '') : '';
-        out.set(id, fuel);
+        const seats = hit ? parseInt(hit.seats, 10) || (/6s*인승/.test(hit.name || '') ? 6 : 0) : 0;
+        out.set(id, { fuel, seats });
         await env.DB.prepare(
-          `INSERT INTO erp_vehicle_fuel (vehicle_id, plate, fuel, checked_at) VALUES (?, ?, ?, datetime('now'))
-           ON CONFLICT(vehicle_id) DO UPDATE SET plate = excluded.plate, fuel = excluded.fuel, checked_at = excluded.checked_at`
-        ).bind(id, v.plate || '', fuel).run();
+          `INSERT INTO erp_vehicle_fuel (vehicle_id, plate, fuel, seats, name, checked_at) VALUES (?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(vehicle_id) DO UPDATE SET plate = excluded.plate, fuel = excluded.fuel, seats = excluded.seats, name = excluded.name, checked_at = excluded.checked_at`
+        ).bind(id, v.plate || '', fuel, seats, hit ? String(hit.name || '') : '').run();
       } catch {}
     })
   );
@@ -86,10 +90,14 @@ export async function availableByModel(env, { from, to, locationId }) {
     );
     const byCode = new Map(models.filter((m) => m.erp_code).map((m) => [m.erp_code, m.id]));
     const list = data.vehicles || [];
-    const fuels = await vehicleFuels(env, list.filter((v) => byCode.has(String(v.model_code) + HEV))).catch(() => new Map());
+    // 같은 ERP 차종코드라도 홈페이지에 6인승(_6S) · 하이브리드(_HEV) 차종이 따로 있으면 차량 정보로 나눔
+    const split = (c) => byCode.has(c + SIX) || byCode.has(c + HEV) || byCode.has(c + SIX + HEV);
+    const info = await vehicleInfo(env, list.filter((v) => split(String(v.model_code)))).catch(() => new Map());
     for (const v of list) {
       let code = String(v.model_code);
-      if (byCode.has(code + HEV) && isHybrid(fuels.get(String(v.id)))) code += HEV;
+      const vi = info.get(String(v.id)) || {};
+      if (vi.seats === 6 && (byCode.has(code + SIX) || byCode.has(code + SIX + HEV))) code += SIX;
+      if (byCode.has(code + HEV) && isHybrid(vi.fuel)) code += HEV;
       const mid = byCode.get(code);
       if (mid) vehicles.get(mid).push({ id: String(v.id), plate: v.plate, color: v.color || '', mileage: v.mileage || null, year: v.year || null });
     }
