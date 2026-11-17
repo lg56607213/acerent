@@ -89,13 +89,18 @@ export async function availableByModel(env, { from, to, locationId }) {
       `/api/public/short/availability?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&location=${encodeURIComponent(locationId || '')}`
     );
     const byCode = new Map(models.filter((m) => m.erp_code).map((m) => [m.erp_code, m.id]));
-    const list = data.vehicles || [];
     // 같은 ERP 차종코드라도 홈페이지에 6인승(_6S) · 하이브리드(_HEV) 차종이 따로 있으면 차량 정보로 나눔
     const split = (c) => byCode.has(c + SIX) || byCode.has(c + HEV) || byCode.has(c + SIX + HEV);
-    const info = await vehicleInfo(env, list.filter((v) => split(String(v.model_code)))).catch(() => new Map());
-    for (const v of list) {
+    // 관리자 '단기 차량 예외' : 차량번호별 인승 지정 · 단기 목록에서 숨김(장기로 나간 차 등)
+    const { results: rules } = await db.prepare('SELECT plate, seats, hidden FROM erp_vehicle_rules WHERE active = 1').all().catch(() => ({ results: [] }));
+    const rule = new Map(rules.map((r) => [normPlate(r.plate), r]));
+    const shown = (data.vehicles || []).filter((v) => !(rule.get(normPlate(v.plate)) || {}).hidden);
+    const info = await vehicleInfo(env, shown.filter((v) => split(String(v.model_code)))).catch(() => new Map());
+    for (const v of shown) {
       let code = String(v.model_code);
-      const vi = info.get(String(v.id)) || {};
+      const vi = { ...(info.get(String(v.id)) || {}) };
+      const ru = rule.get(normPlate(v.plate));
+      if (ru && ru.seats > 0) vi.seats = ru.seats;
       if (vi.seats === 6 && (byCode.has(code + SIX) || byCode.has(code + SIX + HEV))) code += SIX;
       if (byCode.has(code + HEV) && isHybrid(vi.fuel)) code += HEV;
       const mid = byCode.get(code);

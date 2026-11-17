@@ -838,7 +838,7 @@ ${rowNote ? `<p class="hint" style="margin:0;padding:10px 16px">${esc(rowNote)}<
 PAGES.short = async () => {
   const s = await api('/api/admin/settings');
   main.innerHTML = `<div class="a-title"><div><h1>단기 차종 · 요금 · 보험</h1><p class="desc">차종별 일요금과 대표 이미지(현대 · 기아)를 관리합니다. 예약 가능한 대수는 ${s.erpEnabled ? 'rentcarerp 배차 일정에서 자동으로' : '아래 임시 차량 목록으로'} 계산됩니다.</p></div></div>
-<div id="models"></div><div id="peaks"></div><div id="ins"></div>${s.erpEnabled ? '' : '<div id="fleet"></div>'}`;
+<div id="models"></div>${s.erpEnabled ? '<div id="rules"></div>' : ''}<div id="peaks"></div><div id="ins"></div>${s.erpEnabled ? '' : '<div id="fleet"></div>'}`;
   await listEditor({
     target: '#models', endpoint: 'short-models', title: '단기 차종 · 대여기간별 1일 요금', desc: '기간 = 반납일 - 대여일(날짜 기준). 반납 시각이 대여 시각보다 늦으면 넘는 시간(최대 10시간)마다 1일 요금의 10%를 더합니다. 기간에 토·일요일이 있으면 주말 추가(건당 한 번), 성수기 기간이면 아래 할증률을 더합니다. 일수별 요금표를 넣은 차종은 대여 일수 칸의 총액이 그대로 대여료입니다 (예: 50000,100000,143000,… → 3일 = 143,000원). 30일을 넘으면 마지막 칸 총액 + 1일 평균 × 넘는 일수. 요금표가 비어 있으면 4구간 요금: 대여 일수 × 해당 구간 1일 요금. 단, 7일 이상은 6일까지 5~6일 요금 × 6일 + 7일째부터 7일 이상 요금 × 남은 일수 (예: 10일 = 5~6일 요금 × 6 + 7일 요금 × 4). 비워둔 구간은 앞 구간 요금 사용. 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시되며, 없으면 차급별 기본 그림이 나옵니다.',
     columns: [
@@ -851,6 +851,15 @@ PAGES.short = async () => {
       { key: 'features', label: '주요 옵션', type: 'textarea', w: 180 }, { key: 'erp_code', label: 'ERP 차종코드', w: 100 }, { key: 'active', label: '사용', type: 'check' },
     ],
     blank: { maker: '기아', name: '새 차종', class: '준중형', fuel: '', seats: 5, day_rate: 0, active: 0 },
+  });
+  if (s.erpEnabled) await listEditor({
+    target: '#rules', endpoint: 'erp-vehicle-rules', title: '단기 차량 예외 (차량번호별)', orderable: false,
+    desc: 'ERP 차량 중 홈페이지 단기 · 주단위 · 월렌트 목록에 맞게 따로 지정할 차량입니다. 인승: ERP 에 인승 정보가 없을 때 지정 (예: 쏘렌토 6인승 → 6, ERP 차종코드 SORENTO_6S 차종에 담김). 숨김: 장기로 나간 차처럼 단기 예약에 보이면 안 되는 차량.',
+    columns: [
+      { key: 'plate', label: '차량번호', w: 120 }, { key: 'seats', label: '인승 (0=ERP 값)', type: 'number', w: 80 },
+      { key: 'hidden', label: '단기 목록에서 숨김', type: 'check' }, { key: 'memo', label: '메모', w: 200 }, { key: 'active', label: '사용', type: 'check' },
+    ],
+    blank: { plate: '', seats: 0, hidden: 0, memo: '', active: 1 },
   });
   await listEditor({
     target: '#peaks', endpoint: 'short-peaks', title: '성수기 · 준성수기 할증', orderable: false,
