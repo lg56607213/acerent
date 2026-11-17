@@ -136,7 +136,7 @@ function summary() {
   $('#sumBody').hidden = !m;
   if (!m) return;
   const a = amounts();
-  $('.ins-name').forEach((el) => { const i = ins.find((x) => String(x.id) === el.dataset.id); if (i) el.textContent = insName(i); });
+  $$('.ins-name').forEach((el) => { const i = ins.find((x) => String(x.id) === el.dataset.id); if (i) el.textContent = insName(i); });
   $('#sumCar').textContent = `${m.maker} ${m.name}`;
   $('#sumPeriod').textContent = `${shortDt($('#from').value)} ~ ${shortDt($('#to').value)} · ${st.periodText}`;
   $('#sumRent').textContent = won(a.rent) + '원';
