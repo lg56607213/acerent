@@ -34,7 +34,7 @@ function draw() {
 <dt>월 렌트료${v.p ? ` (${v.p.term}개월)` : ''}</dt><dd>${v.p ? `<strong class="price">${won(v.p.monthly)}</strong>원~` : '<span class="muted">상담</span>'}</dd></dl></a>`
         )
         .join('')
-    : '<p class="empty" style="grid-column:1/-1">지금 출고 가능한 중장기 차량을 준비 중입니다. 1644-8891로 문의하시거나 아래 견적 신청을 남겨주세요.</p>';
+    : '<p class="empty" style="grid-column:1/-1">지금 출고 가능한 장기 차량을 준비 중입니다. 1644-8891로 문의하시거나 아래 견적 신청을 남겨주세요.</p>';
 }
 
 try {

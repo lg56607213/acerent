@@ -18,6 +18,21 @@ $('#loc').addEventListener('change', locNote);
 const [df, dt] = defaultPeriod();
 $('#from').value = qs.get('from') || df;
 $('#to').value = qs.get('to') || dt;
+// 주단위렌트(?days=7) · 월렌트(?days=30) 메뉴: 대여일 기준으로 반납일을 맞추고 메뉴 표시를 바꿈
+const qDays = parseInt(qs.get('days'), 10);
+if (qDays > 0 && qDays <= 60) {
+  if (!qs.get('to')) {
+    const d = new Date($('#from').value.slice(0, 10) + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + qDays);
+    $('#to').value = d.toISOString().slice(0, 10) + $('#from').value.slice(10);
+  }
+  const cur = $(`.gnb a[href="/short.html?days=${qDays}"]`);
+  if (cur) {
+    $$('.gnb a').forEach((a) => { a.classList.remove('on'); a.removeAttribute('aria-current'); });
+    cur.classList.add('on');
+    cur.setAttribute('aria-current', 'page');
+  }
+}
 $('#from').min = df.slice(0, 10) + 'T00:00';
 
 // 보험 선택지 (기본: 두 번째 = 일반 자차)
@@ -62,7 +77,7 @@ async function search() {
     if (!model()) st.modelId = null;
     $('#period').textContent = `총 ${st.periodText}`;
     $('#soldOut').innerHTML = r.soldOut.length ? `<strong style="color:var(--ink)">예약 마감</strong> &nbsp; ${r.soldOut.map((n) => `<span style="text-decoration:line-through">${esc(n)}</span>`).join(' &nbsp; ')}` : '';
-    history.replaceState(null, '', `?loc=${$('#loc').value}&from=${from}&to=${to}`);
+    history.replaceState(null, '', `?loc=${$('#loc').value}&from=${from}&to=${to}${qDays > 0 && qDays <= 60 ? `&days=${qDays}` : ''}`);
     render();
   } catch (e) {
     st.models = [];
