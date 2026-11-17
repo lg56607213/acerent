@@ -105,6 +105,23 @@ export function fixedPlan(model, days) {
   return null;
 }
 
+// 단기 주행 가능 거리 (km): 1일 = day_km(300) · 2일 500 · 3일 700 · 4일 850 · 5일 1,000 · 6일 1,100 (day_km 300 기준 비율)
+//   7일 = 주단위 제한(week_km) · 8~29일 = 주단위 → 월렌트 제한(month_km) 사이를 일수에 비례 · 30일 = month_km
+//   30일 넘으면 month_km ÷ 30 × 일수. 10km 단위 반올림
+const SHORT_KM_STEPS = [300, 500, 700, 850, 1000, 1100];
+export function shortKm(model, days) {
+  const base = model.day_km || 0;
+  if (!base || days < 1) return 0;
+  const r10 = (n) => Math.round(n / 10) * 10;
+  const wk = model.week_km || 0, mo = model.month_km || 0;
+  if (days <= 6) return r10((SHORT_KM_STEPS[days - 1] * base) / 300);
+  if (!wk) return r10((SHORT_KM_STEPS[5] * base) / 300 + ((days - 6) * base) / 3);
+  if (days === 7) return wk;
+  if (mo && days < 30) return r10(wk + ((mo - wk) * (days - 7)) / 23);
+  if (mo) return r10((mo * days) / 30);
+  return r10(wk + ((wk / 7) * (days - 7)) / 2);
+}
+
 export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   const period = rentalPeriod(pickupAt, returnAt);
   if (!period) return null;
@@ -125,12 +142,11 @@ export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   if (weekend) extras.push(`주말 +${won(weekend)}`);
   if (overtime) extras.push(`${hours}시간 +${won(overtime)}`);
   // 주단위 · 월렌트 주행거리 제한: 상품별 제한 km · 초과 1km당 요금(차종별, 주 · 월 같음) (예약 내역 · 알림 메일에 기록)
-  //   단기(그 외 기간): 1일 제한 km(day_km) × 대여 일수
-  const kmLimit = fixed ? plan.km : (model.day_km || 0) * days;
+  //   단기(그 외 기간): 기간별 주행 가능 거리 (shortKm) — 1일 → 주단위(7일) → 월렌트(30일)로 이어짐
+  const kmLimit = fixed ? plan.km : shortKm(model, days);
   const overKmFee = kmLimit ? model.over_km_fee || 0 : 0;
-  const kmNote = [!fixed && kmLimit ? `1일 ${(model.day_km).toLocaleString('ko-KR')}km` : '', overKmFee ? `초과 1km당 ${won(overKmFee)}` : ''].filter(Boolean).join(' · ');
-  const kmText = kmLimit ? `${kmLimit.toLocaleString('ko-KR')}km 제한${kmNote ? ` (${kmNote})` : ''}` : '';
-  if (kmText) extras.push(kmText);
+  const kmText = kmLimit ? `${kmLimit.toLocaleString('ko-KR')}km${overKmFee ? ` (초과 1km당 ${won(overKmFee)})` : ''}` : '';
+  if (kmText) extras.push(`주행 가능 ${kmText}`);
   const parts = [fixed ? `${plan.name} ${won(base.rent)}` : `${days}일 ${won(base.rent)}`, ...extras];
   const shownParts = [fixed ? `${plan.name} ${won(base.rent)}` : `${days}일 ${won(base.rent + hiddenFee)}`, ...extras];
   return {
