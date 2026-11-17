@@ -1,7 +1,7 @@
 // 고객용 API
 import {
   HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalPeriod, nextNo, int,
-  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, shortRent, shortQuote, periodText, insNameFor, parseRateTable,
+  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, shortRent, shortQuote, periodText, insNameFor, fixedPlan, parseRateTable,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -86,10 +86,10 @@ export function registerPublic(r) {
           features: m.features, rent: sr.shownRent, rentLabel: sr.shownLabel, left: n, image: img(m.image_key),
           weekendFee: m.weekend_fee || 0,
           insLimit: m.self_ins_limit || 0,
-          monthly: sr.monthly, kmLimit: sr.kmLimit, overKmFee: sr.overKmFee, kmText: sr.kmText,
+          fixed: sr.fixed, planName: sr.planName, kmLimit: sr.kmLimit, overKmFee: sr.overKmFee, kmText: sr.kmText,
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
           // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
-          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, d === 30 && m.month_price > 0 ? m.month_price : shortRent(m, d).rent + fee]) : null,
+          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, fixedPlan(m, d) ? fixedPlan(m, d).price : shortRent(m, d).rent + fee]) : null,
         });
       } else soldOut.push(m.name);
     }
@@ -135,8 +135,8 @@ export function registerPublic(r) {
     const rate = sr.dayRate, rent = sr.rent;
     // 자차: 1일 요금 × 일수 + 정액(건당 한 번)
     const insAmt = ins ? ins.per_day * days + (ins.flat_fee || 0) : 0;
-    // 월렌트(30일 확정 가격)는 배회차비 없음
-    const locFee = sr.monthly ? 0 : loc.fee || 0;
+    // 주단위렌트 · 월렌트(확정 가격)는 배회차비 없음
+    const locFee = sr.fixed ? 0 : loc.fee || 0;
     const total = rent + insAmt + locFee;
 
     const customerId = await upsertCustomer(env.DB, { name, phone, source: '홈페이지 단기 예약' });

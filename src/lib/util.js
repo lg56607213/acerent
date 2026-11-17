@@ -96,20 +96,27 @@ export function insNameFor(name, limitManwon) {
   return limitManwon > 0 ? n.replace(/자차한도\s*[\d,]+\s*만원/, `자차한도 ${limitManwon}만원`) : n;
 }
 
-// 월렌트 = 30일 대여
+// 확정 가격 상품: 주단위렌트 = 7일, 월렌트 = 30일 (차종별 week_price · month_price, 0 이면 일반 요금)
+export const WEEK_DAYS = 7;
 export const MONTH_DAYS = 30;
+export function fixedPlan(model, days) {
+  if (days === WEEK_DAYS && model.week_price > 0) return { name: '주단위렌트', price: model.week_price, km: model.week_km || 0 };
+  if (days === MONTH_DAYS && model.month_price > 0) return { name: '월렌트', price: model.month_price, km: model.month_km || 0 };
+  return null;
+}
 
 export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   const period = rentalPeriod(pickupAt, returnAt);
   if (!period) return null;
   const { days, hours } = period;
-  // 월렌트(30일): 차종별 확정 가격(month_price) 그대로 — 성수기 할증 · 주말 추가 · 배회차비 없음
-  const monthly = days === MONTH_DAYS && model.month_price > 0;
-  if (monthly) hiddenFee = 0;
-  const base = monthly ? { rent: model.month_price } : shortRent(model, days);
-  const peak = monthly ? null : peakRate(pickupAt, returnAt, peaks);
+  // 주단위렌트(7일) · 월렌트(30일): 차종별 확정 가격 그대로 — 성수기 할증 · 주말 추가 · 배회차비 없음
+  const plan = fixedPlan(model, days);
+  const fixed = !!plan;
+  if (fixed) hiddenFee = 0;
+  const base = fixed ? { rent: plan.price } : shortRent(model, days);
+  const peak = fixed ? null : peakRate(pickupAt, returnAt, peaks);
   const afterPeak = peak ? ceil1000((base.rent * (100 + peak.rate)) / 100) : base.rent;
-  const weekend = !monthly && model.weekend_fee && hasWeekend(pickupAt, returnAt) ? model.weekend_fee : 0;
+  const weekend = !fixed && model.weekend_fee && hasWeekend(pickupAt, returnAt) ? model.weekend_fee : 0;
   const sub = afterPeak + weekend;
   const overtime = hours ? ceil1000(((sub / days) * hours) / 10) : 0;
   const rent = sub + overtime;
@@ -117,17 +124,17 @@ export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   if (peak) extras.push(`${peak.name || '성수기'} +${peak.rate}%`);
   if (weekend) extras.push(`주말 +${won(weekend)}`);
   if (overtime) extras.push(`${hours}시간 +${won(overtime)}`);
-  // 월렌트 주행거리 제한: 차종별 제한 km · 초과 1km당 요금 (예약 내역 · 알림 메일에 기록)
-  const kmLimit = monthly ? model.month_km || 0 : 0;
-  const overKmFee = monthly ? model.over_km_fee || 0 : 0;
+  // 주단위 · 월렌트 주행거리 제한: 상품별 제한 km · 초과 1km당 요금(차종별, 주 · 월 같음) (예약 내역 · 알림 메일에 기록)
+  const kmLimit = fixed ? plan.km : 0;
+  const overKmFee = fixed ? model.over_km_fee || 0 : 0;
   const kmText = kmLimit ? `${kmLimit.toLocaleString('ko-KR')}km 제한${overKmFee ? ` (초과 1km당 ${won(overKmFee)})` : ''}` : '';
   if (kmText) extras.push(kmText);
-  const parts = [monthly ? `월렌트 ${won(base.rent)}` : `${days}일 ${won(base.rent)}`, ...extras];
-  const shownParts = [monthly ? `월렌트 ${won(base.rent)}` : `${days}일 ${won(base.rent + hiddenFee)}`, ...extras];
+  const parts = [fixed ? `${plan.name} ${won(base.rent)}` : `${days}일 ${won(base.rent)}`, ...extras];
+  const shownParts = [fixed ? `${plan.name} ${won(base.rent)}` : `${days}일 ${won(base.rent + hiddenFee)}`, ...extras];
   return {
     days, hours, base: base.rent, peakName: peak ? peak.name : '', peakRate: peak ? peak.rate : 0, peakAmt: afterPeak - base.rent,
     weekend, overtime, rent, dayRate: Math.round(rent / days), label: parts.join(' · '),
-    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '), monthly, kmLimit, overKmFee, kmText,
+    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '), fixed, planName: fixed ? plan.name : '', kmLimit, overKmFee, kmText,
   };
 }
 

@@ -103,7 +103,7 @@ function render() {
           (m) => `<article class="car-row ${st.modelId && m.id !== st.modelId ? 'other' : ''}">
 <div class="photo"><img src="${esc(m.image || classImage(m.class))}" alt="${esc(m.maker + ' ' + m.name)}" loading="lazy" style="object-fit:contain;background:#fff"></div>
 <div class="info"><span class="small muted">${[m.class, m.fuel, m.seats ? m.seats + '인승' : ''].filter(Boolean).map(esc).join(' · ')}</span><strong style="font-size:18px">${esc(m.maker)} ${esc(m.name)}</strong>
-${m.features ? `<span class="small muted">${esc(m.features)}</span>` : ''}<span class="small muted">${m.samples ? `대여료 ${m.samples.map(([d, v]) => `${d}일 ${won(v)}`).join(' · ')}` : `1일 요금 1~2일 ${won(m.tiers[0])} · 3~4일 ${won(m.tiers[1])} · 5~6일 ${won(m.tiers[2])} · 7일째부터 ${won(m.tiers[3])}`}</span>${m.kmText ? `<span class="small" style="font-weight:700">월렌트 주행거리 ${esc(m.kmText)}</span>` : ''}<span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
+${m.features ? `<span class="small muted">${esc(m.features)}</span>` : ''}<span class="small muted">${m.samples ? `대여료 ${m.samples.map(([d, v]) => `${d}일 ${won(v)}`).join(' · ')}` : `1일 요금 1~2일 ${won(m.tiers[0])} · 3~4일 ${won(m.tiers[1])} · 5~6일 ${won(m.tiers[2])} · 7일째부터 ${won(m.tiers[3])}`}</span>${m.kmText ? `<span class="small" style="font-weight:700">${esc(m.planName)} 주행거리 ${esc(m.kmText)}</span>` : ''}<span class="small red" style="font-weight:700">잔여 ${m.left}대</span></div>
 <div class="pay"><span class="small muted">${esc(m.rentLabel || `${st.periodText} 대여료`)}</span><strong>${won(m.rent)}원</strong>
 <button type="button" class="btn ${m.id === st.modelId ? 'btn-red' : ''} btn-block" style="height:42px;margin-top:8px" data-id="${m.id}" aria-pressed="${m.id === st.modelId}">${m.id === st.modelId ? '선택됨' : '선택'}</button></div>
 </article>`
@@ -164,7 +164,7 @@ $('#goInfo').addEventListener('click', () => {
   $('#cIns').textContent = [i ? insName(i) : '', ...opts].filter(Boolean).join(' · ');
   $('#cTotal').textContent = won(a.total) + '원';
   $('#cKmRow').hidden = !m.kmText;
-  $('#cKm').textContent = m.kmText ? `월렌트 ${m.kmText}` : '';
+  $('#cKm').textContent = m.kmText ? `${m.planName} ${m.kmText}` : '';
   step(2);
 });
 $('#backSelect').addEventListener('click', () => step(1));
