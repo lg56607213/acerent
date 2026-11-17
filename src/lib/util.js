@@ -125,16 +125,18 @@ export function shortQuote(model, pickupAt, returnAt, peaks, hiddenFee = 0) {
   if (weekend) extras.push(`주말 +${won(weekend)}`);
   if (overtime) extras.push(`${hours}시간 +${won(overtime)}`);
   // 주단위 · 월렌트 주행거리 제한: 상품별 제한 km · 초과 1km당 요금(차종별, 주 · 월 같음) (예약 내역 · 알림 메일에 기록)
-  const kmLimit = fixed ? plan.km : 0;
-  const overKmFee = fixed ? model.over_km_fee || 0 : 0;
-  const kmText = kmLimit ? `${kmLimit.toLocaleString('ko-KR')}km 제한${overKmFee ? ` (초과 1km당 ${won(overKmFee)})` : ''}` : '';
+  //   단기(그 외 기간): 1일 제한 km(day_km) × 대여 일수
+  const kmLimit = fixed ? plan.km : (model.day_km || 0) * days;
+  const overKmFee = kmLimit ? model.over_km_fee || 0 : 0;
+  const kmNote = [!fixed && kmLimit ? `1일 ${(model.day_km).toLocaleString('ko-KR')}km` : '', overKmFee ? `초과 1km당 ${won(overKmFee)}` : ''].filter(Boolean).join(' · ');
+  const kmText = kmLimit ? `${kmLimit.toLocaleString('ko-KR')}km 제한${kmNote ? ` (${kmNote})` : ''}` : '';
   if (kmText) extras.push(kmText);
   const parts = [fixed ? `${plan.name} ${won(base.rent)}` : `${days}일 ${won(base.rent)}`, ...extras];
   const shownParts = [fixed ? `${plan.name} ${won(base.rent)}` : `${days}일 ${won(base.rent + hiddenFee)}`, ...extras];
   return {
     days, hours, base: base.rent, peakName: peak ? peak.name : '', peakRate: peak ? peak.rate : 0, peakAmt: afterPeak - base.rent,
     weekend, overtime, rent, dayRate: Math.round(rent / days), label: parts.join(' · '),
-    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '), fixed, planName: fixed ? plan.name : '', kmLimit, overKmFee, kmText,
+    shownRent: rent + hiddenFee, shownLabel: shownParts.join(' · '), fixed, planName: fixed ? plan.name : '단기렌트', kmLimit, overKmFee, kmText,
   };
 }
 
