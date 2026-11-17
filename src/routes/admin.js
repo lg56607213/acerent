@@ -6,7 +6,7 @@ import { searchErpVehicles } from '../lib/erp.js';
 import { saveUpload } from './upload.js';
 import { pricingOf } from '../../public/assets/longcalc.js';
 import { usedRates, computeUsed, loadQuoteConfig, USED_KMS, usedBaseKm } from '../lib/rentcalc.js';
-import { ALL_OPTIONS, STATUS as LONG_STATUS, MAKERS, MAINT, AGE } from '../../public/assets/longopts.js';
+import { ALL_OPTIONS, STATUS as LONG_STATUS, MAKERS, MAINT, AGE, COMMON_TERMS } from '../../public/assets/longopts.js';
 
 // R2 사진은 /img/키, 사이트에 같이 들어 있는 이미지는 '/assets/...' 경로 그대로
 const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
@@ -375,7 +375,7 @@ export function registerAdmin(r) {
         minAge: t.minAge in AGE ? t.minAge : '26', career: c('career', 4), credit: c('credit', 4), penalty: c('penalty', 6), overKm: c('overKm', 10),
         buyout: t.buyout === false || t.buyout === 'no' ? 'no' : 'yes', maint: t.maint in MAINT ? t.maint : 'none', maintDesc: c('maintDesc', 500),
         liabPerson: c('liabPerson', 20), liabProperty: c('liabProperty', 20), liabSelf: c('liabSelf', 20),
-        dedCar: c('dedCar', 20), dedProperty: c('dedProperty', 20), dedPerson: c('dedPerson', 20), dedSelf: c('dedSelf', 20), dedNote: c('dedNote', 200),
+        dedCar: c('dedCar', 20), dedProperty: c('dedProperty', 20), dedPerson: c('dedPerson', 20), dedSelf: c('dedSelf', 20), dedNote: c('dedNote', 200), carLimit: c('carLimit', 20),
         driverPerson: c('driverPerson', 200), driverCorp: c('driverCorp', 200),
       });
     },
@@ -422,7 +422,7 @@ export function registerAdmin(r) {
     const row = {
       plate, name: erp?.name || plate, class: erp?.class || '', year: int(erp?.year) || 0, first_reg: erp?.first_reg || '', km: int(erp?.km) || 0,
       fuel: erp?.fuel || '', color: erp?.color || '', seats: int(erp?.seats) || 0, new_price: int(erp?.new_price) || 0, displacement: int(erp?.displacement) || 0,
-      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고', price_mode: 'table',
+      erp_ref: erp?.id ? String(erp.id) : '', status: 'available', visible: 0, badge: '즉시출고', price_mode: 'table', terms: JSON.stringify(COMMON_TERMS),
     };
     return json({ ok: true, id: await insertRow(env.DB, 'long_vehicles', row), existed: false, fromErp: !!erp });
   });
