@@ -844,7 +844,7 @@ PAGES.short = async () => {
     columns: [
       { key: 'image_key', label: '대표 이미지', type: 'image', folder: 'model', fallback: true }, { key: 'maker', label: '제조사', w: 70 }, { key: 'name', label: '차종', w: 150 },
       { key: 'class', label: '차급', type: 'select', options: ['경차', '준중형', '중형', '대형', 'SUV', '승합', '수입'].map((x) => [x, x]) },
-      { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', type: 'number', w: 50 },
+      { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', w: 50 },
       { key: 'day_rate', label: '1~2일 (1일)', type: 'number', w: 90 }, { key: 'rate_3_4', label: '3~4일 (1일)', type: 'number', w: 90 },
       { key: 'rate_5_6', label: '5~6일 (1일)', type: 'number', w: 90 }, { key: 'rate_7', label: '7일째부터 (1일)', type: 'number', w: 90 },
       { key: 'rate_table', label: '일수별 요금표 (1일~30일 총액, 쉼표 구분)', type: 'textarea', w: 220 }, { key: 'weekend_fee', label: '주말 추가 (건당)', type: 'number', w: 90 },
