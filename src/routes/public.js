@@ -87,7 +87,7 @@ export function registerPublic(r) {
           weekendFee: m.weekend_fee || 0,
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
           // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
-          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, shortRent(m, d).rent + fee]) : null,
+          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, d === 30 && m.month_price > 0 ? m.month_price : shortRent(m, d).rent + fee]) : null,
         });
       } else soldOut.push(m.name);
     }
@@ -133,13 +133,15 @@ export function registerPublic(r) {
     const rate = sr.dayRate, rent = sr.rent;
     // 자차: 1일 요금 × 일수 + 정액(건당 한 번)
     const insAmt = ins ? ins.per_day * days + (ins.flat_fee || 0) : 0;
-    const total = rent + insAmt + (loc.fee || 0);
+    // 월렌트(30일 확정 가격)는 배회차비 없음
+    const locFee = sr.monthly ? 0 : loc.fee || 0;
+    const total = rent + insAmt + locFee;
 
     const customerId = await upsertCustomer(env.DB, { name, phone, source: '홈페이지 단기 예약' });
     await recordConsent(env.DB, customerId, { marketing: !!b.marketing });
     const no = await nextNo(env.DB, 'reservations', 'S');
     const row = {
-      no, location_id: loc.id, location_name: loc.name, location_fee: loc.fee || 0, pickup_at: from, return_at: to, days, extra_hours: hours, rent_detail: sr.label,
+      no, location_id: loc.id, location_name: loc.name, location_fee: locFee, pickup_at: from, return_at: to, days, extra_hours: hours, rent_detail: sr.label,
       model_id: model.id, model_name: model.name, vehicle_ref: vehicleRef, erp_vehicle_id: picked ? picked.id : '', day_rate: rate, rent_amt: rent,
       insurance_name: ins ? ins.name : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
       customer_id: customerId, name, phone, birth, license: cleanText(b.license, 20),
@@ -155,7 +157,7 @@ export function registerPublic(r) {
         ['신청번호', no], ['고객', `${name} · ${phone}`], ['생년월일', row.birth], ['면허', row.license],
         ['차종', model.name], ['차량', vehicleRef], ['장소', loc.name], ['기간', `${from.replace('T', ' ')} ~ ${to.replace('T', ' ')} (${periodText(days, hours)})`],
         ['보험', row.insurance_name], ['옵션', options.join(', ')], ['대여료', `${won(rent)} (${sr.label})`],
-        ['배회차비', loc.fee ? won(loc.fee) : ''], ['예상 요금', won(total)],
+        ['배회차비', locFee ? won(locFee) : ''], ['예상 요금', won(total)],
         ['항공편', row.flight], ['요청 사항', row.request],
       ],
       linkUrl: `${env.SITE_URL}/admin/#reservations`, linkText: '관리자에서 배차 확정하기',
