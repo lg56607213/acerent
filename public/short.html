@@ -26,7 +26,9 @@
 <button class="menu-btn" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
 <nav class="gnb" aria-label="주 메뉴">
 <a href="/short.html" class="on" aria-current="page">단기렌트</a>
-<a href="/long.html">중장기렌트</a>
+<a href="/short.html?days=7">주단위렌트</a>
+<a href="/short.html?days=30">월렌트</a>
+<a href="/long.html">장기렌트</a>
 <a href="/long.html#corp">법인렌트</a>
 <a href="/event.html">이벤트</a>
 <a href="/support.html">고객센터</a>
@@ -48,12 +50,6 @@
 .car-row .info { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .car-row .pay { flex: 0 0 200px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .car-row .pay strong { font-size: 22px; }
-.veh-pick { flex: 1 1 100%; border: 0; border-top: 1px dashed var(--line); margin: 0; padding: 14px 0 0; }
-.veh-pick legend { font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 10px; }
-.veh-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.veh-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); cursor: pointer; font-size: 14px; }
-.veh-opt input { width: 18px; height: 18px; accent-color: var(--red); flex: none; margin: 0; }
-.veh-opt:has(input:checked) { border-color: var(--red); background: var(--red-soft); }
 .summary { flex: 1 1 320px; min-width: 0; border: 1px solid var(--ink); border-top: 4px solid var(--red); padding: 22px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 16px; }
 .summary fieldset { border: 0; padding: 0; margin: 0; }
 .summary legend { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
@@ -76,7 +72,7 @@
 
 <section class="wrap" style="margin-top:20px">
 <form class="searchbar" id="searchForm">
-<label class="field" style="flex:1 1 260px">대여·반납 장소<select class="select" id="loc" name="loc"></select></label>
+<label class="field" style="flex:1 1 260px">대여·반납 장소<select class="select" id="loc" name="loc"></select><span class="small muted" id="locNote" hidden>탁송비는 별도로 추가됩니다.</span></label>
 <label class="field">대여 일시<input class="input" type="datetime-local" id="from" name="from" step="1800" required></label>
 <label class="field">반납 일시<input class="input" type="datetime-local" id="to" name="to" step="1800" required></label>
 <div class="period" id="period" aria-live="polite">-</div>
@@ -104,7 +100,7 @@
 <dl class="sum-dl">
 <dt>대여료</dt><dd id="sumRent">0원</dd>
 <dt>자차 보험</dt><dd id="sumIns">0원</dd>
-<dt>장소 추가 요금</dt><dd id="sumLoc">없음</dd>
+<dt id="sumKmT" hidden>주행 가능 거리</dt><dd id="sumKm" hidden></dd>
 </dl>
 <div class="sum-total"><strong>총 결제 예정 금액</strong><strong id="sumTotal">0원</strong></div>
 <button class="btn btn-red btn-lg" type="button" id="goInfo">예약 신청</button>
@@ -120,6 +116,7 @@
 <tr><th scope="row">대여 장소</th><td id="cLoc"></td></tr>
 <tr><th scope="row">대여 기간</th><td id="cPeriod"></td></tr>
 <tr><th scope="row">자차 보험 · 옵션</th><td id="cIns"></td></tr>
+<tr id="cKmRow" hidden><th scope="row">주행 가능 거리</th><td id="cKm"></td></tr>
 <tr><th scope="row">결제 예정 금액</th><td id="cTotal" style="font-weight:700;color:var(--red);font-size:16px"></td></tr>
 </tbody></table>
 <h2 style="font-size:18px;margin:28px 0 12px">운전자 정보</h2>

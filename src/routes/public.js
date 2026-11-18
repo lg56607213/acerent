@@ -1,7 +1,7 @@
 // 고객용 API
 import {
-  HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalDays, nextNo, int,
-  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, dayRateFor, shortRent,
+  HttpError, bad, json, readJson, cleanText, cleanPhone, isLocalDateTime, rentalPeriod, nextNo, int,
+  getSettings, upsertCustomer, recordConsent, maskName, won, randomHex, shortRent, shortQuote, periodText, insNameFor, fixedPlan, parseRateTable,
 } from '../lib/util.js';
 import { availableByModel, pushHold } from '../lib/erp.js';
 import { notifyAdmins, buildMailHtml } from '../lib/mail.js';
@@ -29,13 +29,20 @@ async function availableSafe(env, args) {
 
 const img = (key) => (key ? (key.startsWith('/') ? key : `/img/${key}`) : '');
 
+// 단기 성수기 · 준성수기 기간 (관리자 '단기 차종 · 요금'에서 관리)
+async function loadPeaks(db) {
+  const { results } = await db.prepare('SELECT name, start_date, end_date, rate FROM short_peaks WHERE active = 1').all();
+  return results;
+}
+
 export function registerPublic(r) {
   // 사이트 공통 정보: 연락처, 배너, 예약 장소, 보험
   r.get('/api/site', async ({ env }) => {
     const s = await getSettings(env.DB);
     const [banners, locations, insurance] = await Promise.all([
       env.DB.prepare('SELECT id, image_key, text, sub_text, link FROM banners WHERE visible = 1 ORDER BY sort, id').all(),
-      env.DB.prepare('SELECT id, name, type, hours, fee, can_pickup, can_return FROM locations WHERE active = 1 ORDER BY sort, id').all(),
+      // 배회차비(fee)는 고객에게 보이지 않게 내려주지 않음 — 대여료에 포함해서 계산
+      env.DB.prepare('SELECT id, name, type, hours, can_pickup, can_return FROM locations WHERE active = 1 ORDER BY sort, id').all(),
       env.DB.prepare('SELECT id, name, per_day, flat_fee FROM insurance_options WHERE active = 1 ORDER BY sort, id').all(),
     ]);
     return json({
@@ -57,26 +64,36 @@ export function registerPublic(r) {
     const to = url.searchParams.get('to');
     const locationId = int(url.searchParams.get('location'));
     if (!isLocalDateTime(from) || !isLocalDateTime(to)) throw bad('대여·반납 일시를 확인해 주세요.');
-    const days = rentalDays(from, to);
-    if (!days) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
-    const { counts, vehicles } = await availableSafe(env, { from, to, locationId });
+    const period = rentalPeriod(from, to);
+    if (!period) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
+    const { days, hours } = period;
+    const [{ counts }, peaks, loc] = await Promise.all([
+      availableSafe(env, { from, to, locationId }),
+      loadPeaks(env.DB),
+      locationId ? env.DB.prepare('SELECT fee FROM locations WHERE id = ? AND active = 1').bind(locationId).first() : null,
+    ]);
+    // 배회차비: 고객 화면에는 따로 보이지 않고 대여료에 포함
+    const fee = (loc && loc.fee) || 0;
     const { results } = await env.DB.prepare('SELECT * FROM short_models WHERE active = 1 ORDER BY sort, id').all();
     const models = [];
     const soldOut = [];
     for (const m of results) {
       const n = counts.get(m.id) || 0;
       if (n > 0) {
-        const sr = shortRent(m, days);
+        const sr = shortQuote(m, from, to, peaks, fee);
         models.push({
           id: m.id, maker: m.maker, name: m.name, class: m.class, fuel: m.fuel, seats: m.seats,
-          features: m.features, dayRate: sr.dayRate, rent: sr.rent, rentLabel: sr.label, left: n, image: img(m.image_key),
-          // 고객이 고를 수 있는 차량 (차량번호 · 색상 · 주행거리). ERP 연동이 아니면 빈 목록
-          vehicles: vehicles.get(m.id) || [],
+          features: m.features, rent: sr.shownRent, rentLabel: sr.shownLabel, left: n, image: img(m.image_key),
+          weekendFee: m.weekend_fee || 0,
+          insLimit: m.self_ins_limit || 0,
+          fixed: sr.fixed, planName: sr.planName, kmLimit: sr.kmLimit, overKmFee: sr.overKmFee, kmText: sr.kmText,
           tiers: [m.day_rate, m.rate_3_4 || m.day_rate, m.rate_5_6 || m.rate_3_4 || m.day_rate, m.rate_7 || m.rate_5_6 || m.rate_3_4 || m.day_rate],
+          // 일수별 요금표가 있는 차종: 대표 일수의 총액 [[일수, 금액], …] (화면 안내용)
+          samples: parseRateTable(m.rate_table).length ? [1, 3, 7, 30].map((d) => [d, fixedPlan(m, d) ? fixedPlan(m, d).price : shortRent(m, d).rent + fee]) : null,
         });
       } else soldOut.push(m.name);
     }
-    return json({ days, models, soldOut });
+    return json({ days, hours, periodText: periodText(days, hours), models, soldOut });
   });
 
   // 단기: 예약 신청
@@ -94,8 +111,9 @@ export function registerPublic(r) {
     if (!b.agree) throw bad('필수 동의 항목에 체크해 주세요.');
     const from = b.pickupAt, to = b.returnAt;
     if (!isLocalDateTime(from) || !isLocalDateTime(to)) throw bad('대여·반납 일시를 확인해 주세요.');
-    const days = rentalDays(from, to);
-    if (!days) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
+    const period = rentalPeriod(from, to);
+    if (!period) throw bad('반납 일시는 대여 일시보다 뒤여야 합니다.');
+    const { days, hours } = period;
 
     const loc = await env.DB.prepare('SELECT * FROM locations WHERE id = ? AND active = 1').bind(int(b.locationId)).first();
     if (!loc) throw bad('대여 장소를 다시 선택해 주세요.');
@@ -103,11 +121,9 @@ export function registerPublic(r) {
     if (!model) throw bad('차량을 다시 선택해 주세요.');
     const { counts, vehicles } = await availableSafe(env, { from, to, locationId: loc.id });
     if (!(counts.get(model.id) > 0)) throw new HttpError(409, '방금 선택하신 차량이 마감되었습니다. 다른 차량을 선택해 주세요.');
-    // 고를 수 있는 차량이 있으면(ERP 연동) 고객이 고른 차량이 아직 비어 있어야 한다
+    // 고객은 차종만 고름 → ERP 연동 시 그 차종의 비어 있는 첫 차량을 자동 배정 (관리자 화면에서 바꿀 수 있음)
     const choices = vehicles.get(model.id) || [];
-    const picked = choices.length ? choices.find((v) => v.id === String(b.vehicleId || '')) : null;
-    if (choices.length && !b.vehicleId) throw bad('차량(차량번호)을 선택해 주세요.');
-    if (choices.length && !picked) throw new HttpError(409, '방금 선택하신 차량이 마감되었습니다. 다른 차량을 선택해 주세요.');
+    const picked = choices[0] || null;
     const vehicleRef = picked ? `${picked.plate}${picked.color ? ` (${picked.color})` : ''}` : '';
 
     const ins = b.insuranceId
@@ -115,19 +131,21 @@ export function registerPublic(r) {
       : null;
     // 실제로 제공하는 부가 옵션만 받는다 (카시트는 보유하지 않아 제외)
     const options = Array.isArray(b.options) ? b.options.map((o) => cleanText(o, 30)).filter((o) => SHORT_OPTIONS.includes(o)) : [];
-    const sr = shortRent(model, days);
+    const sr = shortQuote(model, from, to, await loadPeaks(env.DB));
     const rate = sr.dayRate, rent = sr.rent;
     // 자차: 1일 요금 × 일수 + 정액(건당 한 번)
     const insAmt = ins ? ins.per_day * days + (ins.flat_fee || 0) : 0;
-    const total = rent + insAmt + (loc.fee || 0);
+    // 주단위렌트 · 월렌트(확정 가격)는 배회차비 없음
+    const locFee = sr.fixed ? 0 : loc.fee || 0;
+    const total = rent + insAmt + locFee;
 
     const customerId = await upsertCustomer(env.DB, { name, phone, source: '홈페이지 단기 예약' });
     await recordConsent(env.DB, customerId, { marketing: !!b.marketing });
     const no = await nextNo(env.DB, 'reservations', 'S');
     const row = {
-      no, location_id: loc.id, location_name: loc.name, location_fee: loc.fee || 0, pickup_at: from, return_at: to, days,
+      no, location_id: loc.id, location_name: loc.name, location_fee: locFee, pickup_at: from, return_at: to, days, extra_hours: hours, rent_detail: sr.label,
       model_id: model.id, model_name: model.name, vehicle_ref: vehicleRef, erp_vehicle_id: picked ? picked.id : '', day_rate: rate, rent_amt: rent,
-      insurance_name: ins ? ins.name : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
+      insurance_name: ins ? insNameFor(ins.name, model.self_ins_limit) : '', insurance_amt: insAmt, options: JSON.stringify(options), total_amt: total,
       customer_id: customerId, name, phone, birth, license: cleanText(b.license, 20),
       flight: cleanText(b.flight, 30), request: cleanText(b.request, 500),
     };
@@ -139,8 +157,9 @@ export function registerPublic(r) {
       intro: '홈페이지로 새 단기렌트 예약 신청이 접수되었습니다. 배차를 확인한 뒤 고객에게 확정 안내해 주세요.',
       rows: [
         ['신청번호', no], ['고객', `${name} · ${phone}`], ['생년월일', row.birth], ['면허', row.license],
-        ['차종', model.name], ['차량', vehicleRef], ['장소', loc.name], ['기간', `${from.replace('T', ' ')} ~ ${to.replace('T', ' ')} (${days}일)`],
-        ['보험', row.insurance_name], ['옵션', options.join(', ')], ['예상 요금', won(total)],
+        ['차종', model.name], ['차량', vehicleRef], ['장소', loc.name], ['기간', `${from.replace('T', ' ')} ~ ${to.replace('T', ' ')} (${periodText(days, hours)})`],
+        ['보험', row.insurance_name], ['옵션', options.join(', ')], ['대여료', `${won(rent)} (${sr.label})`],
+        ['배회차비', locFee ? won(locFee) : ''], ['예상 요금', won(total)],
         ['항공편', row.flight], ['요청 사항', row.request],
       ],
       linkUrl: `${env.SITE_URL}/admin/#reservations`, linkText: '관리자에서 배차 확정하기',
@@ -151,7 +170,7 @@ export function registerPublic(r) {
         pushHold(env, row, model),
       ])
     );
-    return json({ ok: true, no, total, days, model: model.name, vehicle: vehicleRef, location: loc.name, pickupAt: from, returnAt: to });
+    return json({ ok: true, no, total, days, hours, periodText: periodText(days, hours), model: model.name, location: loc.name, pickupAt: from, returnAt: to });
   });
 
   // 중장기: 노출 중인 차량 목록 (기간별 기준 월 렌트료 + 가격 조건)

@@ -195,8 +195,8 @@ ${d ? `<div class="stats"><div><span>확정 대기</span><strong class="red">${d
 <div class="a-title"><h2 style="font-size:17px">${esc(x.no)} · ${esc(x.name)}</h2>${badge(RES_ST, x.status)}</div>
 <div class="split"><div class="l"><dl class="dl">
 <dt>연락처</dt><dd><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a></dd><dt>생년월일 · 면허</dt><dd>${esc(x.birth || '-')} · ${esc(x.license || '-')}</dd>
-<dt>차종</dt><dd>${esc(x.model_name)} (${x.days >= 7 ? `대여료 ${won(x.rent_amt)}원 · 7일째부터 1일 ${won(x.day_rate)}원` : `1일 ${won(x.day_rate)}원`})</dd><dt>장소</dt><dd>${esc(x.location_name)}${x.location_fee ? ` (+${won(x.location_fee)}원)` : ''}</dd>
-<dt>기간</dt><dd>${dt(x.pickup_at)} ~ ${dt(x.return_at)} · ${x.days}일</dd><dt>보험</dt><dd>${esc(x.insurance_name || '-')} ${x.insurance_amt ? `(${won(x.insurance_amt)}원)` : ''}</dd>
+<dt>차종</dt><dd>${esc(x.model_name)} (대여료 ${won(x.rent_amt)}원${x.rent_detail ? ` · ${esc(x.rent_detail)}` : ''})</dd><dt>장소</dt><dd>${esc(x.location_name)}${x.location_fee ? ` (배회차 +${won(x.location_fee)}원)` : ''}</dd>
+<dt>기간</dt><dd>${dt(x.pickup_at)} ~ ${dt(x.return_at)} · ${x.days}일${x.extra_hours ? ` ${x.extra_hours}시간` : ''}</dd><dt>보험</dt><dd>${esc(x.insurance_name || '-')} ${x.insurance_amt ? `(${won(x.insurance_amt)}원)` : ''}</dd>
 <dt>옵션</dt><dd>${esc(JSON.parse(x.options || '[]').join(', ') || '-')}</dd><dt>예상 요금</dt><dd><strong>${won(x.total_amt)}원</strong></dd>
 <dt>항공편</dt><dd>${esc(x.flight || '-')}</dd><dt>요청 사항</dt><dd>${esc(x.request || '-')}</dd>
 <dt>ERP 반영</dt><dd>${x.erp_synced ? 'rentcarerp 가예약 완료' : '미반영'}</dd></dl></div>
@@ -839,18 +839,37 @@ ${rowNote ? `<p class="hint" style="margin:0;padding:10px 16px">${esc(rowNote)}<
 PAGES.short = async () => {
   const s = await api('/api/admin/settings');
   main.innerHTML = `<div class="a-title"><div><h1>단기 차종 · 요금 · 보험</h1><p class="desc">차종별 일요금과 대표 이미지(현대 · 기아)를 관리합니다. 예약 가능한 대수는 ${s.erpEnabled ? 'rentcarerp 배차 일정에서 자동으로' : '아래 임시 차량 목록으로'} 계산됩니다.</p></div></div>
-<div id="models"></div><div id="ins"></div>${s.erpEnabled ? '' : '<div id="fleet"></div>'}`;
+<div id="models"></div>${s.erpEnabled ? '<div id="rules"></div>' : ''}<div id="peaks"></div><div id="ins"></div>${s.erpEnabled ? '' : '<div id="fleet"></div>'}`;
   await listEditor({
-    target: '#models', endpoint: 'short-models', title: '단기 차종 · 대여기간별 1일 요금', desc: '요금 = 대여 일수 × 해당 구간 1일 요금. 단, 7일 이상은 6일까지 5~6일 요금 × 6일 + 7일째부터 7일 이상 요금 × 남은 일수 (예: 10일 = 5~6일 요금 × 6 + 7일 요금 × 4). 비워둔 구간은 앞 구간 요금 사용. 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시되며, 없으면 차급별 기본 그림이 나옵니다.',
+    target: '#models', endpoint: 'short-models', title: '단기 차종 · 대여기간별 1일 요금', desc: '기간 = 반납일 - 대여일(날짜 기준). 반납 시각이 대여 시각보다 늦으면 넘는 시간(최대 10시간)마다 1일 요금의 10%를 더합니다. 기간에 토·일요일이 있으면 주말 추가(건당 한 번), 성수기 기간이면 아래 할증률을 더합니다. 일수별 요금표를 넣은 차종은 대여 일수 칸의 총액이 그대로 대여료입니다 (예: 50000,100000,143000,… → 3일 = 143,000원). 30일을 넘으면 마지막 칸 총액 + 1일 평균 × 넘는 일수. 요금표가 비어 있으면 4구간 요금: 대여 일수 × 해당 구간 1일 요금. 단, 7일 이상은 6일까지 5~6일 요금 × 6일 + 7일째부터 7일 이상 요금 × 남은 일수 (예: 10일 = 5~6일 요금 × 6 + 7일 요금 × 4). 비워둔 구간은 앞 구간 요금 사용. 대표 이미지는 같은 차종의 모든 단기 차량에 공통으로 표시되며, 없으면 차급별 기본 그림이 나옵니다.',
     columns: [
       { key: 'image_key', label: '대표 이미지', type: 'image', folder: 'model', fallback: true }, { key: 'maker', label: '제조사', w: 70 }, { key: 'name', label: '차종', w: 150 },
       { key: 'class', label: '차급', type: 'select', options: ['경차', '준중형', '중형', '대형', 'SUV', '승합', '수입'].map((x) => [x, x]) },
-      { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', type: 'number', w: 50 },
+      { key: 'fuel', label: '연료', w: 80 }, { key: 'seats', label: '인승', w: 50 },
       { key: 'day_rate', label: '1~2일 (1일)', type: 'number', w: 90 }, { key: 'rate_3_4', label: '3~4일 (1일)', type: 'number', w: 90 },
       { key: 'rate_5_6', label: '5~6일 (1일)', type: 'number', w: 90 }, { key: 'rate_7', label: '7일째부터 (1일)', type: 'number', w: 90 },
+      { key: 'rate_table', label: '일수별 요금표 (1일~30일 총액, 쉼표 구분)', type: 'textarea', w: 220 }, { key: 'weekend_fee', label: '주말 추가 (건당)', type: 'number', w: 90 }, { key: 'day_km', label: '단기 1일 주행 km (2일 500 · 3일 700 … 7일=주단위 · 30일=월렌트로 이어짐, 300 기준)', type: 'number', w: 110 }, { key: 'week_price', label: '주단위렌트 7일 확정가 (배회차·할증 없음, 0=요금표)', type: 'number', w: 110 }, { key: 'week_km', label: '주단위 제한 km', type: 'number', w: 80 }, { key: 'month_price', label: '월렌트 30일 확정가 (배회차·할증 없음, 0=요금표)', type: 'number', w: 110 }, { key: 'month_km', label: '월렌트 제한 km', type: 'number', w: 80 }, { key: 'over_km_fee', label: '초과 1km당 (원, 단기 · 주 · 월 공통)', type: 'number', w: 80 }, { key: 'self_ins_limit', label: '자차 한도 (만원, 0=보험 이름 그대로)', type: 'number', w: 90 },
       { key: 'features', label: '주요 옵션', type: 'textarea', w: 180 }, { key: 'erp_code', label: 'ERP 차종코드', w: 100 }, { key: 'active', label: '사용', type: 'check' },
     ],
     blank: { maker: '기아', name: '새 차종', class: '준중형', fuel: '', seats: 5, day_rate: 0, active: 0 },
+  });
+  if (s.erpEnabled) await listEditor({
+    target: '#rules', endpoint: 'erp-vehicle-rules', title: '단기 차량 예외 (차량번호별)', orderable: false,
+    desc: 'ERP 차량 중 홈페이지 단기 · 주단위 · 월렌트 목록에 맞게 따로 지정할 차량입니다. 인승: ERP 에 인승 정보가 없을 때 지정 (예: 쏘렌토 6인승 → 6, ERP 차종코드 SORENTO_6S 차종에 담김). 숨김: 장기로 나간 차처럼 단기 예약에 보이면 안 되는 차량.',
+    columns: [
+      { key: 'plate', label: '차량번호', w: 120 }, { key: 'seats', label: '인승 (0=ERP 값)', type: 'number', w: 80 },
+      { key: 'hidden', label: '단기 목록에서 숨김', type: 'check' }, { key: 'memo', label: '메모', w: 200 }, { key: 'active', label: '사용', type: 'check' },
+    ],
+    blank: { plate: '', seats: 0, hidden: 0, memo: '', active: 1 },
+  });
+  await listEditor({
+    target: '#peaks', endpoint: 'short-peaks', title: '성수기 · 준성수기 할증', orderable: false,
+    desc: '대여 기간(날짜 기준)이 아래 기간과 하루라도 겹치면 대여료에 할증률(%)을 더합니다 (천원 단위 올림). 여러 기간이 겹치면 가장 높은 할증률 하나만. 날짜는 2026-12-24 처럼 입력. 예스렌터카 기준: 준성수기 9% · 성수기 18%.',
+    columns: [
+      { key: 'name', label: '이름', w: 160 }, { key: 'start_date', label: '시작일', w: 110 }, { key: 'end_date', label: '종료일 (포함)', w: 110 },
+      { key: 'rate', label: '할증률 (%)', type: 'number', w: 70 }, { key: 'active', label: '사용', type: 'check' },
+    ],
+    blank: { name: '새 성수기', start_date: '2027-07-15', end_date: '2027-08-14', rate: 9, active: 0 },
   });
   await listEditor({
     target: '#ins', endpoint: 'insurance', title: '자차 보험 선택지', desc: '보험료 = 1일 요금 × 대여 일수 + 정액(예약 1건당 한 번).',
@@ -875,7 +894,7 @@ PAGES.locations = async () => {
     target: '#locs', endpoint: 'locations', title: '예약 장소',
     columns: [
       { key: 'name', label: '장소 이름', w: 180 }, { key: 'type', label: '구분', type: 'select', options: ['공항', '지점', '딜리버리'].map((x) => [x, x]) },
-      { key: 'guide', label: '인수 위치 안내', type: 'textarea', w: 220 }, { key: 'hours', label: '운영 시간', w: 110 }, { key: 'fee', label: '추가 요금', type: 'number', w: 90 },
+      { key: 'guide', label: '인수 위치 안내', type: 'textarea', w: 220 }, { key: 'hours', label: '운영 시간', w: 110 }, { key: 'fee', label: '배회차비 (건당)', type: 'number', w: 90 },
       { key: 'can_pickup', label: '대여', type: 'check' }, { key: 'can_return', label: '반납', type: 'check' }, { key: 'active', label: '사용', type: 'check' },
     ],
     blank: { name: '새 장소', type: '딜리버리', hours: '09:00~18:00', fee: 0, active: 0, can_pickup: 1, can_return: 1 },

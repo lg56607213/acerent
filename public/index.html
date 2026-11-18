@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>에이스렌터카 | 인천·김포공항 렌터카, 단기·중장기 렌트</title>
-<meta name="description" content="인천·김포공항 단기렌트 예약금 없이 실시간 예약, 즉시 출고 가능한 중장기 렌트카 월 렌트료 확인과 신청. 대표전화 1644-8891">
+<title>에이스렌터카 | 인천·김포공항 렌터카, 단기·장기 렌트</title>
+<meta name="description" content="인천·김포공항 단기렌트 예약금 없이 실시간 예약, 즉시 출고 가능한 장기 렌트카 월 렌트료 확인과 신청. 대표전화 1644-8891">
 <meta property="og:type" content="website">
-<meta property="og:title" content="에이스렌터카 | 인천·김포공항 렌터카, 단기·중장기 렌트">
-<meta property="og:description" content="인천·김포공항 단기렌트 예약금 없이 실시간 예약, 즉시 출고 가능한 중장기 렌트카 월 렌트료 확인과 신청. 대표전화 1644-8891">
+<meta property="og:title" content="에이스렌터카 | 인천·김포공항 렌터카, 단기·장기 렌트">
+<meta property="og:description" content="인천·김포공항 단기렌트 예약금 없이 실시간 예약, 즉시 출고 가능한 장기 렌트카 월 렌트료 확인과 신청. 대표전화 1644-8891">
 <meta property="og:image" content="/assets/og.png">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,7 +26,9 @@
 <button class="menu-btn" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
 <nav class="gnb" aria-label="주 메뉴">
 <a href="/short.html">단기렌트</a>
-<a href="/long.html">중장기렌트</a>
+<a href="/short.html?days=7">주단위렌트</a>
+<a href="/short.html?days=30">월렌트</a>
+<a href="/long.html">장기렌트</a>
 <a href="/long.html#corp">법인렌트</a>
 <a href="/event.html">이벤트</a>
 <a href="/support.html">고객센터</a>
@@ -88,7 +90,7 @@
 <div class="booking">
 <div role="tablist" aria-label="상품 선택">
 <button role="tab" id="tabShort" aria-selected="true" aria-controls="formShort" type="button">단기렌트 예약</button>
-<button role="tab" id="tabLong" aria-selected="false" aria-controls="formLong" type="button">중장기렌트</button>
+<button role="tab" id="tabLong" aria-selected="false" aria-controls="formLong" type="button">장기렌트</button>
 </div>
 <form id="formShort" role="tabpanel" aria-labelledby="tabShort" action="/short.html">
 <label class="field">대여 장소<select class="select" name="loc" id="mLoc"><option value="">불러오는 중…</option></select></label>
@@ -97,23 +99,18 @@
 <button class="btn btn-red btn-lg" type="submit">예약 가능한 차량 조회</button>
 </form>
 <div id="formLong" role="tabpanel" aria-labelledby="tabLong" hidden style="padding:24px;display:flex;flex-direction:column;gap:14px">
-<p style="margin:0;font-size:14px;line-height:1.7;color:#444">에이스렌터카가 보유한 차량을 바로 출고합니다. 차량마다 실차 사진 · 주행거리 · 이용이력과 계약 기간 · 약정거리 · 보증금별 월 렌트료를 확인할 수 있습니다.</p>
-<a class="btn btn-red btn-lg" href="/long.html">중장기 차량 전체 보기</a>
+<p style="margin:0;font-size:14px;line-height:1.7;color:#444">법인 · 개인사업자 장기렌트 견적을 받아보세요. 원하는 차종과 조건을 남겨주시면 담당자가 직접 견적을 드립니다.</p>
+<a class="btn btn-red btn-lg" href="/long.html">장기렌트 견적 신청</a>
 </div>
 </div>
 </div></section>
 
 <section class="quick"><div class="wrap">
 <a href="/short.html"><strong>단기렌트</strong><span>1일~29일 · 공항 인도</span></a>
-<a href="/short.html"><strong>월렌트</strong><span>1개월 단위 · 보험 포함</span></a>
-<a href="/long.html"><strong>중장기렌트</strong><span>12~36개월 · 즉시 출고</span></a>
+<a href="/short.html?days=30"><strong>월렌트</strong><span>1개월 단위 · 보험 포함</span></a>
+<a href="/long.html"><strong>장기렌트</strong><span>법인 · 개인사업자 견적</span></a>
 <a href="/support.html?tab=qna"><strong>사고 보험대차</strong><span>사고 접수 · 대차 문의</span></a>
 </div></section>
-
-<section class="wrap" style="padding-top:56px">
-<div class="sec-head"><h2>즉시 출고 가능한 중장기 차량</h2><a class="muted small" href="/long.html">전체보기 +</a></div>
-<div class="car-grid" id="mainCars"><p class="loading">차량을 불러오는 중…</p></div>
-</section>
 
 <section class="wrap" style="padding-top:56px" id="mainEvSec" hidden>
 <div class="sec-head"><h2>진행 중인 이벤트</h2><a class="muted small" href="/event.html">전체보기 +</a></div>

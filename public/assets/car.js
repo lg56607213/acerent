@@ -25,7 +25,7 @@ const USED = !!(data.used && data.used.terms && data.used.terms.length);
 const cv = v.car_value || 0;
 root.innerHTML = '';
 root.append($('#carTpl').content.cloneNode(true));
-document.title = `${v.name} 중장기렌트 | 에이스렌터카`;
+document.title = `${v.name} 장기렌트 | 에이스렌터카`;
 const km = (n) => won(n) + 'km';
 const W = (n) => won(n) + '원';
 

@@ -1,9 +1,8 @@
 import { api, $, esc, won, nl, defaultPeriod, initLayout, classImage } from './common.js';
-import { quote } from './longcalc.js';
 
 // 필요한 데이터를 한꺼번에 요청 (하나씩 기다리면 화면이 늦게 채워짐)
 const pre = (u) => { const p = api(u); p.catch(() => {}); return p; };
-const P_LONG = pre('/api/long'), P_NOTICE = pre('/api/posts?board=notice'), P_EVENTS = pre('/api/events'), P_REVIEWS = pre('/api/reviews?size=3'), P_CFG = pre('/api/community/config');
+const P_NOTICE = pre('/api/posts?board=notice'), P_EVENTS = pre('/api/events'), P_REVIEWS = pre('/api/reviews?size=3'), P_CFG = pre('/api/community/config');
 const site = await initLayout();
 
 // 배너
@@ -18,7 +17,7 @@ if (site && site.banners && site.banners.length) {
 const sel = $('#mLoc');
 const locs = (site && site.locations) || [];
 sel.innerHTML = locs.length
-  ? locs.filter((l) => l.can_pickup).map((l) => `<option value="${l.id}">${esc(l.name)}${l.fee ? ` (+${won(l.fee)}원)` : ''}</option>`).join('')
+  ? locs.filter((l) => l.can_pickup).map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('')
   : '<option value="">예약 장소 준비 중</option>';
 
 const [f, t] = defaultPeriod();
@@ -35,32 +34,6 @@ tabs.forEach((tab, i) =>
     panels.forEach((p, j) => (p.hidden = i !== j));
   })
 );
-
-// 중장기 차량 4대
-try {
-  const { vehicles } = await P_LONG;
-  const box = $('#mainCars');
-  const list = vehicles
-    .map((v) => {
-      // 가장 긴 계약 기간 · 무보증 · 기본 약정거리 기준 (가장 낮은 월 대여료)
-      if (v.mainPlan && v.mainPlan.monthly) return { ...v, min: v.mainPlan.monthly };
-      const q = v.bases.length ? quote(v, v.pricing, v.bases, { term: Math.max(...v.bases.map((b) => b.term)) }) : null;
-      return { ...v, min: q ? q.monthly : 0 };
-    })
-    .slice(0, 4);
-  box.innerHTML = list.length
-    ? list
-        .map(
-          (v) => `<a class="car-card" href="/car.html?id=${v.id}">
-<div class="photo">${v.photo ? `<img src="${esc(v.photo)}" alt="${esc(v.name)} 실차 사진" loading="lazy">` : `<img src="${classImage(v.class)}" alt="" style="object-fit:contain">`}</div>
-<div><span class="meta">${esc(v.class)} · ${v.year || ''}년식 · ${won(v.km)}km</span><br><strong class="name">${esc(v.name)}</strong><br>
-<span>월 <strong class="price">${v.min ? won(v.min) : '상담'}</strong>${v.min ? '원~' : ''}</span></div></a>`
-        )
-        .join('')
-    : '<p class="empty" style="grid-column:1/-1">지금 즉시 출고 가능한 차량을 준비 중입니다. 1644-8891로 문의해 주세요.</p>';
-} catch {
-  $('#mainCars').innerHTML = '<p class="empty" style="grid-column:1/-1">차량 정보를 불러오지 못했습니다.</p>';
-}
 
 // 공지 3건
 try {
